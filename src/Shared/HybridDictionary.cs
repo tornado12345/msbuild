@@ -8,11 +8,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using System.Runtime.Serialization;
+
 using Microsoft.Build.Shared;
 
 namespace Microsoft.Build.Collections
@@ -47,7 +44,7 @@ namespace Microsoft.Build.Collections
         static HybridDictionary()
         {
             int value;
-            if (Int32.TryParse(System.Environment.GetEnvironmentVariable("MSBuildHybridDictThreshold"), out value))
+            if (Int32.TryParse(Environment.GetEnvironmentVariable("MSBuildHybridDictThreshold"), out value))
             {
                 MaxListSize = value;
             }
@@ -346,8 +343,8 @@ namespace Microsoft.Build.Collections
         /// </summary>
         public object this[object key]
         {
-            get { return (Object)this[key]; }
-            set { this[key] = value; }
+            get { return ((IDictionary<TKey, TValue>)this)[(TKey)key]; }
+            set { ((IDictionary<TKey, TValue>)this)[(TKey)key] = (TValue)value; }
         }
 
         /// <summary>
@@ -580,7 +577,7 @@ namespace Microsoft.Build.Collections
         /// <summary>
         /// Gets an enumerator over the key/value pairs in the dictionary.
         /// </summary>
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }

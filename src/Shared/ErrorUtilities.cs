@@ -4,7 +4,6 @@
 using System;
 using System.IO;
 using System.Diagnostics;
-using System.Configuration;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -720,6 +719,22 @@ namespace Microsoft.Build.Shared
             if (parameter.Length == 0 && s_throwExceptions)
             {
                 throw new ArgumentException(ResourceUtilities.FormatResourceString("Shared.ParameterCannotHaveZeroLength", parameterName));
+            }
+        }
+        
+        /// <summary>
+        /// Throws an ArgumentNullException if the given string parameter is null
+        /// and ArgumentException if it has zero length.
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <param name="parameterName"></param>
+        internal static void VerifyThrowArgumentInvalidPath(string parameter, string parameterName)
+        {
+            VerifyThrowArgumentNull(parameter, parameterName);
+
+            if (FileUtilities.PathIsInvalid(parameter) && s_throwExceptions)
+            {
+                throw new ArgumentException(ResourceUtilities.FormatResourceString("Shared.ParameterCannotHaveInvalidPathChars", parameterName, parameter));
             }
         }
 

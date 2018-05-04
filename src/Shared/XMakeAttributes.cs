@@ -43,6 +43,10 @@ namespace Microsoft.Build.Shared
         internal const string taskParameter = "TaskParameter";
         internal const string itemName = "ItemName";
         internal const string propertyName = "PropertyName";
+        internal const string sdk = "Sdk";
+        internal const string sdkName = "Name";
+        internal const string sdkVersion = "Version";
+        internal const string sdkMinimumVersion = "MinimumVersion";
         internal const string toolsVersion = "ToolsVersion";
         internal const string runtime = "Runtime";
         internal const string msbuildRuntime = "MSBuildRuntime";

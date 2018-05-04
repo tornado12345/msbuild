@@ -5,11 +5,13 @@
 // <summary>Tests of a dictionary which changes its backing store to keep memory use low.</summary>
 //-----------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Microsoft.Build.Collections;
 using System;
-using System.Linq;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+
+using Microsoft.Build.Collections;
+
 using Xunit;
 
 namespace Microsoft.Build.UnitTests.OM.Collections
@@ -104,7 +106,7 @@ namespace Microsoft.Build.UnitTests.OM.Collections
                             break;
 
                         case 2:
-                            // Remove something nonexisting
+                            // Remove something nonexistent
                             AssertBothOrNeitherThrew<bool>(delegate () { return dict.Remove("ZZ"); }, delegate () { return shadow.Remove("ZZ"); });
                             AssertDictionariesIdentical(dict, shadow);
                             break;
@@ -177,7 +179,7 @@ namespace Microsoft.Build.UnitTests.OM.Collections
                             break;
 
                         case 10:
-                            // Add something nonexisting
+                            // Add something non existing
                             string key2 = new String(keys[rand.Next(keys.Length)], 1);
                             string value5 = rand.Next(10).ToString();
                             AssertBothOrNeitherThrew(delegate () { dict.Add(key2, value5); }, delegate () { shadow.Add(key2, value5); });
@@ -189,6 +191,17 @@ namespace Microsoft.Build.UnitTests.OM.Collections
                 dict.Clear();
                 Assert.Equal(0, dict.Count);
             }
+        }
+
+        [Fact]
+        private void VerifyHybridDictionaryBaseIndexer()
+        {
+            var dict = new HybridDictionary<string, string>();
+            dict[(object) "key"] = "value";
+
+            Assert.Equal("value", dict["key"]);
+            Assert.Equal("value", dict[(object)"key"]);
+            Assert.Equal("key", dict.Keys.First());
         }
 
         /// <summary>

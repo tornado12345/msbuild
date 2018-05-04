@@ -96,7 +96,6 @@ namespace Microsoft.Build.Framework
         }
 
 
-
         #region CustomSerializationToStream
         /// <summary>
         /// Serializes to a stream through a binary writer
@@ -119,6 +118,7 @@ namespace Microsoft.Build.Framework
             succeeded = reader.ReadBoolean();
         }
         #endregion
+
         /// <summary>
         /// Succeeded is true if the build succeeded; false otherwise.
         /// </summary>

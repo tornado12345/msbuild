@@ -1,6 +1,12 @@
 {
-  "version": "15.1-preview5",
-  "publicReleaseRefSpec": [
-    "^refs/heads/master$"
-  ]
+  "version": "15.8-preview",
+  "assemblyVersion": "15.1",
+  "cloudBuild": {
+    "buildNumber": {
+      "enabled": true,
+      "includeCommitId": {
+        "where": "fourthVersionComponent"
+      }
+    }
+  }
 }

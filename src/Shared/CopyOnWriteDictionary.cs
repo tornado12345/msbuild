@@ -9,7 +9,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Internal;
@@ -123,6 +122,14 @@ namespace Microsoft.Build.Collections
                 {
                     backing.AddRef();
                 }
+            }
+        }
+
+        public CopyOnWriteDictionary(IDictionary<K, V> dictionary)
+        {
+            foreach (var pair in dictionary)
+            {
+                this[pair.Key] = pair.Value;
             }
         }
 
