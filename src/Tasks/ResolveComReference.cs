@@ -1,17 +1,15 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#if FEATURE_APPDOMAIN
-
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Collections.Generic;
-using System.Linq;
 
 // TYPELIBATTR clashes with the one in InteropServices.
 using TYPELIBATTR = System.Runtime.InteropServices.ComTypes.TYPELIBATTR;
@@ -23,229 +21,216 @@ using Microsoft.Build.Utilities;
 
 namespace Microsoft.Build.Tasks
 {
-    /// <summary>
-    /// Main class for the COM reference resolution task
-    /// </summary>
-    public sealed partial class ResolveComReference : AppDomainIsolatedTaskExtension, IComReferenceResolver
+    internal interface IResolveComReferenceTaskContract
     {
-        #region Constructors
-
-        /// <summary>
-        /// public constructor
-        /// </summary>
-        public ResolveComReference()
-        {
-            // do nothing.
-        }
-
-        #endregion
-
         #region Properties
 
         /// <summary>
         /// COM references specified by guid/version/lcid
         /// </summary>
-        public ITaskItem[] TypeLibNames
-        {
-            get
-            {
-                return _typeLibNames;
-            }
-            set
-            {
-                _typeLibNames = value;
-            }
-        }
-
-        private ITaskItem[] _typeLibNames = null;
+        ITaskItem[] TypeLibNames { get; set; }
 
         /// <summary>
         /// COM references specified by type library file path
         /// </summary>
-        public ITaskItem[] TypeLibFiles
-        {
-            get
-            {
-                return _typeLibFiles;
-            }
-            set
-            {
-                _typeLibFiles = value;
-            }
-        }
+        ITaskItem[] TypeLibFiles { get; set; }
 
         /// <summary>
         /// Array of equals-separated pairs of environment
         /// variables that should be passed to the spawned tlbimp.exe and aximp.exe,
         /// in addition to (or selectively overriding) the regular environment block.
         /// </summary>
-        public string[] EnvironmentVariables
-        {
-            get;
-            set;
-        }
-
-        private ITaskItem[] _typeLibFiles = null;
-
-        /// <summary>
-        /// merged array containing typeLibNames and typeLibFiles (internal for unit testing)
-        /// </summary>
-        internal List<ComReferenceInfo> allProjectRefs = null;
-
-        /// <summary>
-        /// array containing all dependency references
-        /// </summary>
-        internal List<ComReferenceInfo> allDependencyRefs = null;
+        string[] EnvironmentVariables { get; set; }
 
         /// <summary>
         /// the directory wrapper files get generated into
         /// </summary>
-        public string WrapperOutputDirectory
-        {
-            get
-            {
-                return _wrapperOutputDirectory;
-            }
-            set
-            {
-                _wrapperOutputDirectory = value;
-            }
-        }
-
-        private string _wrapperOutputDirectory = null;
+        string WrapperOutputDirectory { get; set; }
 
         /// <summary>
         /// When set to true, the typelib version will be included in the wrapper name.  Default is false.
         /// </summary>
-        public bool IncludeVersionInInteropName
-        {
-            get
-            {
-                return _includeVersionInInteropName;
-            }
-
-            set
-            {
-                _includeVersionInInteropName = value;
-            }
-        }
-
-        private bool _includeVersionInInteropName;
+        bool IncludeVersionInInteropName { get; set; }
 
         /// <summary>
         /// source of resolved .NET assemblies - we need this for ActiveX wrappers, since we can't resolve .NET assembly
         /// references ourselves
         /// </summary>
-        public ITaskItem[] ResolvedAssemblyReferences
-        {
-            get
-            {
-                return _resolvedAssemblyReferences;
-            }
-            set
-            {
-                _resolvedAssemblyReferences = value;
-            }
-        }
-
-        private ITaskItem[] _resolvedAssemblyReferences = null;
+        ITaskItem[] ResolvedAssemblyReferences { get; set; }
 
         /// <summary>
         /// container name for public/private keys
         /// </summary>
-        public string KeyContainer
-        {
-            get
-            {
-                return _keyContainer;
-            }
-            set
-            {
-                _keyContainer = value;
-            }
-        }
-
-        private string _keyContainer = null;
+        string KeyContainer { get; set; }
 
         /// <summary>
         /// file containing public/private keys
         /// </summary>
-        public string KeyFile
-        {
-            get
-            {
-                return _keyFile;
-            }
-            set
-            {
-                _keyFile = value;
-            }
-        }
-
-        private string _keyFile = null;
+        string KeyFile { get; set; }
 
         /// <summary>
         /// delay sign wrappers?
         /// </summary>
-        public bool DelaySign
-        {
-            get
-            {
-                return _delaySign;
-            }
-            set
-            {
-                _delaySign = value;
-            }
-        }
-
-        private bool _delaySign = false;
+        bool DelaySign { get; set; }
 
         /// <summary>
         /// Passes the TypeLibImporterFlags.PreventClassMembers flag to tlb wrapper generation
         /// </summary>
-        public bool NoClassMembers
-        {
-            get
-            {
-                return _noClassMembers;
-            }
-            set
-            {
-                _noClassMembers = value;
-            }
-        }
-
-        private bool _noClassMembers = false;
+        bool NoClassMembers { get; set; }
 
         /// <summary>
         /// If true, do not log messages or warnings.  Default is false. 
         /// </summary>
-        public bool Silent
-        {
-            get
-            {
-                return _silent;
-            }
-
-            set
-            {
-                _silent = value;
-            }
-        }
-
-        private bool _silent = false;
+        bool Silent { get; set; }
 
         /// <summary>
         /// The preferred target processor architecture. Passed to tlbimp.exe /machine flag after translation. 
         /// Should be a member of Microsoft.Build.Utilities.ProcessorArchitecture.
         /// </summary>
+        string TargetProcessorArchitecture { get; set; }
+
+        /// <summary>
+        /// Property to allow multitargeting of ResolveComReferences:  If true, tlbimp.exe
+        /// from the appropriate target framework will be run out-of-proc to generate
+        /// the necessary wrapper assemblies. Aximp is always run out of proc.
+        /// </summary>
+        bool ExecuteAsTool { get; set; }
+
+        /// <summary>
+        /// paths to found/generated reference wrappers
+        /// </summary>
+        [Output]
+        ITaskItem[] ResolvedFiles { get; set; }
+
+        /// <summary>
+        /// paths to found modules (needed for isolation)
+        /// </summary>
+        [Output]
+        ITaskItem[] ResolvedModules { get; set; }
+
+        /// <summary>
+        /// If ExecuteAsTool is true, this must be set to the SDK
+        /// tools path for the framework version being targeted.
+        /// </summary>
+        string SdkToolsPath { get; set; }
+
+        /// <summary>
+        /// Cache file for COM component timestamps. If not present, every run will regenerate all the wrappers.
+        /// </summary>
+        string StateFile { get; set; }
+
+        /// <summary>
+        /// The project target framework version.
+        ///
+        /// Default is empty. which means there will be no filtering for the reference based on their target framework.
+        /// </summary>
+        string TargetFrameworkVersion { get; set; }
+
+        #endregion
+    }
+
+#if NETSTANDARD || !FEATURE_APPDOMAIN
+
+    /// <summary>
+    /// Main class for the COM reference resolution task for .NET Core
+    /// </summary>
+    public sealed partial class ResolveComReference : Microsoft.Build.Tasks.TaskExtension, IResolveComReferenceTaskContract
+    {
+        #region Properties
+
+        public ITaskItem[] TypeLibNames { get; set; }
+
+        public ITaskItem[] TypeLibFiles { get; set; }
+
+        public string[] EnvironmentVariables { get; set; }
+
+        public string WrapperOutputDirectory { get; set; }
+
+        public bool IncludeVersionInInteropName { get; set; }
+
+        public ITaskItem[] ResolvedAssemblyReferences { get; set; }
+
+        public string KeyContainer { get; set; }
+
+        public string KeyFile { get; set; }
+
+        public bool DelaySign { get; set; }
+
+        public bool NoClassMembers { get; set; }
+
+        public bool Silent { get; set; }
+
+        public string TargetProcessorArchitecture { get; set; }
+
+        public bool ExecuteAsTool { get; set; } = true;
+
+        [Output]
+        public ITaskItem[] ResolvedFiles { get; set; }
+
+        [Output]
+        public ITaskItem[] ResolvedModules { get; set; }
+
+        public string SdkToolsPath { get; set; }
+
+        public string StateFile { get; set; }
+
+        public string TargetFrameworkVersion { get; set; } = String.Empty;
+
+        #endregion
+
+        #region ITask members
+
+        /// <summary>
+        /// Task entry point.
+        /// </summary>
+        /// <returns></returns>
+        public override bool Execute()
+        {
+            Log.LogErrorFromResources("TaskRequiresFrameworkFailure", nameof(ResolveComReference));
+            return false;
+        }
+
+        #endregion
+    }
+
+#else
+
+    /// <summary>
+    /// Main class for the COM reference resolution task
+    /// </summary>
+    public sealed partial class ResolveComReference : AppDomainIsolatedTaskExtension, IResolveComReferenceTaskContract, IComReferenceResolver
+    {
+        #region Properties
+
+        public ITaskItem[] TypeLibNames { get; set; }
+
+        public ITaskItem[] TypeLibFiles { get; set; }
+
+        public string[] EnvironmentVariables { get; set; }
+
+        internal List<ComReferenceInfo> allProjectRefs;
+
+        internal List<ComReferenceInfo> allDependencyRefs;
+
+        public string WrapperOutputDirectory { get; set; }
+
+        public bool IncludeVersionInInteropName { get; set; }
+
+        public ITaskItem[] ResolvedAssemblyReferences { get; set; }
+
+        public string KeyContainer { get; set; }
+
+        public string KeyFile { get; set; }
+
+        public bool DelaySign { get; set; }
+
+        public bool NoClassMembers { get; set; }
+
+        public bool Silent { get; set; }
+
         public string TargetProcessorArchitecture
         {
-            get
-            {
-                return _targetProcessorArchitecture;
-            }
+            get => _targetProcessorArchitecture;
 
             set
             {
@@ -276,111 +261,36 @@ namespace Microsoft.Build.Tasks
             }
         }
 
-        private string _targetProcessorArchitecture = null;
+        private string _targetProcessorArchitecture;
 
-        /// <summary>
-        /// Property to allow multitargeting of ResolveComReferences:  If true, tlbimp.exe 
-        /// from the appropriate target framework will be run out-of-proc to generate
-        /// the necessary wrapper assemblies. Aximp is always run out of proc.
-        /// </summary>
-        public bool ExecuteAsTool
-        {
-            get
-            {
-                return _executeAsTool;
-            }
-            set
-            {
-                _executeAsTool = value;
-            }
-        }
+        public bool ExecuteAsTool { get; set; } = true;
 
-        private bool _executeAsTool = true;
-
-        /// <summary>
-        /// paths to found/generated reference wrappers
-        /// </summary>
         [Output]
-        public ITaskItem[] ResolvedFiles
-        {
-            get
-            {
-                return _resolvedFiles;
-            }
-            set
-            {
-                _resolvedFiles = value;
-            }
-        }
+        public ITaskItem[] ResolvedFiles { get; set; }
 
-        private ITaskItem[] _resolvedFiles = null;
-
-        /// <summary>
-        /// paths to found modules (needed for isolation)
-        /// </summary>
         [Output]
-        public ITaskItem[] ResolvedModules
-        {
-            get
-            {
-                return _resolvedModules;
-            }
-            set
-            {
-                _resolvedModules = value;
-            }
-        }
+        public ITaskItem[] ResolvedModules { get; set; }
 
-        private ITaskItem[] _resolvedModules = null;
+        public string SdkToolsPath { get; set; }
 
-        /// <summary>
-        /// If ExecuteAsTool is true, this must be set to the SDK 
-        /// tools path for the framework version being targeted. 
-        /// </summary>
-        public string SdkToolsPath
-        {
-            get { return _sdkToolsPath; }
-            set { _sdkToolsPath = value; }
-        }
+        public string StateFile { get; set; }
 
-        private string _sdkToolsPath;
+        public string TargetFrameworkVersion { get; set; } = String.Empty;
 
-        /// <summary>
-        /// Cache file for COM component timestamps. If not present, every run will regenerate all the wrappers.
-        /// </summary>
-        public string StateFile
-        {
-            get { return _stateFile; }
-            set { _stateFile = value; }
-        }
-
-        private string _stateFile = null;
-
-        /// <summary>
-        /// The project target framework version.
-        ///
-        /// Default is empty. which means there will be no filtering for the reference based on their target framework.
-        /// </summary>
-        /// <value></value>
-        public string TargetFrameworkVersion
-        {
-            get { return _projectTargetFrameworkAsString; }
-            set { _projectTargetFrameworkAsString = value; }
-        }
-
-        private string _projectTargetFrameworkAsString = String.Empty;
         private Version _projectTargetFramework;
-
-
+        
         /// <summary>version 4.0</summary>
         private static readonly Version s_targetFrameworkVersion_40 = new Version("4.0");
 
-        private ResolveComReferenceCache _timestampCache = null;
+        private ResolveComReferenceCache _timestampCache;
 
         // Cache hashtables for different wrapper types
-        private Hashtable _cachePia = new Hashtable();
-        private Hashtable _cacheTlb = new Hashtable();
-        private Hashtable _cacheAx = new Hashtable();
+        private readonly Dictionary<string, ComReferenceWrapperInfo> _cachePia =
+            new Dictionary<string, ComReferenceWrapperInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ComReferenceWrapperInfo> _cacheTlb =
+            new Dictionary<string, ComReferenceWrapperInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ComReferenceWrapperInfo> _cacheAx =
+            new Dictionary<string, ComReferenceWrapperInfo>(StringComparer.OrdinalIgnoreCase);
 
         // Paths for the out-of-proc tools being used
         private string _aximpPath;
@@ -417,14 +327,14 @@ namespace Microsoft.Build.Tasks
             {
                 if (!Silent)
                 {
-                    Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.NotUsingCacheFile", StateFile == null ? String.Empty : StateFile);
+                    Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.NotUsingCacheFile", StateFile ?? String.Empty);
                 }
 
                 _timestampCache = new ResolveComReferenceCache(_tlbimpPath, _aximpPath);
             }
             else if (!Silent)
             {
-                Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.UsingCacheFile", StateFile == null ? String.Empty : StateFile);
+                Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.UsingCacheFile", StateFile ?? String.Empty);
             }
 
             try
@@ -439,17 +349,17 @@ namespace Microsoft.Build.Tasks
                 // and continue (first one wins)
                 CheckForConflictingReferences();
 
-                SetFrameworkVersionFromString(_projectTargetFrameworkAsString);
+                SetFrameworkVersionFromString(TargetFrameworkVersion);
 
                 // Process each task item. If one of them fails we still process the rest of them, but
                 // remember that the task should return failure.
                 // DESIGN CHANGE: we no longer fail the task when one or more references fail to resolve. 
                 // Unless we experience a catastrophic failure, we'll log warnings for those refs and proceed
                 // (and return success)
-                ArrayList moduleList = new ArrayList();
-                ArrayList resolvedReferenceList = new ArrayList();
+                var moduleList = new List<ITaskItem>();
+                var resolvedReferenceList = new List<ITaskItem>();
 
-                ComDependencyWalker dependencyWalker = new ComDependencyWalker(Marshal.ReleaseComObject);
+                var dependencyWalker = new ComDependencyWalker(Marshal.ReleaseComObject);
                 bool allReferencesResolvedSuccessfully = true;
                 for (int pass = 0; pass < 4; pass++)
                 {
@@ -465,7 +375,7 @@ namespace Microsoft.Build.Tasks
                         {
                             try
                             {
-                                if (!this.ResolveReferenceAndAddToList(dependencyWalker, projectRefInfo, resolvedReferenceList, moduleList))
+                                if (!ResolveReferenceAndAddToList(dependencyWalker, projectRefInfo, resolvedReferenceList, moduleList))
                                 {
                                     allReferencesResolvedSuccessfully = false;
                                 }
@@ -519,8 +429,8 @@ namespace Microsoft.Build.Tasks
 
                 SetCopyLocalToFalseOnGacOrNoPIAAssemblies(resolvedReferenceList, GlobalAssemblyCache.GetGacPath());
 
-                ResolvedModules = (ITaskItem[])moduleList.ToArray(typeof(ITaskItem));
-                ResolvedFiles = (ITaskItem[])resolvedReferenceList.ToArray(typeof(ITaskItem));
+                ResolvedModules = moduleList.ToArray();
+                ResolvedFiles = resolvedReferenceList.ToArray();
 
                 // The Logs from AxImp and TlbImp aren't part of our log, but if the task failed, it will return false from 
                 // GenerateWrapper, which should get passed all the way back up here.  
@@ -561,7 +471,6 @@ namespace Microsoft.Build.Tasks
             }
 
             _projectTargetFramework = parsedVersion;
-            return;
         }
 
         /// <summary>
@@ -573,7 +482,7 @@ namespace Microsoft.Build.Tasks
         {
             _tlbimpPath = null;
 
-            if (String.IsNullOrEmpty(_sdkToolsPath))
+            if (String.IsNullOrEmpty(SdkToolsPath))
             {
                 _tlbimpPath = GetPathToSDKFileWithCurrentlyTargetedArchitecture("TlbImp.exe", TargetDotNetFrameworkVersion.Version35, VisualStudioVersion.VersionLatest);
 
@@ -586,7 +495,7 @@ namespace Microsoft.Build.Tasks
             }
             else
             {
-                _tlbimpPath = SdkToolsPathUtility.GeneratePathToTool(SdkToolsPathUtility.FileInfoExists, this.TargetProcessorArchitecture, SdkToolsPath, "TlbImp.exe", Log, ExecuteAsTool);
+                _tlbimpPath = SdkToolsPathUtility.GeneratePathToTool(SdkToolsPathUtility.FileInfoExists, TargetProcessorArchitecture, SdkToolsPath, "TlbImp.exe", Log, ExecuteAsTool);
             }
 
             if (null == _tlbimpPath && !ExecuteAsTool)
@@ -614,7 +523,7 @@ namespace Microsoft.Build.Tasks
             // We always execute AxImp.exe out of proc
             _aximpPath = null;
 
-            if (String.IsNullOrEmpty(_sdkToolsPath))
+            if (String.IsNullOrEmpty(SdkToolsPath))
             {
                 // In certain cases -- such as trying to build a Dev10 project on a machine that only has Dev11 installed --
                 // it's possible to have ExecuteAsTool set to false (e.g. "use the current CLR") but still have SDKToolsPath
@@ -635,7 +544,7 @@ namespace Microsoft.Build.Tasks
             }
             else
             {
-                _aximpPath = SdkToolsPathUtility.GeneratePathToTool(SdkToolsPathUtility.FileInfoExists, this.TargetProcessorArchitecture, SdkToolsPath, "AxImp.exe", Log, true /* log errors */);
+                _aximpPath = SdkToolsPathUtility.GeneratePathToTool(SdkToolsPathUtility.FileInfoExists, TargetProcessorArchitecture, SdkToolsPath, "AxImp.exe", Log, true /* log errors */);
             }
 
             if (_aximpPath != null)
@@ -654,7 +563,7 @@ namespace Microsoft.Build.Tasks
         {
             string path = null;
 
-            switch (this.TargetProcessorArchitecture)
+            switch (TargetProcessorArchitecture)
             {
                 case UtilitiesProcessorArchitecture.ARM:
                 case UtilitiesProcessorArchitecture.X86:
@@ -710,8 +619,7 @@ namespace Microsoft.Build.Tasks
          */
         private bool VerifyAndInitializeInputs()
         {
-            if ((KeyContainer != null && KeyContainer.Length != 0)
-                && (KeyFile != null && KeyFile.Length != 0))
+            if (!string.IsNullOrEmpty(KeyContainer) && !string.IsNullOrEmpty(KeyFile))
             {
                 Log.LogErrorWithCodeFromResources("ResolveComReference.CannotSpecifyBothKeyFileAndKeyContainer");
                 return false;
@@ -719,8 +627,7 @@ namespace Microsoft.Build.Tasks
 
             if (DelaySign)
             {
-                if ((KeyContainer == null || KeyContainer.Length == 0) &&
-                    (KeyFile == null || KeyFile.Length == 0))
+                if (string.IsNullOrEmpty(KeyContainer) && string.IsNullOrEmpty(KeyFile))
                 {
                     Log.LogErrorWithCodeFromResources("ResolveComReference.CannotSpecifyDelaySignWithoutEitherKeyFileOrKeyContainer");
                     return false;
@@ -749,9 +656,8 @@ namespace Microsoft.Build.Tasks
             for (int i = 0; i < typeLibNamesLength; i++)
             {
                 // verify the COM reference item contains all the required attributes
-                string missingMetadata;
 
-                if (!VerifyReferenceMetadataForNameItem(TypeLibNames[i], out missingMetadata))
+                if (!VerifyReferenceMetadataForNameItem(TypeLibNames[i], out string missingMetadata))
                 {
                     Log.LogErrorWithCodeFromResources(null, TypeLibNames[i].ItemSpec, 0, 0, 0, 0, "ResolveComReference.MissingOrUnknownComReferenceAttribute", missingMetadata, TypeLibNames[i].ItemSpec);
 
@@ -787,11 +693,11 @@ namespace Microsoft.Build.Tasks
 
             for (int i = 0; i < typeLibAttrsLength; i++)
             {
-                ComReferenceInfo projectRefInfo = new ComReferenceInfo();
+                var projectRefInfo = new ComReferenceInfo();
 
                 try
                 {
-                    if (projectRefInfo.InitializeWithTypeLibAttrs(Log, Silent, TaskItemToTypeLibAttr(typeLibAttrs[i]), typeLibAttrs[i], this.TargetProcessorArchitecture))
+                    if (projectRefInfo.InitializeWithTypeLibAttrs(Log, Silent, TaskItemToTypeLibAttr(typeLibAttrs[i]), typeLibAttrs[i], TargetProcessorArchitecture))
                     {
                         projectRefs.Add(projectRefInfo);
                     }
@@ -826,15 +732,16 @@ namespace Microsoft.Build.Tasks
             for (int i = 0; i < tlbFilesLength; i++)
             {
                 string refPath = tlbFiles[i].ItemSpec;
-
                 if (!Path.IsPathRooted(refPath))
+                {
                     refPath = Path.Combine(Directory.GetCurrentDirectory(), refPath);
+                }
 
-                ComReferenceInfo projectRefInfo = new ComReferenceInfo();
+                var projectRefInfo = new ComReferenceInfo();
 
                 try
                 {
-                    if (projectRefInfo.InitializeWithPath(Log, Silent, refPath, tlbFiles[i], this.TargetProcessorArchitecture))
+                    if (projectRefInfo.InitializeWithPath(Log, Silent, refPath, tlbFiles[i], TargetProcessorArchitecture))
                     {
                         projectRefs.Add(projectRefInfo);
                     }
@@ -913,7 +820,7 @@ namespace Microsoft.Build.Tasks
                             Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.AddingMissingTlbReference", axRefInfo.taskItem.ItemSpec);
                         }
 
-                        ComReferenceInfo newTlbRef = new ComReferenceInfo(axRefInfo);
+                        var newTlbRef = new ComReferenceInfo(axRefInfo);
                         newTlbRef.taskItem.SetMetadata(ComReferenceItemMetadataNames.wrapperTool, ComReferenceTypes.primaryortlbimp);
                         newTlbRef.taskItem.SetMetadata(ItemMetadataNames.embedInteropTypes, "false");
                         axRefInfo.primaryOfAxImpRef = newTlbRef;
@@ -933,26 +840,19 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// Resolves the COM reference, and adds it to the appropriate item list.
         /// </summary>
-        /// <param name="projectRefInfo"></param>
-        /// <param name="resolvedReferenceList"></param>
-        /// <param name="moduleList"></param>
-        /// <returns></returns>
         private bool ResolveReferenceAndAddToList
             (
             ComDependencyWalker dependencyWalker,
             ComReferenceInfo projectRefInfo,
-            ArrayList resolvedReferenceList,
-            ArrayList moduleList
+            List<ITaskItem> resolvedReferenceList,
+            List<ITaskItem> moduleList
             )
         {
-            ITaskItem referencePath;
-
-            if (ResolveReference(dependencyWalker, projectRefInfo, WrapperOutputDirectory, out referencePath))
+            if (ResolveReference(dependencyWalker, projectRefInfo, WrapperOutputDirectory, out ITaskItem referencePath))
             {
                 resolvedReferenceList.Add(referencePath);
 
-                bool metadataFound = false;
-                bool isolated = MetadataConversionUtilities.TryConvertItemMetadataToBool(projectRefInfo.taskItem, "Isolated", out metadataFound);
+                bool isolated = MetadataConversionUtilities.TryConvertItemMetadataToBool(projectRefInfo.taskItem, "Isolated", out bool metadataFound);
 
                 if (metadataFound && isolated)
                 {
@@ -998,11 +898,9 @@ namespace Microsoft.Build.Tasks
                 referencePathItem = new TaskItem();
                 referenceInfo.referencePathItem = referencePathItem;
 
-                ComReferenceWrapperInfo wrapperInfo;
-
                 if (ResolveComClassicReference(referenceInfo, outputDirectory,
                     referenceInfo.taskItem.GetMetadata(ComReferenceItemMetadataNames.wrapperTool),
-                    referenceInfo.taskItem.ItemSpec, true, referenceInfo.dependentWrapperPaths, out wrapperInfo))
+                    referenceInfo.taskItem.ItemSpec, true, referenceInfo.dependentWrapperPaths, out ComReferenceWrapperInfo wrapperInfo))
                 {
                     referencePathItem.ItemSpec = wrapperInfo.path;
                     referenceInfo.taskItem.CopyMetadataTo(referencePathItem);
@@ -1173,10 +1071,8 @@ namespace Microsoft.Build.Tasks
                 Log.LogMessageFromResources(MessageImportance.Low, "ResolveComReference.RemappingAdoTypeLib", oldAttr.wMajorVerNum, oldAttr.wMinorVerNum);
             }
 
-            ComReferenceInfo referenceInfo;
-
             // find an existing ref in the project (taking the desired wrapperType into account, if any)
-            if (IsExistingProjectReference(typeLibAttr, wrapperType, out referenceInfo))
+            if (IsExistingProjectReference(typeLibAttr, wrapperType, out ComReferenceInfo referenceInfo))
             {
                 // IsExistingProjectReference should not return null... 
                 Debug.Assert(referenceInfo != null, "IsExistingProjectReference should not return null");
@@ -1209,7 +1105,7 @@ namespace Microsoft.Build.Tasks
                 {
                     referenceInfo = new ComReferenceInfo();
 
-                    if (referenceInfo.InitializeWithTypeLibAttrs(Log, Silent, typeLibAttr, null, this.TargetProcessorArchitecture))
+                    if (referenceInfo.InitializeWithTypeLibAttrs(Log, Silent, typeLibAttr, null, TargetProcessorArchitecture))
                     {
                         allDependencyRefs.Add(referenceInfo);
                     }
@@ -1286,17 +1182,19 @@ namespace Microsoft.Build.Tasks
          */
         bool IComReferenceResolver.ResolveComAssemblyReference(string fullAssemblyName, out string assemblyPath)
         {
-            AssemblyNameExtension fullAssemblyNameEx = new AssemblyNameExtension(fullAssemblyName);
+            var fullAssemblyNameEx = new AssemblyNameExtension(fullAssemblyName);
 
             foreach (ComReferenceWrapperInfo wrapperInfo in _cachePia.Values)
             {
                 // this should not happen, but it would be a non fatal error
                 Debug.Assert(wrapperInfo.path != null);
                 if (wrapperInfo.path == null)
+                {
                     continue;
+                }
 
                 // we have already verified all cached wrappers, so we don't expect this methods to throw anything
-                AssemblyNameExtension wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
+                var wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
 
                 if (fullAssemblyNameEx.Equals(wrapperAssemblyNameEx))
                 {
@@ -1315,11 +1213,12 @@ namespace Microsoft.Build.Tasks
             {
                 // temporary wrapper? skip it.
                 if (wrapperInfo.path == null)
+                {
                     continue;
+                }
 
                 // we have already verified all cached wrappers, so we don't expect this methods to throw anything
-                AssemblyNameExtension wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
-
+                var wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
                 if (fullAssemblyNameEx.Equals(wrapperAssemblyNameEx))
                 {
                     assemblyPath = wrapperInfo.path;
@@ -1332,11 +1231,12 @@ namespace Microsoft.Build.Tasks
                 // this should not happen, but it would be a non fatal error
                 Debug.Assert(wrapperInfo.path != null);
                 if (wrapperInfo.path == null)
+                {
                     continue;
+                }
 
                 // we have already verified all cached wrappers, so we don't expect this methods to throw anything
-                AssemblyNameExtension wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
-
+                var wrapperAssemblyNameEx = new AssemblyNameExtension(AssemblyName.GetAssemblyName(wrapperInfo.path));
                 if (fullAssemblyNameEx.Equals(wrapperAssemblyNameEx))
                 {
                     assemblyPath = wrapperInfo.path;
@@ -1357,20 +1257,18 @@ namespace Microsoft.Build.Tasks
         /// <returns>True if the reference was already found or successfully generated, false otherwise.</returns>
         internal bool ResolveComReferencePia(ComReferenceInfo referenceInfo, string refName, out ComReferenceWrapperInfo wrapperInfo)
         {
-            wrapperInfo = null;
             string typeLibKey = ComReference.UniqueKeyFromTypeLibAttr(referenceInfo.attr);
 
             // look in the PIA cache first
-            if (_cachePia.ContainsKey(typeLibKey))
+            if (_cachePia.TryGetValue(typeLibKey, out wrapperInfo))
             {
-                wrapperInfo = (ComReferenceWrapperInfo)_cachePia[typeLibKey];
                 return true;
             }
 
             try
             {
                 // if not in the cache, we have no choice but to go looking for the PIA
-                PiaReference reference = new PiaReference(Log, Silent, referenceInfo, refName);
+                var reference = new PiaReference(Log, Silent, referenceInfo, refName);
 
                 // if not found, fail (we do not fall back to tlbimp wrappers if we're looking specifically for a PIA)
                 if (!reference.FindExistingWrapper(out wrapperInfo, _timestampCache[referenceInfo.strippedTypeLibPath]))
@@ -1409,13 +1307,11 @@ namespace Microsoft.Build.Tasks
         /// <returns>True if the reference was already found or successfully generated, false otherwise.</returns>
         internal bool ResolveComReferenceTlb(ComReferenceInfo referenceInfo, string outputDirectory, string refName, bool topLevelRef, List<string> dependencyPaths, out ComReferenceWrapperInfo wrapperInfo)
         {
-            wrapperInfo = null;
             string typeLibKey = ComReference.UniqueKeyFromTypeLibAttr(referenceInfo.attr);
 
             // look in the TLB cache first
-            if (_cacheTlb.ContainsKey(typeLibKey))
+            if (_cacheTlb.TryGetValue(typeLibKey, out wrapperInfo))
             {
-                wrapperInfo = (ComReferenceWrapperInfo)_cacheTlb[typeLibKey];
                 return true;
             }
 
@@ -1442,7 +1338,7 @@ namespace Microsoft.Build.Tasks
 
             try
             {
-                List<string> referencePaths = new List<string>(GetResolvedAssemblyReferenceItemSpecs());
+                var referencePaths = new List<string>(GetResolvedAssemblyReferenceItemSpecs());
 
                 if (dependencyPaths != null)
                 {
@@ -1450,16 +1346,18 @@ namespace Microsoft.Build.Tasks
                 }
 
                 // not in the cache? see if anyone was kind enough to generate it for us
-                TlbReference reference = new TlbReference(Log, Silent, this, referencePaths, referenceInfo, refName,
-                    outputDirectory, isTemporary, DelaySign, KeyFile, KeyContainer, this.NoClassMembers,
-                    this.TargetProcessorArchitecture, IncludeVersionInInteropName, ExecuteAsTool, _tlbimpPath,
+                var reference = new TlbReference(Log, Silent, this, referencePaths, referenceInfo, refName,
+                    outputDirectory, isTemporary, DelaySign, KeyFile, KeyContainer, NoClassMembers,
+                    TargetProcessorArchitecture, IncludeVersionInInteropName, ExecuteAsTool, _tlbimpPath,
                     BuildEngine, EnvironmentVariables);
 
                 // wrapper doesn't exist or needs regeneration? generate it then
                 if (!reference.FindExistingWrapper(out wrapperInfo, _timestampCache[referenceInfo.strippedTypeLibPath]))
                 {
                     if (!reference.GenerateWrapper(out wrapperInfo))
+                    {
                         return false;
+                    }
                 }
 
                 // if found or successfully generated, cache it.
@@ -1483,13 +1381,11 @@ namespace Microsoft.Build.Tasks
         /// <returns>True if the reference was already found or successfully generated, false otherwise.</returns>
         internal bool ResolveComReferenceAx(ComReferenceInfo referenceInfo, string outputDirectory, string refName, out ComReferenceWrapperInfo wrapperInfo)
         {
-            wrapperInfo = null;
             string typeLibKey = ComReference.UniqueKeyFromTypeLibAttr(referenceInfo.attr);
 
             // look in the Ax cache first
-            if (_cacheAx.ContainsKey(typeLibKey))
+            if (_cacheAx.TryGetValue(typeLibKey, out wrapperInfo))
             {
-                wrapperInfo = (ComReferenceWrapperInfo)_cacheAx[typeLibKey];
                 return true;
             }
 
@@ -1497,13 +1393,15 @@ namespace Microsoft.Build.Tasks
             {
                 // not in the cache? see if anyone was kind enough to generate it for us
 
-                AxReference reference = new AxReference(Log, Silent, this, referenceInfo, refName, outputDirectory, DelaySign, KeyFile, KeyContainer, IncludeVersionInInteropName, _aximpPath, BuildEngine, EnvironmentVariables);
+                var reference = new AxReference(Log, Silent, this, referenceInfo, refName, outputDirectory, DelaySign, KeyFile, KeyContainer, IncludeVersionInInteropName, _aximpPath, BuildEngine, EnvironmentVariables);
 
                 // wrapper doesn't exist or needs regeneration? generate it then
                 if (!reference.FindExistingWrapper(out wrapperInfo, _timestampCache[referenceInfo.strippedTypeLibPath]))
                 {
                     if (!reference.GenerateWrapper(out wrapperInfo))
+                    {
                         return false;
+                    }
                 }
 
                 // if found or successfully generated, cache it.
@@ -1548,8 +1446,7 @@ namespace Microsoft.Build.Tasks
             }
 
             // now verify they contain valid data
-            Guid guid;
-            if (!Guid.TryParse(reference.GetMetadata(ComReferenceItemMetadataNames.guid), out guid))
+            if (!Guid.TryParse(reference.GetMetadata(ComReferenceItemMetadataNames.guid), out _))
             {
                 // invalid guid format
                 missingOrInvalidMetadata = ComReferenceItemMetadataNames.guid;
@@ -1612,11 +1509,15 @@ namespace Microsoft.Build.Tasks
         {
             // default value for lcid is 0
             if (reference.GetMetadata(ComReferenceItemMetadataNames.lcid).Length == 0)
+            {
                 reference.SetMetadata(ComReferenceItemMetadataNames.lcid, "0");
+            }
 
             // default value for wrapperTool is tlbimp
             if (reference.GetMetadata(ComReferenceItemMetadataNames.wrapperTool).Length == 0)
+            {
                 reference.SetMetadata(ComReferenceItemMetadataNames.wrapperTool, ComReferenceTypes.tlbimp);
+            }
         }
 
         /*
@@ -1628,7 +1529,9 @@ namespace Microsoft.Build.Tasks
         {
             // default value for wrapperTool is tlbimp
             if (reference.GetMetadata(ComReferenceItemMetadataNames.wrapperTool).Length == 0)
+            {
                 reference.SetMetadata(ComReferenceItemMetadataNames.wrapperTool, ComReferenceTypes.tlbimp);
+            }
         }
 
         /*
@@ -1638,8 +1541,8 @@ namespace Microsoft.Build.Tasks
          */
         internal bool CheckForConflictingReferences()
         {
-            Hashtable namesForReferences = new Hashtable();
-            ArrayList refsToBeRemoved = new ArrayList();
+            var namesForReferences = new Dictionary<string, ComReferenceInfo>(StringComparer.OrdinalIgnoreCase);
+            var refsToBeRemoved = new List<ComReferenceInfo>();
             bool noConflictsFound = true;
 
             for (int pass = 0; pass < 2; pass++)
@@ -1653,12 +1556,10 @@ namespace Microsoft.Build.Tasks
                         (pass == 1 && ComReferenceTypes.IsTlbImp(wrapperType)))
                     {
                         // if we already have a reference with this name, compare attributes
-                        if (namesForReferences.ContainsKey(projectRefInfo.typeLibName))
+                        if (namesForReferences.TryGetValue(projectRefInfo.typeLibName, out ComReferenceInfo conflictingRef))
                         {
                             // if different type lib attributes, we have a conflict, remove the conflicting reference
                             // and continue processing
-                            ComReferenceInfo conflictingRef = (ComReferenceInfo)namesForReferences[projectRefInfo.typeLibName];
-
                             if (!ComReference.AreTypeLibAttrEqual(projectRefInfo.attr, conflictingRef.attr))
                             {
                                 if (!Silent)
@@ -1697,9 +1598,9 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// Set the CopyLocal metadata to false on all assemblies that are located in the GAC.
         /// </summary>
-        /// <param name="outputTaskItems">ArrayList of ITaskItems that will be outputted from the task</param>
+        /// <param name="outputTaskItems">List of ITaskItems that will be outputted from the task</param>
         /// <param name="gacPath">The GAC root path</param>
-        internal void SetCopyLocalToFalseOnGacOrNoPIAAssemblies(ArrayList outputTaskItems, string gacPath)
+        internal void SetCopyLocalToFalseOnGacOrNoPIAAssemblies(List<ITaskItem> outputTaskItems, string gacPath)
         {
             foreach (ITaskItem taskItem in outputTaskItems)
             {
@@ -1773,7 +1674,7 @@ namespace Microsoft.Build.Tasks
 
             dependencyWalker.EncounteredProblems.Clear();
 
-            HashSet<string> dependentPaths = new HashSet<string>();
+            var dependentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             TYPELIBATTR[] dependentAttrs = dependencyWalker.GetDependencies();
 
             foreach (TYPELIBATTR dependencyTypeLibAttr in dependentAttrs)
@@ -1781,17 +1682,13 @@ namespace Microsoft.Build.Tasks
                 // We don't need to even try to resolve if the dependency reference is ourselves. 
                 if (!ComReference.AreTypeLibAttrEqual(dependencyTypeLibAttr, reference.attr))
                 {
-                    ComReferenceInfo existingReference;
-
-                    if (IsExistingProjectReference(dependencyTypeLibAttr, null, out existingReference))
+                    if (IsExistingProjectReference(dependencyTypeLibAttr, null, out ComReferenceInfo existingReference))
                     {
-                        ITaskItem resolvedItem;
-
                         // If we're resolving another project reference, empty out the type cache -- if the dependencies are buried,
                         // caching the analyzed types can make it so that we don't recognize our dependencies' dependencies. 
                         dependencyWalker.ClearAnalyzedTypeCache();
 
-                        if (ResolveReference(dependencyWalker, existingReference, WrapperOutputDirectory, out resolvedItem))
+                        if (ResolveReference(dependencyWalker, existingReference, WrapperOutputDirectory, out ITaskItem resolvedItem))
                         {
                             // Add the resolved dependency
                             dependentPaths.Add(resolvedItem.ItemSpec);
@@ -1811,10 +1708,8 @@ namespace Microsoft.Build.Tasks
                                 dependencyTypeLibAttr.guid, dependencyTypeLibAttr.wMajorVerNum, dependencyTypeLibAttr.wMinorVerNum);
                         }
 
-                        ComReferenceWrapperInfo wrapperInfo;
-
                         ((IComReferenceResolver)this).ResolveComClassicReference(dependencyTypeLibAttr, WrapperOutputDirectory,
-                            null /* unknown wrapper type */, null /* unknown name */, out wrapperInfo);
+                            null /* unknown wrapper type */, null /* unknown name */, out ComReferenceWrapperInfo wrapperInfo);
 
                         if (!Silent)
                         {
@@ -1828,7 +1723,7 @@ namespace Microsoft.Build.Tasks
                 }
             }
 
-            return dependentPaths.ToList<string>();
+            return dependentPaths.ToList();
         }
 
         /*
@@ -1839,18 +1734,29 @@ namespace Microsoft.Build.Tasks
          */
         internal static TYPELIBATTR TaskItemToTypeLibAttr(ITaskItem taskItem)
         {
-            TYPELIBATTR attr = new TYPELIBATTR();
-
             // copy metadata from Reference to our TYPELIBATTR
-            attr.guid = new Guid(taskItem.GetMetadata(ComReferenceItemMetadataNames.guid));
-            attr.wMajorVerNum = short.Parse(taskItem.GetMetadata(ComReferenceItemMetadataNames.versionMajor), NumberStyles.Integer, CultureInfo.InvariantCulture);
-            attr.wMinorVerNum = short.Parse(taskItem.GetMetadata(ComReferenceItemMetadataNames.versionMinor), NumberStyles.Integer, CultureInfo.InvariantCulture);
-            attr.lcid = int.Parse(taskItem.GetMetadata(ComReferenceItemMetadataNames.lcid), NumberStyles.Integer, CultureInfo.InvariantCulture);
+            var attr = new TYPELIBATTR
+            {
+                guid = new Guid(taskItem.GetMetadata(ComReferenceItemMetadataNames.guid)),
+                wMajorVerNum = short.Parse(
+                    taskItem.GetMetadata(ComReferenceItemMetadataNames.versionMajor),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture),
+                wMinorVerNum = short.Parse(
+                    taskItem.GetMetadata(ComReferenceItemMetadataNames.versionMinor),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture),
+                lcid = int.Parse(
+                    taskItem.GetMetadata(ComReferenceItemMetadataNames.lcid),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture)
+            };
+
             return attr;
         }
 
         #endregion
     }
-}
 
 #endif
+}

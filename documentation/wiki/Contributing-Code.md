@@ -1,4 +1,4 @@
-###Contributing Code
+### Contributing Code
 Before submitting a feature or substantial code contribution please discuss it with the team and ensure it follows the product roadmap. The team rigorously reviews and tests all code submissions. The submissions must meet an extremely high bar for quality, design, backwards compatibility, and roadmap appropriateness.
 
 Because our focus right now is on maintaining backwards compatibility, the team has set the following limits on pull requests:
@@ -7,19 +7,19 @@ Because our focus right now is on maintaining backwards compatibility, the team 
 - Only contributions referencing an approved Issue will be accepted.
 - Pull requests that do not merge easily with the tip of the master branch will be declined. The author will be asked to merge with tip and submit a new pull request.
 - Submissions must meet functional and performance expectations, including scenarios for which the team doesn't yet have open source tests. This means you may be asked to fix and resubmit your pull request against a new open test case if it fails one of these tests.
-- Submissions must follow the [.Net Foundation Coding Guidelines](https://github.com/dotnet/corefx/wiki/Contributing#c-coding-style)
+- Submissions must follow the [.Net Foundation Coding Guidelines](https://github.com/dotnet/corefx/blob/master/Documentation/coding-guidelines/coding-style.md)
 
-When you are ready to proceed with making a change, get set up to [[build|Building Testing and Debugging]] the code and familiarize yourself with our workflow and our coding conventions. These two blogs posts on contributing code to open source projects are good too: Open Source Contribution Etiquette by Miguel de Icaza and Don’t “Push” Your Pull Requests by Ilya Grigorik.
+When you are ready to proceed with making a change, get set up to [build](Home.md "See 'Building Testing and Debugging'") the code and familiarize yourself with our workflow and our coding conventions. These two blogs posts on contributing code to open source projects are good too: [Open Source Contribution Etiquette by Miguel de Icaza](https://tirania.org/blog/archive/2010/Dec-31.html) and [Don’t “Push” Your Pull Requests by Ilya Grigorik](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/).
 
 You must sign a Contributor License Agreement (CLA) before submitting your pull request. To complete the CLA, submit a request via the form and electronically sign the CLA when you receive the email containing the link to the document. You need to complete the CLA only once to cover all Microsoft Open Technologies OSS projects.
 
-###Developer Workflow
+### Developer Workflow
 
 1. Work item is assigned to a developer during the triage process
 2. Both Microsoft and external contributors are expected to do their work in a local fork and submit code for consideration via a pull request.
 3. When the pull request process deems the change ready it will be merged directly into the tree. 
 
-###Creating New Issues
+### Creating New Issues
 
 Please follow these guidelines when creating new issues in the issue tracker:
 
@@ -32,13 +32,5 @@ Please follow these guidelines when creating new issues in the issue tracker:
     - Specify any relevant exception messages and stack traces.
 - Subscribe to notifications for the created issue in case there are any follow up questions.
 
-###Coding Conventions
-- Use the coding style outlined in the [.Net Foundation Coding Guidelines](https://github.com/dotnet/corefx/wiki/Contributing#c-coding-style)
-
-##Code Formatter
-
-The MSBuild team regularly uses the [.NET code formatter tool](https://github.com/dotnet/codeformatter) to ensure the code base maintains a consistent style over time.  Run:
-```
-CodeFormatter.exe <path to MSBuild.sln>
-```
-This should be done before starting a pull request.
+### Coding Conventions
+- Use the coding style outlined in the [.Net Foundation Coding Guidelines](https://github.com/dotnet/corefx/blob/master/Documentation/coding-guidelines/coding-style.md)

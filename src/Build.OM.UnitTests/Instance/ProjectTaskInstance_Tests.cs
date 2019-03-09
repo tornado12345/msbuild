@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ProjectTaskInstance class.</summary>
-//-----------------------------------------------------------------------
 
 using System.IO;
 using System.Xml;
@@ -48,7 +44,7 @@ namespace Microsoft.Build.UnitTests.OM.Instance
         {
             var task = GetTaskInstance(@"<t1 a=''/>");
 
-            Assert.Equal(1, task.Parameters.Count);
+            Assert.Single(task.Parameters);
         }
 
         /// <summary>

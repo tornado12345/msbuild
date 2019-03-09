@@ -1,9 +1,9 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
 using System.Globalization;
-
+using System.Text;
 using error = Microsoft.Build.Shared.ErrorUtilities;
 
 namespace Microsoft.Build.Shared
@@ -39,6 +39,22 @@ namespace Microsoft.Build.Shared
         }
 
         /// <summary>
+        /// Returns a hex representation of a byte array.
+        /// </summary>
+        /// <param name="bytes">The bytes to convert</param>
+        /// <returns>A string byte types formated as X2.</returns>
+        internal static string ConvertByteArrayToHex(byte[] bytes)
+        {
+            var sb = new StringBuilder();
+            foreach (var b in bytes)
+            {
+                sb.AppendFormat("{0:X2}", b);
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Returns true if the string can be successfully converted to a bool,
         /// such as "on" or "yes"
         /// </summary>
@@ -53,12 +69,12 @@ namespace Microsoft.Build.Shared
         /// </summary>
         private static bool ValidBooleanTrue(string parameterValue)
         {
-            return ((String.Compare(parameterValue, "true", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "on", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "yes", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!false", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!off", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!no", StringComparison.OrdinalIgnoreCase) == 0));
+            return String.Equals(parameterValue, "true", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "on", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "yes", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!false", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!off", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!no", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -67,12 +83,12 @@ namespace Microsoft.Build.Shared
         /// </summary>
         private static bool ValidBooleanFalse(string parameterValue)
         {
-            return ((String.Compare(parameterValue, "false", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "off", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "no", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!true", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!on", StringComparison.OrdinalIgnoreCase) == 0) ||
-                    (String.Compare(parameterValue, "!yes", StringComparison.OrdinalIgnoreCase) == 0));
+            return String.Equals(parameterValue, "false", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "off", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "no", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!true", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!on", StringComparison.OrdinalIgnoreCase) ||
+                   String.Equals(parameterValue, "!yes", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

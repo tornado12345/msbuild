@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Schema;
 
 using Microsoft.Build.Shared;
+using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.CommandLine
 {
@@ -45,7 +46,7 @@ namespace Microsoft.Build.CommandLine
                 schemaFile = Path.Combine(binPath, "Microsoft.Build.xsd");
             }
 
-            if (File.Exists(schemaFile))
+            if (FileSystems.Default.FileExists(schemaFile))
             {
                 // Print the schema file we're using, particularly since it can vary 
                 // according to the toolset being used
@@ -56,7 +57,7 @@ namespace Microsoft.Build.CommandLine
                 // If we've gotten to this point, there is no schema to validate against -- just exit. 
                 InitializationException.Throw
                     (
-                    ResourceUtilities.FormatResourceString("SchemaNotFoundErrorWithFile", schemaFile),
+                    ResourceUtilities.FormatResourceStringStripCodeAndKeyword("SchemaNotFoundErrorWithFile", schemaFile),
                     null /* No associated command line switch */
                     );
             }
@@ -246,7 +247,7 @@ namespace Microsoft.Build.CommandLine
         {
             string errorCode;
             string helpKeyword;
-            string message = ResourceUtilities.FormatResourceString(out errorCode, out helpKeyword, resourceName, args);
+            string message = ResourceUtilities.FormatResourceStringStripCodeAndKeyword(out errorCode, out helpKeyword, resourceName, args);
 
             return EventArgsFormatting.FormatEventMessage
                 (

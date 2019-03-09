@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>The standard implementation of ITargetBuilder.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -133,9 +129,8 @@ namespace Microsoft.Build.BackEnd
             _projectInstance = configuration.Project;
 
             // Now get the current results cache entry.
-            ResultsCache resultsCache = (ResultsCache)_componentHost.GetComponent(BuildComponentType.ResultsCache);
-            BuildResult existingBuildResult = null;
-            resultsCache.ResultsDictionary.TryGetValue(_requestEntry.Request.ConfigurationId, out existingBuildResult);
+            IResultsCache resultsCache = (IResultsCache)_componentHost.GetComponent(BuildComponentType.ResultsCache);
+            BuildResult existingBuildResult = resultsCache.GetResultsForConfiguration(_requestEntry.Request.ConfigurationId);
 
             _buildResult = new BuildResult(entry.Request, existingBuildResult, null);
 

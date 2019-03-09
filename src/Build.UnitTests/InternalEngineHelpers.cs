@@ -20,13 +20,11 @@ namespace Microsoft.Build.Unittest
 {
     internal static class SdkUtilities
     {
-        public static ProjectOptions CreateProjectOptionsWithResolverFileMapping(Dictionary<string, string> mapping)
+        public static ProjectOptions CreateProjectOptionsWithResolver(SdkResolver resolver)
         {
-            var resolver = new FileBasedMockSdkResolver(mapping);
-
             var context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Isolated);
             var sdkService = (SdkResolverService)context.SdkResolverService;
-            sdkService.InitializeForTests(null, new List<SdkResolver>(){resolver});
+            sdkService.InitializeForTests(null, new List<SdkResolver>() { resolver });
 
             return new ProjectOptions
             {
@@ -37,17 +35,23 @@ namespace Microsoft.Build.Unittest
         internal class ConfigurableMockSdkResolver : SdkResolver
         {
             private readonly Dictionary<string, SdkResult> _resultMap;
+            private readonly Func<SdkReference, SdkResolverContext, SdkResultFactory, Framework.SdkResult> _resolveFunc;
 
             public ConcurrentDictionary<string, int> ResolvedCalls { get; } = new ConcurrentDictionary<string, int>();
 
             public ConfigurableMockSdkResolver(SdkResult result)
             {
-                _resultMap = new Dictionary<string, SdkResult> { [result.Sdk.Name] = result };
+                _resultMap = new Dictionary<string, SdkResult> { [result.SdkReference.Name] = result };
             }
 
             public ConfigurableMockSdkResolver(Dictionary<string, SdkResult> resultMap)
             {
                 _resultMap = resultMap;
+            }
+
+            public ConfigurableMockSdkResolver(Func<SdkReference, SdkResolverContext, SdkResultFactory, Framework.SdkResult> resolveFunc)
+            {
+                _resolveFunc = resolveFunc;
             }
 
             public override string Name => nameof(ConfigurableMockSdkResolver);
@@ -56,12 +60,19 @@ namespace Microsoft.Build.Unittest
 
             public override Framework.SdkResult Resolve(SdkReference sdkReference, SdkResolverContext resolverContext, SdkResultFactory factory)
             {
+                if (_resolveFunc != null)
+                {
+                    return _resolveFunc(sdkReference, resolverContext, factory);
+                }
+
                 ResolvedCalls.AddOrUpdate(sdkReference.Name, k => 1, (k, c) => c + 1);
 
                 return _resultMap.TryGetValue(sdkReference.Name, out var result)
                     ? new SdkResult(sdkReference, result.Path, result.Version, null)
                     : null;
             }
+
+
         }
 
         internal class FileBasedMockSdkResolver : SdkResolver

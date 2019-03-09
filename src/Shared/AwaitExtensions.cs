@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Helper methods for dealing with 'await'able objects.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Concurrent;
@@ -111,8 +107,6 @@ namespace Microsoft.Build.Shared
             else
             {
                 var localVariableInitLock = new object();
-                var culture = CultureInfo.CurrentCulture;
-                var uiCulture = CultureInfo.CurrentUICulture;
                 lock (localVariableInitLock)
                 {
                     RegisteredWaitHandle[] callbackHandles = new RegisteredWaitHandle[handles.Length];

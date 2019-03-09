@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Class used to unblock a blocked build request.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -23,7 +19,7 @@ namespace Microsoft.Build.BackEnd
     /// 2. The request was blocked on some set of build requests.  This class will then contain the build results 
     ///    needed to satisfy those requests.
     /// </summary>
-    internal class BuildRequestUnblocker : INodePacketTranslatable, INodePacket
+    internal class BuildRequestUnblocker : ITranslatable, INodePacket
     {
         /// <summary>
         /// The node request id of the request which is blocked and now will either result or have results reported.
@@ -38,7 +34,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Constructor for deserialization.
         /// </summary>
-        internal BuildRequestUnblocker(INodePacketTranslator translator)
+        internal BuildRequestUnblocker(ITranslator translator)
         {
             Translate(translator);
         }
@@ -57,7 +53,7 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         internal BuildRequestUnblocker(BuildResult buildResult)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(buildResult, "buildResult");
+            ErrorUtilities.VerifyThrowArgumentNull(buildResult, nameof(buildResult));
             _buildResult = buildResult;
             _blockedGlobalRequestId = buildResult.ParentGlobalRequestId;
         }
@@ -68,7 +64,7 @@ namespace Microsoft.Build.BackEnd
         internal BuildRequestUnblocker(BuildRequest parentRequest, BuildResult buildResult)
             : this(buildResult)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(parentRequest, "parentRequest");
+            ErrorUtilities.VerifyThrowArgumentNull(parentRequest, nameof(parentRequest));
             _blockedGlobalRequestId = parentRequest.GlobalRequestId;
         }
 
@@ -111,7 +107,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Serialization method.
         /// </summary>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.Translate(ref _blockedGlobalRequestId);
             translator.Translate(ref _buildResult);
@@ -122,7 +118,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Factory for serialization.
         /// </summary>
-        static internal INodePacket FactoryForDeserialization(INodePacketTranslator translator)
+        internal static INodePacket FactoryForDeserialization(ITranslator translator)
         {
             return new BuildRequestUnblocker(translator);
         }

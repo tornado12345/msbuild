@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>A fake task builder used for testing other components.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -117,8 +113,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 if (String.Equals(taskInstance.Name, "CallTarget", StringComparison.OrdinalIgnoreCase))
                 {
                     taskInstance.GetParameter("Targets");
-                    char[] splitter = new char[] { ';' };
-                    targetBuilderCallback.LegacyCallTarget(taskInstance.GetParameter("Targets").Split(splitter), false, taskInstance.Location);
+                    targetBuilderCallback.LegacyCallTarget(taskInstance.GetParameter("Targets").Split(MSBuildConstants.SemicolonChar), false, taskInstance.Location);
                 }
 
                 _taskNumber++;

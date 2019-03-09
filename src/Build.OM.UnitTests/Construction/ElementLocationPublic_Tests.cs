@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ElementLocation class</summary>
-//-----------------------------------------------------------------------
 
 using System.Collections.Generic;
 using Microsoft.Build.Collections;
@@ -84,8 +80,8 @@ namespace Microsoft.Build.UnitTests.Construction
             ElementLocation e1 = target.Location;
             ElementLocation e2 = target.OutputsLocation;
 
-            Assert.Equal(true, Object.ReferenceEquals(e1, target.Location));
-            Assert.Equal(true, Object.ReferenceEquals(e2, target.OutputsLocation));
+            Assert.True(Object.ReferenceEquals(e1, target.Location));
+            Assert.True(Object.ReferenceEquals(e2, target.OutputsLocation));
         }
 
         /// <summary>

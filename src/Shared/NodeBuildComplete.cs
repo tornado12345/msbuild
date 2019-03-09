@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>A packet which instructs a node that the build is complete.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -69,7 +65,7 @@ namespace Microsoft.Build.BackEnd
         /// Translates the packet to/from binary form.
         /// </summary>
         /// <param name="translator">The translator to use.</param>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.Translate(ref _prepareForReuse);
         }
@@ -77,7 +73,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Factory for deserialization.
         /// </summary>
-        internal static NodeBuildComplete FactoryForDeserialization(INodePacketTranslator translator)
+        internal static NodeBuildComplete FactoryForDeserialization(ITranslator translator)
         {
             NodeBuildComplete packet = new NodeBuildComplete();
             packet.Translate(translator);

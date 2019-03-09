@@ -11,12 +11,16 @@ using System.Text;
 using System.Xml;
 
 using Microsoft.Build.Construction;
+using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Experimental.Graph;
 using Microsoft.Build.Logging;
 using Microsoft.Build.Shared;
+using Microsoft.Build.Shared.FileSystem;
 using Microsoft.Build.UnitTests;
+using Shouldly;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -79,17 +83,17 @@ namespace Microsoft.Build.UnitTests
         /// Helper method to tell us whether a particular metadata name is an MSBuild well-known metadata
         /// (e.g., "RelativeDir", "FullPath", etc.)
         /// </summary>
-        private static Hashtable s_builtInMetadataNames = null;
-        static private bool IsBuiltInItemMetadataName(string metadataName)
+        private static Hashtable s_builtInMetadataNames;
+        private static bool IsBuiltInItemMetadataName(string metadataName)
         {
             if (s_builtInMetadataNames == null)
             {
                 s_builtInMetadataNames = new Hashtable();
 
-                Microsoft.Build.Utilities.TaskItem dummyTaskItem = new Microsoft.Build.Utilities.TaskItem();
+                Utilities.TaskItem dummyTaskItem = new Utilities.TaskItem();
                 foreach (string builtInMetadataName in dummyTaskItem.MetadataNames)
                 {
-                    s_builtInMetadataNames[builtInMetadataName] = String.Empty;
+                    s_builtInMetadataNames[builtInMetadataName] = string.Empty;
                 }
             }
 
@@ -100,7 +104,7 @@ namespace Microsoft.Build.UnitTests
         /// Gets an item list from the project and assert that it contains
         /// exactly one item with the supplied name.
         /// </summary>
-        static internal ProjectItem AssertSingleItem(Project p, string type, string itemInclude)
+        internal static ProjectItem AssertSingleItem(Project p, string type, string itemInclude)
         {
             ProjectItem[] items = p.GetItems(type).ToArray();
             int count = 0;
@@ -207,7 +211,7 @@ namespace Microsoft.Build.UnitTests
             }
         }
 
-        internal static void AssertItems(string[] expectedItems, IList<ProjectItem> items, Dictionary<string, string> expectedDirectMetadata = null, bool normalizeSlashes = false)
+        internal static void AssertItems(string[] expectedItems, ICollection<ProjectItem> items, Dictionary<string, string> expectedDirectMetadata = null, bool normalizeSlashes = false)
         {
             var converteditems = items.Select(i => (TestItem) new ProjectItemTestItemAdapter(i)).ToList();
             AssertItems(expectedItems, converteditems, expectedDirectMetadata, normalizeSlashes);
@@ -242,23 +246,29 @@ namespace Microsoft.Build.UnitTests
 
         public static void AssertItems(string[] expectedItems, IList<TestItem> items, Dictionary<string, string>[] expectedDirectMetadataPerItem, bool normalizeSlashes = false)
         {
-            Assert.Equal(expectedItems.Length, items.Count);
+            if (items.Count != 0 || expectedDirectMetadataPerItem.Length != 0)
+            {
+                expectedItems.ShouldNotBeEmpty();
+            }
 
-            Assert.Equal(expectedItems.Length, expectedDirectMetadataPerItem.Length);
-
-            for (int i = 0; i < expectedItems.Length; i++)
+            for (var i = 0; i < expectedItems.Length; i++)
             {
                 if (!normalizeSlashes)
                 {
-                    Assert.Equal(expectedItems[i], items[i].EvaluatedInclude);
+                    items[i].EvaluatedInclude.ShouldBe(expectedItems[i]);
                 }
                 else
                 {
-                    Assert.Equal(NormalizeSlashes(expectedItems[i]), items[i].EvaluatedInclude);
+                    var normalizedItem = NormalizeSlashes(expectedItems[i]);
+                    items[i].EvaluatedInclude.ShouldBe(normalizedItem);
                 }
 
                 AssertItemHasMetadata(expectedDirectMetadataPerItem[i], items[i]);
             }
+
+            items.Count.ShouldBe(expectedItems.Length);
+
+            expectedItems.Length.ShouldBe(expectedDirectMetadataPerItem.Length);
         }
 
         /// <summary>
@@ -278,7 +288,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="expectedItemsString"></param>
         /// <param name="actualItems"></param>
-        static internal void AssertItemsMatch(string expectedItemsString, ITaskItem[] actualItems)
+        internal static void AssertItemsMatch(string expectedItemsString, ITaskItem[] actualItems)
         {
             AssertItemsMatch(expectedItemsString, actualItems, true);
         }
@@ -301,7 +311,7 @@ namespace Microsoft.Build.UnitTests
         /// <param name="expectedItemsString"></param>
         /// <param name="actualItems"></param>
         /// <param name="orderOfItemsShouldMatch"></param>
-        static internal void AssertItemsMatch(string expectedItemsString, ITaskItem[] actualItems, bool orderOfItemsShouldMatch)
+        internal static void AssertItemsMatch(string expectedItemsString, ITaskItem[] actualItems, bool orderOfItemsShouldMatch)
         {
             List<ITaskItem> expectedItems = ParseExpectedItemsString(expectedItemsString);
 
@@ -399,7 +409,7 @@ namespace Microsoft.Build.UnitTests
             // Log an error for any leftover items in the expectedItems collection.
             foreach (ITaskItem expectedItem in expectedItems)
             {
-                Assert.True(false, String.Format("Item '{0}' was expected but not returned.", expectedItem.ItemSpec));
+                Assert.True(false, string.Format("Item '{0}' was expected but not returned.", expectedItem.ItemSpec));
             }
 
             if (outOfOrder)
@@ -454,13 +464,13 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="expectedItemsString"></param>
         /// <returns></returns>
-        static private List<ITaskItem> ParseExpectedItemsString(string expectedItemsString)
+        private static List<ITaskItem> ParseExpectedItemsString(string expectedItemsString)
         {
             List<ITaskItem> expectedItems = new List<ITaskItem>();
 
             // First, parse this massive string that we've been given, and create an ITaskItem[] out of it,
             // so we can more easily compare it against the actual items.
-            string[] expectedItemsStringSplit = expectedItemsString.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] expectedItemsStringSplit = expectedItemsString.Split(MSBuildConstants.CrLf, StringSplitOptions.RemoveEmptyEntries);
             foreach (string singleExpectedItemString in expectedItemsStringSplit)
             {
                 string singleExpectedItemStringTrimmed = singleExpectedItemString.Trim();
@@ -469,7 +479,7 @@ namespace Microsoft.Build.UnitTests
                     int indexOfColon = singleExpectedItemStringTrimmed.IndexOf(": ");
                     if (indexOfColon == -1)
                     {
-                        expectedItems.Add(new Microsoft.Build.Utilities.TaskItem(singleExpectedItemStringTrimmed));
+                        expectedItems.Add(new Utilities.TaskItem(singleExpectedItemStringTrimmed));
                     }
                     else
                     {
@@ -481,9 +491,9 @@ namespace Microsoft.Build.UnitTests
                         // The metadata is the part after the colon.
                         string itemMetadataString = singleExpectedItemStringTrimmed.Substring(indexOfColon + 1);
 
-                        ITaskItem expectedItem = new Microsoft.Build.Utilities.TaskItem(itemSpec);
+                        ITaskItem expectedItem = new Utilities.TaskItem(itemSpec);
 
-                        string[] itemMetadataPieces = itemMetadataString.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                        string[] itemMetadataPieces = itemMetadataString.Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries);
                         foreach (string itemMetadataPiece in itemMetadataPieces)
                         {
                             string itemMetadataPieceTrimmed = itemMetadataPiece.Trim();
@@ -528,7 +538,7 @@ namespace Microsoft.Build.UnitTests
                 message = fileRelativePath + " doesn't exist, but it should.";
             }
 
-            Assert.True(File.Exists(Path.Combine(TempProjectDir, fileRelativePath)), message);
+            Assert.True(FileSystems.Default.FileExists(Path.Combine(TempProjectDir, fileRelativePath)), message);
         }
 
         /// <summary>
@@ -538,7 +548,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="projectFileContents"></param>
         /// <returns></returns>
-        static internal string CleanupFileContents(string projectFileContents)
+        internal static string CleanupFileContents(string projectFileContents)
         {
             // Replace reverse-single-quotes with double-quotes.
             projectFileContents = projectFileContents.Replace("`", "\"");
@@ -590,9 +600,9 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="xml"></param>
         /// <returns></returns>
-        static internal string CreateTempFileOnDisk(string fileContents, params object[] args)
+        internal static string CreateTempFileOnDisk(string fileContents, params object[] args)
         {
-            return CreateTempFileOnDiskNoFormat(String.Format(fileContents, args));
+            return CreateTempFileOnDiskNoFormat(string.Format(fileContents, args));
         }
 
         /// <summary>
@@ -600,7 +610,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="xml"></param>
         /// <returns></returns>
-        static internal string CreateTempFileOnDiskNoFormat(string fileContents)
+        internal static string CreateTempFileOnDiskNoFormat(string fileContents)
         {
             string projectFilePath = FileUtilities.GetTemporaryFile();
 
@@ -611,7 +621,7 @@ namespace Microsoft.Build.UnitTests
 
         internal static ProjectRootElement CreateInMemoryProjectRootElement(string projectContents, ProjectCollection collection = null, bool preserveFormatting = true)
         {
-            var cleanedProject = ObjectModelHelpers.CleanupFileContents(projectContents);
+            var cleanedProject = CleanupFileContents(projectContents);
 
             return ProjectRootElement.Create(
                 XmlReader.Create(new StringReader(cleanedProject)),
@@ -624,7 +634,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="xml"></param>
         /// <returns></returns>
-        static internal Project CreateInMemoryProject(string xml)
+        internal static Project CreateInMemoryProject(string xml)
         {
             return CreateInMemoryProject(xml, new ConsoleLogger());
         }
@@ -635,7 +645,7 @@ namespace Microsoft.Build.UnitTests
         /// <param name="xml"></param>
         /// <param name="logger"></param>
         /// <returns></returns>
-        static internal Project CreateInMemoryProject(string xml, ILogger logger /* May be null */)
+        internal static Project CreateInMemoryProject(string xml, ILogger logger /* May be null */)
         {
             return CreateInMemoryProject(new ProjectCollection(), xml, logger);
         }
@@ -647,7 +657,7 @@ namespace Microsoft.Build.UnitTests
         /// <param name="xml"></param>
         /// <param name="logger">May be null</param>
         /// <returns></returns>
-        static internal Project CreateInMemoryProject(ProjectCollection e, string xml, ILogger logger /* May be null */)
+        internal static Project CreateInMemoryProject(ProjectCollection e, string xml, ILogger logger /* May be null */)
         {
             return CreateInMemoryProject(e, xml, logger, null);
         }
@@ -657,7 +667,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="logger">May be null</param>
         /// <param name="toolsVersion">May be null</param>
-        static internal Project CreateInMemoryProject
+        internal static Project CreateInMemoryProject
             (
             ProjectCollection projectCollection,
             string xml,
@@ -676,7 +686,7 @@ namespace Microsoft.Build.UnitTests
                 );
 
             Guid guid = Guid.NewGuid();
-            project.FullPath = Path.Combine(ObjectModelHelpers.TempProjectDir, "Temporary" + guid.ToString("N") + ".csproj");
+            project.FullPath = Path.Combine(TempProjectDir, "Temporary" + guid.ToString("N") + ".csproj");
             project.ReevaluateIfNecessary();
 
             if (logger != null)
@@ -737,7 +747,7 @@ namespace Microsoft.Build.UnitTests
             ILogger logger
            )
         {
-            Project project = ObjectModelHelpers.CreateInMemoryProject(projectContents, logger);
+            Project project = CreateInMemoryProject(projectContents, logger);
 
             bool success = project.Build(logger);
             Assert.False(success); // "Build succeeded, but shouldn't have.  See Standard Out tab for details"
@@ -772,7 +782,7 @@ namespace Microsoft.Build.UnitTests
         }
 
 
-        private static string s_tempProjectDir = null;
+        private static string s_tempProjectDir;
 
         /// <summary>
         /// Creates and returns a unique path under temp
@@ -814,7 +824,7 @@ namespace Microsoft.Build.UnitTests
             {
                 try
                 {
-                    if (Directory.Exists(dir))
+                    if (FileSystems.Default.DirectoryExists(dir))
                     {
                         foreach (string directory in Directory.GetDirectories(dir))
                         {
@@ -853,7 +863,7 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         internal static string CreateFileInTempProjectDirectory(string fileRelativePath, string fileContents, Encoding encoding = null)
         {
-            Assert.False(String.IsNullOrEmpty(fileRelativePath));
+            Assert.False(string.IsNullOrEmpty(fileRelativePath));
             string fullFilePath = Path.Combine(TempProjectDir, fileRelativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(fullFilePath));
 
@@ -961,7 +971,7 @@ namespace Microsoft.Build.UnitTests
         /// <returns></returns>
         internal static Project LoadProjectFileInTempProjectDirectory(string projectFileRelativePath, bool touchProject)
         {
-            string projectFileFullPath = Path.Combine(ObjectModelHelpers.TempProjectDir, projectFileRelativePath);
+            string projectFileFullPath = Path.Combine(TempProjectDir, projectFileRelativePath);
 
             ProjectCollection projectCollection = new ProjectCollection();
 
@@ -995,9 +1005,9 @@ namespace Microsoft.Build.UnitTests
             List<ILogger> loggers = new List<ILogger>(1);
             loggers.Add(logger);
 
-            if (String.Equals(Path.GetExtension(projectFileRelativePath), ".sln"))
+            if (string.Equals(Path.GetExtension(projectFileRelativePath), ".sln"))
             {
-                string projectFileFullPath = Path.Combine(ObjectModelHelpers.TempProjectDir, projectFileRelativePath);
+                string projectFileFullPath = Path.Combine(TempProjectDir, projectFileRelativePath);
                 BuildRequestData data = new BuildRequestData(projectFileFullPath, globalProperties ?? new Dictionary<string, string>(), null, targets, null);
                 BuildParameters parameters = new BuildParameters();
                 parameters.Loggers = loggers;
@@ -1029,7 +1039,7 @@ namespace Microsoft.Build.UnitTests
         {
             for (int i = 0; i < files.Length; i++)
             {
-                if (File.Exists(files[i])) File.Delete(files[i]);
+                if (FileSystems.Default.FileExists(files[i])) File.Delete(files[i]);
             }
         }
 
@@ -1132,7 +1142,7 @@ namespace Microsoft.Build.UnitTests
         internal static int Count(IEnumerable enumerable)
         {
             int i = 0;
-            foreach (object o in enumerable)
+            foreach (object _ in enumerable)
             {
                 i++;
             }
@@ -1310,6 +1320,58 @@ namespace Microsoft.Build.UnitTests
             result = project.Build(loggers);
         }
 
+        public static MockLogger BuildProjectContentUsingBuildManagerExpectResult(string content, BuildResultCode expectedResult)
+        {
+            var logger = new MockLogger();
+
+            var result = BuildProjectContentUsingBuildManager(content, logger);
+
+            result.OverallResult.ShouldBe(expectedResult);
+
+            return logger;
+        }
+
+        public static BuildResult BuildProjectContentUsingBuildManager(string content, MockLogger logger, BuildParameters parameters = null)
+        {
+            // Replace the crazy quotes with real ones
+            content = ObjectModelHelpers.CleanupFileContents(content);
+
+            using (var env = TestEnvironment.Create())
+            {
+                var testProject = env.CreateTestProjectWithFiles(content.Cleanup());
+
+                return BuildProjectFileUsingBuildManager(testProject.ProjectFile, logger, parameters);
+            }
+        }
+
+        public static BuildResult BuildProjectFileUsingBuildManager(string projectFile, MockLogger logger = null, BuildParameters parameters = null)
+        {
+            using (var buildManager = new BuildManager())
+            {
+                parameters = parameters ?? new BuildParameters();
+
+                if (logger != null)
+                {
+                    parameters.Loggers = parameters.Loggers == null
+                        ? new[] {logger}
+                        : parameters.Loggers.Concat(new[] {logger});
+                }
+
+                var request = new BuildRequestData(
+                    projectFile,
+                    new Dictionary<string, string>(),
+                    MSBuildConstants.CurrentToolsVersion,
+                    new string[] {},
+                    null);
+
+                var result = buildManager.Build(
+                    parameters,
+                    request);
+
+                return result;
+            }
+        }
+
         /// <summary>
         /// Build a project with the provided content in memory.
         /// Assert that it fails, and return the mock logger with the output.
@@ -1421,7 +1483,7 @@ namespace Microsoft.Build.UnitTests
                 return null;
             }
 
-            Assert.True(Directory.Exists(rootDirectory), $"Directory {rootDirectory} does not exist");
+            Assert.True(FileSystems.Default.DirectoryExists(rootDirectory), $"Directory {rootDirectory} does not exist");
 
             var result = new string[files.Length];
 
@@ -1438,10 +1500,10 @@ namespace Microsoft.Build.UnitTests
                 var directoryName = Path.GetDirectoryName(fullPath);
 
                 Directory.CreateDirectory(directoryName);
-                Assert.True(Directory.Exists(directoryName));
+                Assert.True(FileSystems.Default.DirectoryExists(directoryName));
 
                 File.WriteAllText(fullPath, string.Empty);
-                Assert.True(File.Exists(fullPath));
+                Assert.True(FileSystems.Default.FileExists(fullPath));
 
                 result[i] = fullPath;
             }
@@ -1449,11 +1511,126 @@ namespace Microsoft.Build.UnitTests
             return result;
         }
 
+        internal delegate TransientTestFile CreateProjectFileDelegate(
+            TestEnvironment env,
+            int projectNumber,
+            int[] projectReferences = null,
+            Dictionary<string, string[]> projectReferenceTargets = null,
+            string defaultTargets = null,
+            string extraContent = null);
+
+        internal static TransientTestFile CreateProjectFile(
+            TestEnvironment env,
+            int projectNumber,
+            int[] projectReferences = null,
+            Dictionary<string, string[]> projectReferenceTargets = null,
+            string defaultTargets = null,
+            string extraContent = null
+            )
+        {
+            var sb = new StringBuilder(64);
+
+            sb.Append(
+                defaultTargets == null
+                    ? "<Project>"
+                    : $"<Project DefaultTargets=\"{defaultTargets}\">");
+
+            sb.Append("<ItemGroup>");
+
+            if (projectReferences != null)
+            {
+                foreach (int projectReference in projectReferences)
+                {
+                    sb.AppendFormat("<ProjectReference Include=\"{0}.proj\" />", projectReference);
+                }
+            }
+
+            if (projectReferenceTargets != null)
+            {
+                foreach (KeyValuePair<string, string[]> pair in projectReferenceTargets)
+                {
+                    sb.AppendFormat("<ProjectReferenceTargets Include=\"{0}\" Targets=\"{1}\" />", pair.Key, string.Join(";", pair.Value));
+                }
+            }
+
+            sb.Append("</ItemGroup>");
+
+            
+            foreach (var defaultTarget in (defaultTargets ?? string.Empty).Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries))
+            {
+                sb.Append($"<Target Name='{defaultTarget}'/>");
+            }
+
+            sb.Append(extraContent ?? string.Empty);
+
+            sb.Append("</Project>");
+
+            return env.CreateFile(projectNumber + ".proj", sb.ToString());
+        }
+
+        internal static ProjectGraph CreateProjectGraph(
+            TestEnvironment env,
+            // direct dependencies that the kvp.key node has on the nodes represented by kvp.value
+            Dictionary<int, int[]> dependencyEdges,
+            CreateProjectFileDelegate createProjectFile = null)
+        {
+            createProjectFile = createProjectFile ?? CreateProjectFile;
+
+            var nodes = new Dictionary<int, (bool IsRoot, string ProjectPath)>();
+
+            // add nodes with dependencies
+            foreach (var nodeDependencies in dependencyEdges)
+            {
+                var parent = nodeDependencies.Key;
+
+                if (!nodes.ContainsKey(parent))
+                {
+                    var file = createProjectFile(env, parent, nodeDependencies.Value);
+                    nodes[parent] = (IsRoot(parent), file.Path);
+                }
+            }
+
+            // add what's left, nodes without dependencies
+            foreach (var nodeDependencies in dependencyEdges)
+            {
+                if (nodeDependencies.Value == null)
+                {
+                    continue;
+                }
+
+                foreach (var reference in nodeDependencies.Value)
+                {
+                    if (!nodes.ContainsKey(reference))
+                    {
+                        var file = createProjectFile(env, reference);
+                        nodes[reference] = (false, file.Path);
+                    }
+                }
+            }
+
+            return new ProjectGraph(
+                nodes.Where(nodeEntry => nodeEntry.Value.IsRoot)
+                    .Select(nodeEntry => nodeEntry.Value.ProjectPath));
+
+            bool IsRoot(int node)
+            {
+                foreach (var nodeDependencies in dependencyEdges)
+                {
+                    if (nodeDependencies.Value != null && nodeDependencies.Value.Contains(node))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
         private static string[] SplitPathIntoFragments(string path)
         {
             // Both Path.AltDirectorSeparatorChar and Path.DirectorySeparator char return '/' on OSX,
             // which renders them useless for the following case where I want to split a path that may contain either separator
-            var splits = path.Split('/', '\\');
+            var splits = path.Split(MSBuildConstants.ForwardSlashBackslash);
 
             // if the path is rooted then the first split is either empty (Unix) or 'c:' (Windows)
             // in this case the root must be restored back to '/' (Unix) or 'c:\' (Windows)
@@ -1473,13 +1650,13 @@ namespace Microsoft.Build.UnitTests
         {
             foreach (string path in paths)
             {
-                if (File.Exists(path))
+                if (FileSystems.Default.FileExists(path))
                 {
                     File.Delete(path);
                 }
 
                 string directory = Path.GetDirectoryName(path);
-                if (Directory.Exists(directory) && (Directory.GetFileSystemEntries(directory).Length == 0))
+                if (FileSystems.Default.DirectoryExists(directory) && (Directory.GetFileSystemEntries(directory).Length == 0))
                 {
                     Directory.Delete(directory);
                 }
@@ -1570,23 +1747,23 @@ namespace Microsoft.Build.UnitTests
 
             if (actualLines.Length == expectedLines.Length && expectedAndActualDontMatch)
             {
-                string output = "\r\n#################################Expected#################################\n" + String.Join("\r\n", expectedLines);
-                output += "\r\n#################################Actual#################################\n" + String.Join("\r\n", actualLines);
+                string output = "\r\n#################################Expected#################################\n" + string.Join("\r\n", expectedLines);
+                output += "\r\n#################################Actual#################################\n" + string.Join("\r\n", actualLines);
 
                 Assert.True(false, output);
             }
 
             if (actualLines.Length > expectedLines.Length)
             {
-                LogLine("\n#################################Expected#################################\n" + String.Join("\n", expectedLines));
-                LogLine("#################################Actual#################################\n" + String.Join("\n", actualLines));
+                LogLine("\n#################################Expected#################################\n" + string.Join("\n", expectedLines));
+                LogLine("#################################Actual#################################\n" + string.Join("\n", actualLines));
 
                 Assert.True(false, "Expected content was shorter, actual had this extra line: '" + actualLines[expectedLines.Length] + "'");
             }
             else if (actualLines.Length < expectedLines.Length)
             {
-                LogLine("\n#################################Expected#################################\n" + String.Join("\n", expectedLines));
-                LogLine("#################################Actual#################################\n" + String.Join("\n", actualLines));
+                LogLine("\n#################################Expected#################################\n" + string.Join("\n", expectedLines));
+                LogLine("#################################Actual#################################\n" + string.Join("\n", actualLines));
 
                 Assert.True(false, "Actual content was shorter, expected had this extra line: '" + expectedLines[actualLines.Length] + "'");
             }
@@ -1607,18 +1784,32 @@ namespace Microsoft.Build.UnitTests
         /// <param name="timeSpan">A <see cref="TimeSpan"/> representing the amount of time to sleep.</param>
         internal static string GetSleepCommand(TimeSpan timeSpan)
         {
+            return string.Format(
+                GetSleepCommandTemplate(),
+                NativeMethodsShared.IsWindows
+                    ? timeSpan.TotalMilliseconds // powershell can't handle floating point seconds, so give it milliseconds
+                    : timeSpan.TotalSeconds);
+        }
+
+        /// <summary>
+        /// Gets a command template that can be used by an Exec task to sleep for the specified amount of time. The string has to be formatted with the number of seconds to sleep
+        /// </summary>
+        internal static string GetSleepCommandTemplate()
+        {
             return
                 NativeMethodsShared.IsWindows
-                ? $"@powershell -NoLogo -NoProfile -command &quot;Start-Sleep -Milliseconds {(int)timeSpan.TotalMilliseconds}&quot; &gt;nul"
-                : $"sleep {timeSpan.TotalSeconds}";
+                    ? "@powershell -NoLogo -NoProfile -command &quot;Start-Sleep -Milliseconds {0}&quot; &gt;nul"
+                    : "sleep {0}";
         }
+
+
 
         /// <summary>
         /// Break the provided string into an array, on newlines
         /// </summary>
         private static string[] SplitIntoLines(string content)
         {
-            string[] result = content.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            string[] result = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             return result;
         }
@@ -1646,7 +1837,7 @@ namespace Microsoft.Build.UnitTests
                     return false;
                 }
 
-                if (!String.Equals(x.File, y.File, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(x.File, y.File, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }

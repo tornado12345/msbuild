@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the AssemblyTaskFactory</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -463,7 +459,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -495,7 +491,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -531,7 +527,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -560,7 +556,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -594,7 +590,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -628,7 +624,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -663,7 +659,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.False(createdTask is TaskHostTask);
+                Assert.IsNotType<TaskHostTask>(createdTask);
             }
             finally
             {
@@ -686,7 +682,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 #endif
                     false);
                 Assert.NotNull(createdTask);
-                Assert.IsAssignableFrom(typeof(TaskHostTask), createdTask);
+                Assert.IsType<TaskHostTask>(createdTask);
             }
             finally
             {

@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// Copyright (c) 2015 All Right Reserved
-// </copyright>
-// <date>2008-12-28</date>
-// <summary>The unit tests for XslTransformation buildtask.</summary>
 
 using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
@@ -201,7 +197,7 @@ namespace Microsoft.Build.UnitTests
 
                 Assert.False(t.Execute()); // "The test should fail when there is  missing Xsl params"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3701")); // "The output should contain MSB3701 error message at missing Xsl params test"
+                Assert.Contains("MSB3701", engine.Log); // "The output should contain MSB3701 error message at missing Xsl params test"
             }
 
             CleanUp(dir);
@@ -250,7 +246,7 @@ namespace Microsoft.Build.UnitTests
 
                 Assert.False(t.Execute()); // "The test should fail when there is missing Xml params"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3701")); // "The output should contain MSB3701 error message at missing Xml params test"
+                Assert.Contains("MSB3701", engine.Log); // "The output should contain MSB3701 error message at missing Xml params test"
                 engine.Log = "";
             }
 
@@ -281,7 +277,7 @@ namespace Microsoft.Build.UnitTests
 
                 Assert.False(t.Execute()); // "The test should fail when there is no params"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3701")); // "The output should contain MSB3701 error message"
+                Assert.Contains("MSB3701", engine.Log); // "The output should contain MSB3701 error message"
             }
 
             CleanUp(dir);
@@ -311,11 +307,11 @@ namespace Microsoft.Build.UnitTests
                 t.XmlContent = _xmlDocument;
                 t.XmlInputPaths = xmlPaths;
                 t.XslContent = _xslDocument;
-                Assert.True(t.XmlContent.Equals(_xmlDocument));
-                Assert.True(t.XmlInputPaths.Equals(xmlPaths));
+                Assert.Equal(_xmlDocument, t.XmlContent);
+                Assert.Equal(xmlPaths, t.XmlInputPaths);
                 Assert.False(t.Execute()); // "The test should fail when there are too many files"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3701"), "The output should contain MSB3701 error message" + engine.Log);
+                Assert.Contains("MSB3701", engine.Log);
             }
 
             CleanUp(dir);
@@ -345,11 +341,11 @@ namespace Microsoft.Build.UnitTests
                 t.XmlContent = _xmlDocument;
                 t.XslContent = _xslDocument;
                 t.XslInputPath = xslPath;
-                Assert.True(t.XslContent.Equals(_xslDocument));
-                Assert.True(t.XslInputPath.Equals(xslPath));
+                Assert.Equal(_xslDocument, t.XslContent);
+                Assert.Equal(xslPath, t.XslInputPath);
                 Assert.False(t.Execute()); // "The test should fail when there are too many files"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3701")); // "The output should contain MSB3701 error message at no params test"
+                Assert.Contains("MSB3701", engine.Log); // "The output should contain MSB3701 error message at no params test"
             }
 
             CleanUp(dir);
@@ -379,7 +375,7 @@ namespace Microsoft.Build.UnitTests
                 t.XslContent = _xslDocument;
                 t.OutputPaths = outputPaths;
                 Assert.True(t.Execute()); // "Test out should have given true when executed"
-                Assert.True(engine.Log.Equals(String.Empty)); // "The log should be empty"
+                Assert.Equal(String.Empty, engine.Log); // "The log should be empty"
                 Console.WriteLine(engine.Log);
                 using (StreamReader sr = new StreamReader(t.OutputPaths[0].ItemSpec))
                 {
@@ -421,7 +417,7 @@ namespace Microsoft.Build.UnitTests
                 using (StreamReader sr = new StreamReader(t.OutputPaths[0].ItemSpec))
                 {
                     string fileContents = sr.ReadToEnd();
-                    Assert.True(fileContents.Contains("param 1: 1param 2: 2"));
+                    Assert.Contains("param 1: 1param 2: 2", fileContents);
                 }
             }
 
@@ -464,7 +460,7 @@ namespace Microsoft.Build.UnitTests
                     t.XmlContent = _xmlDocument;
                     t.XslContent = _xslParameterDocument;
                     t.Parameters = "<Parameter " + res + "/>";
-                    Assert.True(t.Parameters.Equals("<Parameter " + res + "/>"));
+                    Assert.Equal("<Parameter " + res + "/>", t.Parameters);
                     bool result = t.Execute();
                     Console.WriteLine(engine.Log);
 
@@ -539,10 +535,10 @@ namespace Microsoft.Build.UnitTests
                 t.XmlContent = _xmlDocument;
                 xslCompiledPath.ItemSpec = xslCompiledPath.ItemSpec + ";xslt";
                 t.XslCompiledDllPath = xslCompiledPath;
-                Assert.True(t.XslCompiledDllPath.ItemSpec.Equals(xslCompiledPath.ItemSpec));
+                Assert.Equal(xslCompiledPath.ItemSpec, t.XslCompiledDllPath.ItemSpec);
                 Assert.True(t.Execute()); // "XsltComiledDll1 execution should've passed"
                 Console.WriteLine(engine.Log);
-                Assert.False(engine.Log.Contains("MSB")); // "The log should not contain any errors. (XsltComiledDll1)"
+                Assert.DoesNotContain("MSB", engine.Log); // "The log should not contain any errors. (XsltComiledDll1)"
             }
 
             CleanUp(dir);
@@ -609,7 +605,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 catch (Exception e)
                 {
-                    Assert.True(e.Message.Contains("The '$' character"));
+                    Assert.Contains("The '$' character", e.Message);
                 }
             }
 
@@ -674,7 +670,7 @@ namespace Microsoft.Build.UnitTests
                 t.XslInputPath = xslPath;
                 Console.WriteLine(engine.Log);
                 Assert.False(t.Execute()); // "This test should've failed (bad xml)."
-                Assert.True(engine.Log.Contains("MSB3703"));
+                Assert.Contains("MSB3703", engine.Log);
             }
 
             CleanUp(dir);
@@ -706,7 +702,7 @@ namespace Microsoft.Build.UnitTests
                 t.XslInputPath = xslPath;
                 Assert.False(t.Execute()); // "This test should've failed (bad xslt)."
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3704"));
+                Assert.Contains("MSB3704", engine.Log);
             }
 
             CleanUp(dir);
@@ -738,8 +734,7 @@ namespace Microsoft.Build.UnitTests
                 t.XslCompiledDllPath = xslCompiledPath;
                 Assert.False(t.Execute()); // "XsltComiledDllBad execution should've failed"
                 Console.WriteLine(engine.Log);
-                Assert.True(engine.Log.Contains("MSB3704"));
-                System.Diagnostics.Debug.WriteLine(engine.Log);
+                Assert.Contains("MSB3704", engine.Log);
             }
 
             CleanUp(dir);
@@ -776,7 +771,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 catch (Exception e)
                 {
-                    Assert.True(e.Message.Contains("'<'"));
+                    Assert.Contains("'<'", e.Message);
                 }
             }
 
@@ -814,7 +809,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 catch (Exception e)
                 {
-                    Assert.True(e.Message.Contains("MSB3701"));
+                    Assert.Contains("MSB3701", e.Message);
                 }
             }
 
@@ -851,7 +846,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 catch (Exception e)
                 {
-                    Assert.True(e.Message.Contains("error?"));
+                    Assert.Contains("error?", e.Message);
                 }
             }
 
@@ -890,7 +885,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 catch (Exception e)
                 {
-                    Assert.True(e.Message.Contains("error?"));
+                    Assert.Contains("error?", e.Message);
                 }
 
                 System.Diagnostics.Debug.WriteLine(engine.Log);

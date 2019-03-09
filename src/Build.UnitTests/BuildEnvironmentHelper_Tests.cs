@@ -59,9 +59,78 @@ namespace Microsoft.Build.Engine.UnitTests
             }
         }
 
+        /// <summary>
+        /// If MSBUILD_EXE_PATH is explicitly set, we should detect it as a VisualStudio instance even in older scenarios
+        /// (for example when the install path is under 15.0).
+        /// </summary>
+        /// <param name="is64BitMSbuild">When true, run the test pointing to amd64 msbuild.exe.</param>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void FindVisualStudioEnvironmentByEnvironmentVariable(bool is64BitMSbuild)
+        {
+            using (var env = new EmptyVSEnviroment())
+            {
+                var msbuildBinDirectory = is64BitMSbuild
+                    ? Path.Combine(env.BuildDirectory, "amd64")
+                    : env.BuildDirectory;
+
+                var msBuildPath = Path.Combine(msbuildBinDirectory, MSBuildExeName);
+                var msBuildConfig = Path.Combine(msbuildBinDirectory, $"{MSBuildExeName}.config");
+                var vsMSBuildDirectory = Path.Combine(env.TempFolderRoot, "MSBuild");
+
+                env.WithEnvironment("MSBUILD_EXE_PATH", msBuildPath);
+                BuildEnvironmentHelper.ResetInstance_ForUnitTestsOnly(ReturnNull, ReturnNull, ReturnNull, env.VsInstanceMock, env.EnvironmentMock, () => false);
+
+                BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                BuildEnvironmentHelper.Instance.MSBuildExtensionsPath.ShouldBe(vsMSBuildDirectory);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildToolsDirectory.ShouldBe(msbuildBinDirectory);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildExePath.ShouldBe(msBuildPath);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildConfigurationFile.ShouldBe(msBuildConfig);
+                // This code is not running inside the Visual Studio devenv.exe process
+                BuildEnvironmentHelper.Instance.RunningInVisualStudio.ShouldBeFalse();
+                BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
+                BuildEnvironmentHelper.Instance.RunningTests.ShouldBeFalse();
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void FindOlderVisualStudioEnvironmentByEnvironmentVariable(bool is64BitMSbuild)
+        {
+            using (var env = new EmptyVSEnviroment("15.0"))
+            {
+                var msbuildBinDirectory = is64BitMSbuild
+                    ? Path.Combine(env.BuildDirectory, "amd64")
+                    : env.BuildDirectory;
+
+                var msBuildPath = Path.Combine(msbuildBinDirectory, MSBuildExeName);
+                var msBuildConfig = Path.Combine(msbuildBinDirectory, $"{MSBuildExeName}.config");
+                var vsMSBuildDirectory = Path.Combine(env.TempFolderRoot, "MSBuild");
+
+                env.WithEnvironment("MSBUILD_EXE_PATH", msBuildPath);
+                BuildEnvironmentHelper.ResetInstance_ForUnitTestsOnly(ReturnNull, ReturnNull, ReturnNull, env.VsInstanceMock, env.EnvironmentMock, () => false);
+
+                BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                BuildEnvironmentHelper.Instance.MSBuildExtensionsPath.ShouldBe(vsMSBuildDirectory);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildToolsDirectory.ShouldBe(msbuildBinDirectory);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildExePath.ShouldBe(msBuildPath);
+                BuildEnvironmentHelper.Instance.CurrentMSBuildConfigurationFile.ShouldBe(msBuildConfig);
+                // This code is not running inside the Visual Studio devenv.exe process
+                BuildEnvironmentHelper.Instance.RunningInVisualStudio.ShouldBeFalse();
+                BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
+                BuildEnvironmentHelper.Instance.RunningTests.ShouldBeFalse();
+            }
+        }
+
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void FindBuildEnvironmentFromCommandLineVisualStudio()
         {
             using (var env = new EmptyVSEnviroment())
@@ -95,8 +164,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void FindBuildEnvironmentFromRunningProcessVisualStudio()
         {
             using (var env = new EmptyVSEnviroment())
@@ -166,8 +235,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void FindBuildEnvironmentFromVisualStudioRoot()
         {
             using (var env = new EmptyVSEnviroment())
@@ -184,25 +253,36 @@ namespace Microsoft.Build.Engine.UnitTests
             }
         }
 
-        [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
-        public void BuildEnvironmentDetectsVisualStudioByEnvironment()
+        [Theory]
+        [InlineData(MSBuildConstants.CurrentVisualStudioVersion, true)]
+        [InlineData("15.0", false)]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void BuildEnvironmentDetectsVisualStudioByEnvironment(string visualStudioVersion, bool shouldBeValid)
         {
             using (var env = new EmptyVSEnviroment())
             {
                 env.WithEnvironment("VSINSTALLDIR", env.TempFolderRoot);
-                env.WithEnvironment("VisualStudioVersion", "15.0");
+                env.WithEnvironment("VisualStudioVersion", visualStudioVersion);
                 BuildEnvironmentHelper.ResetInstance_ForUnitTestsOnly(ReturnNull, ReturnNull, ReturnNull, env.VsInstanceMock, env.EnvironmentMock, () => false);
 
-                BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
-                BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                if (shouldBeValid)
+                {
+                    BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
+                    BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                }
+                else
+                {
+                    // Ensure that no VS instance was found (older versions that shouldn't be discovered).
+                    BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBeNull();
+                    BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.None);
+                }
             }
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentDetectsVisualStudioByMSBuildProcess()
         {
             using (var env = new EmptyVSEnviroment())
@@ -216,8 +296,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentDetectsVisualStudioByMSBuildProcessAmd64()
         {
             using (var env = new EmptyVSEnviroment())
@@ -231,11 +311,12 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Theory]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
-        [InlineData("15.0")]
-        [InlineData("15.3")]
-        public void BuildEnvironmentDetectsVisualStudioFromSetupInstance(string visualStudioVersion)
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        [InlineData("16.0", true)]
+        [InlineData("16.3", true)]
+        [InlineData("15.0", false)]
+        public void BuildEnvironmentDetectsVisualStudioFromSetupInstance(string visualStudioVersion, bool shouldBeValid)
         {
             using (var env = new EmptyVSEnviroment())
             {
@@ -245,8 +326,17 @@ namespace Microsoft.Build.Engine.UnitTests
                 // This test has no context to find MSBuild other than Visual Studio root.
                 BuildEnvironmentHelper.ResetInstance_ForUnitTestsOnly(ReturnNull, ReturnNull, ReturnNull, env.VsInstanceMock, env.EnvironmentMock, () => false);
 
-                BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
-                BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                if (shouldBeValid)
+                {
+                    BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBe(env.TempFolderRoot);
+                    BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.VisualStudio);
+                }
+                else
+                {
+                    // Ensure that no VS instance was found (older versions that shouldn't be discovered).
+                    BuildEnvironmentHelper.Instance.VisualStudioInstallRootDirectory.ShouldBeNull();
+                    BuildEnvironmentHelper.Instance.Mode.ShouldBe(BuildEnvironmentMode.None);
+                }
             }
         }
 
@@ -274,8 +364,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentDetectsVisualStudioByProcessName()
         {
             using (var env = new EmptyVSEnviroment())
@@ -289,8 +379,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentDetectsVisualStudioByBlendProcess()
         {
             using (var env = new EmptyVSEnviroment())
@@ -304,8 +394,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentFindsAmd64()
         {
             using (var env = new EmptyVSEnviroment())
@@ -320,8 +410,7 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentFindsAmd64RunningInAmd64NoVS()
         {
             using (var env = new EmptyStandaloneEnviroment(MSBuildExeName, writeFakeFiles:true, includeAmd64Folder:true))
@@ -338,8 +427,7 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentFindsAmd64NoVS()
         {
             using (var env = new EmptyStandaloneEnviroment(MSBuildExeName, writeFakeFiles: true, includeAmd64Folder: true))
@@ -354,8 +442,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentFindsAmd64RunningInAmd64()
         {
             using (var env = new EmptyVSEnviroment())
@@ -386,8 +474,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentVSFromMSBuildAssembly()
         {
             using (var env = new EmptyVSEnviroment())
@@ -405,8 +493,8 @@ namespace Microsoft.Build.Engine.UnitTests
         }
 
         [Fact]
-        [Trait("Category", "nonlinuxtests")]
-        [Trait("Category", "nonosxtests")]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Netcoreapp, "No Visual Studio install for netcore")]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BuildEnvironmentVSFromMSBuildAssemblyAmd64()
         {
             using (var env = new EmptyVSEnviroment())
@@ -438,12 +526,12 @@ namespace Microsoft.Build.Engine.UnitTests
 
             public string MSBuildExePath64 => Path.Combine(BuildDirectory64, MSBuildExeName);
 
-            public EmptyVSEnviroment() : base("msbuild.exe", false)
+            public EmptyVSEnviroment(string toolsVersion = MSBuildConstants.CurrentToolsVersion) : base("MSBuild.exe", false)
             {
                 try
                 {
                     var files = new[] { "msbuild.exe", "msbuild.exe.config" };
-                    BuildDirectory = Path.Combine(TempFolderRoot, "MSBuild", "15.0", "Bin");
+                    BuildDirectory = Path.Combine(TempFolderRoot, "MSBuild", toolsVersion, "Bin");
                     BuildDirectory64 = Path.Combine(BuildDirectory, "amd64");
                     DevEnvPath = Path.Combine(TempFolderRoot, "Common7", "IDE", "devenv.exe");
                     BlendPath = Path.Combine(TempFolderRoot, "Common7", "IDE", "blend.exe");

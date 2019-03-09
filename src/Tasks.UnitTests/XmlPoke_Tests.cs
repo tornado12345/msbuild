@@ -1,10 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// <copyright file="XslTransformation_Tests.cs" company="Microsoft">
-// Copyright (c) 2015 All Right Reserved
-// </copyright>
-// <date>2008-12-28</date>
-// <summary>The unit tests for XslTransformation buildtask.</summary>
 
 using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
@@ -176,11 +171,11 @@ namespace Microsoft.Build.UnitTests
             p.XmlInputPath = new TaskItem(xmlInputPath);
             p.Query = "//s:variable/@Name";
             p.Namespaces = "<!THIS IS ERROR Namespace Prefix=\"s\" Uri=\"http://nsurl\" />";
-            Assert.True(p.Namespaces.Equals("<!THIS IS ERROR Namespace Prefix=\"s\" Uri=\"http://nsurl\" />"));
+            Assert.Equal("<!THIS IS ERROR Namespace Prefix=\"s\" Uri=\"http://nsurl\" />", p.Namespaces);
             p.Value = new TaskItem("Nur");
 
             bool executeResult = p.Execute();
-            Assert.True(engine.Log.Contains("MSB3731"));
+            Assert.Contains("MSB3731", engine.Log);
             Assert.False(executeResult); // "Execution should've failed"
         }
 

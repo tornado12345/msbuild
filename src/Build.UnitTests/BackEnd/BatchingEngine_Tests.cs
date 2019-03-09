@@ -13,7 +13,7 @@ using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using System.Collections.Generic;
-
+using Microsoft.Build.Shared.FileSystem;
 using InvalidProjectFileException = Microsoft.Build.Exceptions.InvalidProjectFileException;
 using ProjectItemInstanceFactory = Microsoft.Build.Execution.ProjectItemInstance.TaskItem.ProjectItemInstanceFactory;
 using Xunit;
@@ -63,7 +63,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 XmlAttribute tempXmlAttribute = (new XmlDocument()).CreateAttribute("attrib");
                 tempXmlAttribute.Value = "'$(Obj)'=='obj'";
 
-                Assert.True(ConditionEvaluator.EvaluateCondition(tempXmlAttribute.Value, ParserOptions.AllowAll, bucket.Expander, ExpanderOptions.ExpandAll, Directory.GetCurrentDirectory(), MockElementLocation.Instance, null, new BuildEventContext(1, 2, 3, 4)));
+                Assert.True(ConditionEvaluator.EvaluateCondition(tempXmlAttribute.Value, ParserOptions.AllowAll, bucket.Expander, ExpanderOptions.ExpandAll, Directory.GetCurrentDirectory(), MockElementLocation.Instance, null, new BuildEventContext(1, 2, 3, 4), FileSystems.Default));
                 Assert.Equal("a.doc;b.doc;c.doc;d.doc;e.doc", bucket.Expander.ExpandIntoStringAndUnescape("@(doc)", ExpanderOptions.ExpandItems, MockElementLocation.Instance));
                 Assert.Equal("unittests.foo", bucket.Expander.ExpandIntoStringAndUnescape("$(bogus)$(UNITTESTS)", ExpanderOptions.ExpandPropertiesAndMetadata, MockElementLocation.Instance));
             }
@@ -78,7 +78,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             ProjectItemInstanceFactory factory = new ProjectItemInstanceFactory(project, "i");
             items = buckets[0].Expander.ExpandIntoItemsLeaveEscaped("@(file)", factory, ExpanderOptions.ExpandItems, MockElementLocation.Instance);
             Assert.NotNull(items);
-            Assert.Equal(1, items.Count);
+            Assert.Single(items);
 
             int invalidProjectFileExceptions = 0;
             try
@@ -91,14 +91,14 @@ namespace Microsoft.Build.UnitTests.BackEnd
             catch (InvalidProjectFileException ex)
             {
                 // check we don't lose error codes from IPFE's during build
-                Assert.Equal(ex.ErrorCode, "MSB4012");
+                Assert.Equal("MSB4012", ex.ErrorCode);
                 invalidProjectFileExceptions++;
             }
 
             // We do allow separators in item vectors, this results in an item group with a single flattened item
             items = buckets[0].Expander.ExpandIntoItemsLeaveEscaped("@(file, ',')", factory, ExpanderOptions.ExpandItems, MockElementLocation.Instance);
             Assert.NotNull(items);
-            Assert.Equal(1, items.Count);
+            Assert.Single(items);
             Assert.Equal("a.foo", items[0].EvaluatedInclude);
 
             Assert.Equal(1, invalidProjectFileExceptions);
@@ -165,7 +165,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
                 // This is expected to throw because not all items contain a value for metadata "Culture".
                 // Only a.foo has a Culture metadata.  b.foo does not.
-                List<ItemBucket> buckets = BatchingEngine.PrepareBatchingBuckets(parameters, CreateLookup(itemsByType, properties), MockElementLocation.Instance);
+                BatchingEngine.PrepareBatchingBuckets(parameters, CreateLookup(itemsByType, properties), MockElementLocation.Instance);
             }
            );
         }
@@ -187,7 +187,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 PropertyDictionary<ProjectPropertyInstance> properties = new PropertyDictionary<ProjectPropertyInstance>();
 
                 // This is expected to throw because we have no idea what item list %(Culture) refers to.
-                List<ItemBucket> buckets = BatchingEngine.PrepareBatchingBuckets(parameters, CreateLookup(itemsByType, properties), MockElementLocation.Instance);
+                BatchingEngine.PrepareBatchingBuckets(parameters, CreateLookup(itemsByType, properties), MockElementLocation.Instance);
             }
            );
         }
@@ -218,7 +218,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
             // If duplicate buckets have been folded correctly, then there will be exactly one bucket here
             // containing both a.foo and b.foo.
-            Assert.Equal(1, buckets.Count);
+            Assert.Single(buckets);
         }
 
         [Fact]
@@ -393,7 +393,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             MockLogger log = Helpers.BuildProjectWithNewOMExpectSuccess(content);
 
             Assert.Equal("high", log.Warnings[0].Code);
-            Assert.Equal(null, log.Warnings[1].Code);
+            Assert.Null(log.Warnings[1].Code);
         }
 
 
@@ -468,7 +468,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
         private static Lookup CreateLookup(ItemDictionary<ProjectItemInstance> itemsByType, PropertyDictionary<ProjectPropertyInstance> properties)
         {
-            return new Lookup(itemsByType, properties, null);
+            return new Lookup(itemsByType, properties);
         }
     }
 }

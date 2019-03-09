@@ -2,15 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
 using Microsoft.Build.Shared;
-using System.Diagnostics;
 using System.Threading;
 using Microsoft.Build.Evaluation;
-using Microsoft.Build.Framework;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Collections;
 
@@ -84,30 +80,20 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         private Dictionary<ProjectItemInstance, ProjectItemInstance> _cloneTable;
 
-        /// <summary>
-        /// A dictionary of named values for debugger display only. If 
-        /// not debugging, this should be null.
-        /// </summary>
-        private IDictionary<string, object> _globalsForDebugging;
-
         #endregion
 
         #region Constructors
 
         /// <summary>
         /// Construct a lookup over specified items and properties.
-        /// Accept a dictionary of named values for debugger display only. If 
-        /// not debugging, this should be null.
         /// </summary>
-        internal Lookup(ItemDictionary<ProjectItemInstance> projectItems, PropertyDictionary<ProjectPropertyInstance> properties, IDictionary<string, object> globalsForDebugging)
+        internal Lookup(ItemDictionary<ProjectItemInstance> projectItems, PropertyDictionary<ProjectPropertyInstance> properties)
         {
             ErrorUtilities.VerifyThrowInternalNull(projectItems, "projectItems");
             ErrorUtilities.VerifyThrowInternalNull(properties, "properties");
 
             Lookup.Scope scope = new Lookup.Scope(this, "Lookup()", projectItems, properties);
             _lookupScopes.AddFirst(scope);
-
-            _globalsForDebugging = globalsForDebugging;
         }
 
         /// <summary>
@@ -124,8 +110,6 @@ namespace Microsoft.Build.BackEnd
             // Clones need to share an (item)clone table; the batching engine asks for items from the lookup,
             // then populates buckets with them, which have clone lookups.
             _cloneTable = that._cloneTable;
-
-            _globalsForDebugging = that._globalsForDebugging;
         }
 
         #endregion
@@ -201,15 +185,6 @@ namespace Microsoft.Build.BackEnd
             set { _lookupScopes.First.Next.Value.PropertySets = value; }
         }
 
-        /// <summary>
-        /// A dictionary of named values for debugger display only. If 
-        /// not debugging, this should be null.
-        /// </summary>
-        internal IDictionary<string, object> GlobalsForDebugging
-        {
-            get { return _globalsForDebugging; }
-        }
-
         #endregion
 
         #region Internal Methods
@@ -241,7 +216,7 @@ namespace Microsoft.Build.BackEnd
                         {
                             errorMessages = new List<string>();
                         }
-                        errorMessages.Add(ResourceUtilities.FormatResourceString("PropertyOutputOverridden", propertyName, EscapingUtilities.UnescapeAll(lookupHash[propertyName]), property.EvaluatedValue));
+                        errorMessages.Add(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("PropertyOutputOverridden", propertyName, EscapingUtilities.UnescapeAll(lookupHash[propertyName]), property.EvaluatedValue));
                     }
 
                     // Set the value of the hash to the new property value
@@ -1037,7 +1012,7 @@ namespace Microsoft.Build.BackEnd
             /// <summary>
             /// A set of explicitly-specified modifications.
             /// </summary>
-            private HybridDictionary<string, MetadataModification> _modifications;
+            private Dictionary<string, MetadataModification> _modifications;
 
             /// <summary>
             /// Constructor.
@@ -1047,7 +1022,7 @@ namespace Microsoft.Build.BackEnd
             public MetadataModifications(bool keepOnlySpecified)
             {
                 _keepOnlySpecified = keepOnlySpecified;
-                _modifications = new HybridDictionary<string, MetadataModification>(MSBuildNameIgnoreCaseComparer.Default);
+                _modifications = new Dictionary<string, MetadataModification>(MSBuildNameIgnoreCaseComparer.Default);
             }
 
             /// <summary>
@@ -1057,7 +1032,7 @@ namespace Microsoft.Build.BackEnd
             private MetadataModifications(MetadataModifications other)
             {
                 _keepOnlySpecified = other._keepOnlySpecified;
-                _modifications = new HybridDictionary<string, MetadataModification>(other._modifications, MSBuildNameIgnoreCaseComparer.Default);
+                _modifications = new Dictionary<string, MetadataModification>(other._modifications, MSBuildNameIgnoreCaseComparer.Default);
             }
 
             /// <summary>

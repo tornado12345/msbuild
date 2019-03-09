@@ -2,14 +2,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Shared.FileSystem;
 using Microsoft.Build.Utilities;
 using ProcessorArchitecture = System.Reflection.ProcessorArchitecture;
 
@@ -128,7 +126,7 @@ namespace Microsoft.Build.Tasks.AssemblyFoldersFromConfig
                     {
                         // This should never happen. Microsoft.Common.CurrentVersion.targets will not specify a AssemblyFoldersFromConfig search path
                         // if the specified (or default) file is not found.
-                        ErrorUtilities.VerifyThrow(File.Exists(_assemblyFolderConfigFile),
+                        ErrorUtilities.VerifyThrow(FileSystems.Default.FileExists(_assemblyFolderConfigFile),
                             $"The AssemblyFolders config file specified does not exist: {_assemblyFolderConfigFile}");
 
                         try
@@ -177,7 +175,7 @@ namespace Microsoft.Build.Tasks.AssemblyFoldersFromConfig
             string[] executableExtensions,
             string hintPath,
             string assemblyFolderKey,
-            ArrayList assembliesConsideredAndRejected,
+            List<ResolutionSearchLocation> assembliesConsideredAndRejected,
             out string foundPath,
             out bool userRequestedSpecificFile
         )

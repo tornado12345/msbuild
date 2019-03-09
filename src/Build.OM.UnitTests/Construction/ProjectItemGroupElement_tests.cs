@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Test the ProjectItemGroupElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -31,7 +27,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectRootElement project = ProjectRootElement.Create();
             Assert.Equal(0, Helpers.Count(project.Children));
-            Assert.Equal(null, project.ItemGroups.GetEnumerator().Current);
+            Assert.Null(project.ItemGroups.GetEnumerator().Current);
         }
 
         /// <summary>
@@ -91,7 +87,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             itemGroup.Condition = "c";
 
             Assert.Equal("c", itemGroup.Condition);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -108,7 +104,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             itemGroup.Label = "c";
 
             Assert.Equal("c", itemGroup.Label);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
     }
 }

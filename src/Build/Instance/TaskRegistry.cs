@@ -1,12 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Consults stored task declarations (from UsingTask tags) to return the appropriate Type for a requested task name.</summary>
-//-----------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +19,7 @@ using TaskEngineAssemblyResolver = Microsoft.Build.BackEnd.Logging.TaskEngineAss
 using ProjectXmlUtilities = Microsoft.Build.Internal.ProjectXmlUtilities;
 using TargetLoggingContext = Microsoft.Build.BackEnd.Logging.TargetLoggingContext;
 using System.Collections.ObjectModel;
+using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Execution
 {
@@ -52,7 +48,7 @@ namespace Microsoft.Build.Execution
     ///            AssemblyName="utiltasks.dll"
     ///            AssemblyFile="$(MyDownloadedTasks)\"/&gt;
     /// </example>
-    internal sealed class TaskRegistry : INodePacketTranslatable
+    internal sealed class TaskRegistry : ITranslatable
     {
         /// <summary>
         /// The fallback task registry
@@ -136,7 +132,7 @@ namespace Microsoft.Build.Execution
         /// Value is a dictionary of all possible matches for that 
         /// task name, by unique identity.
         /// </summary>
-        private Dictionary<string, HybridDictionary<RegisteredTaskIdentity, RegisteredTaskRecord>> _cachedTaskRecordsWithFuzzyMatch;
+        private Dictionary<string, Dictionary<RegisteredTaskIdentity, RegisteredTaskRecord>> _cachedTaskRecordsWithFuzzyMatch;
 
         /// <summary>
         /// Cache of task declarations i.e. the &lt;UsingTask&gt; tags fed to this registry,
@@ -226,7 +222,8 @@ namespace Microsoft.Build.Execution
             ProjectUsingTaskElement projectUsingTaskXml,
             TaskRegistry taskRegistry,
             Expander<P, I> expander,
-            ExpanderOptions expanderOptions
+            ExpanderOptions expanderOptions,
+            IFileSystem fileSystem
             )
             where P : class, IProperty
             where I : class, IItem
@@ -242,7 +239,8 @@ namespace Microsoft.Build.Execution
                 projectUsingTaskXml.ContainingProject.DirectoryPath,
                 projectUsingTaskXml.ConditionLocation,
                 loggingService,
-                buildEventContext
+                buildEventContext,
+                fileSystem
                 ))
             {
                 return;
@@ -323,12 +321,12 @@ namespace Microsoft.Build.Execution
                     if (
                             assemblyFile != null &&
                             (assemblyFile.EndsWith(s_tasksV4Filename, StringComparison.OrdinalIgnoreCase) || assemblyFile.EndsWith(s_tasksV12Filename, StringComparison.OrdinalIgnoreCase)) &&
-                            !FileUtilities.FileExistsNoThrow(assemblyFile)
+                            !FileUtilities.FileExistsNoThrow(assemblyFile, fileSystem)
                         )
                     {
                         string replacedAssemblyFile = Path.Combine(Path.GetDirectoryName(assemblyFile), s_tasksCoreFilename);
 
-                        if (FileUtilities.FileExistsNoThrow(replacedAssemblyFile))
+                        if (FileUtilities.FileExistsNoThrow(replacedAssemblyFile, fileSystem))
                         {
                             assemblyFile = replacedAssemblyFile;
                         }
@@ -342,8 +340,8 @@ namespace Microsoft.Build.Execution
                         if
                             (
                                 assemblyName.Equals(s_tasksV4SimpleName, StringComparison.OrdinalIgnoreCase) &&
-                                !FileUtilities.FileExistsNoThrow(s_potentialTasksV4Location) &&
-                                FileUtilities.FileExistsNoThrow(s_potentialTasksCoreLocation)
+                                !FileUtilities.FileExistsNoThrow(s_potentialTasksV4Location, fileSystem) &&
+                                FileUtilities.FileExistsNoThrow(s_potentialTasksCoreLocation, fileSystem)
                             )
                         {
                             assemblyName = s_tasksCoreSimpleName;
@@ -351,8 +349,8 @@ namespace Microsoft.Build.Execution
                         else if
                             (
                                 assemblyName.Equals(s_tasksV12SimpleName, StringComparison.OrdinalIgnoreCase) &&
-                                !FileUtilities.FileExistsNoThrow(s_potentialTasksV12Location) &&
-                                FileUtilities.FileExistsNoThrow(s_potentialTasksCoreLocation)
+                                !FileUtilities.FileExistsNoThrow(s_potentialTasksV12Location, fileSystem) &&
+                                FileUtilities.FileExistsNoThrow(s_potentialTasksCoreLocation, fileSystem)
                             )
                         {
                             assemblyName = s_tasksCoreSimpleName;
@@ -491,7 +489,7 @@ namespace Microsoft.Build.Execution
                 }
                 else
                 {
-                    HybridDictionary<RegisteredTaskIdentity, RegisteredTaskRecord> taskRecords;
+                    Dictionary<RegisteredTaskIdentity, RegisteredTaskRecord> taskRecords;
 
                     if (_cachedTaskRecordsWithFuzzyMatch != null && _cachedTaskRecordsWithFuzzyMatch.TryGetValue(taskIdentity.Name, out taskRecords))
                     {
@@ -559,7 +557,7 @@ namespace Microsoft.Build.Execution
             }
             else
             {
-                _cachedTaskRecordsWithFuzzyMatch = _cachedTaskRecordsWithFuzzyMatch ?? new Dictionary<string, HybridDictionary<RegisteredTaskIdentity, RegisteredTaskRecord>>(StringComparer.OrdinalIgnoreCase);
+                _cachedTaskRecordsWithFuzzyMatch = _cachedTaskRecordsWithFuzzyMatch ?? new Dictionary<string, Dictionary<RegisteredTaskIdentity, RegisteredTaskRecord>>(StringComparer.OrdinalIgnoreCase);
 
                 // Since this is a fuzzy match, we could conceivably have several sets of task identity parameters that match
                 // each other ... but might be mutually exclusive themselves.  E.g. CLR4|x86 and CLR2|x64 both match *|*.  
@@ -575,10 +573,10 @@ namespace Microsoft.Build.Execution
                 // 3. Look up Foo | baz (gets its own entry because it doesn't match Foo | bar)
                 // 4. Look up Foo | * (should get the Foo | * under Foo | bar, but depending on what the dictionary looks up 
                 //    first, might get Foo | baz, which also matches, instead) 
-                HybridDictionary<RegisteredTaskIdentity, RegisteredTaskRecord> taskRecords;
+                Dictionary<RegisteredTaskIdentity, RegisteredTaskRecord> taskRecords;
                 if (!_cachedTaskRecordsWithFuzzyMatch.TryGetValue(taskIdentity.Name, out taskRecords))
                 {
-                    taskRecords = new HybridDictionary<RegisteredTaskIdentity, RegisteredTaskRecord>(RegisteredTaskIdentity.RegisteredTaskIdentityComparer.Exact);
+                    taskRecords = new Dictionary<RegisteredTaskIdentity, RegisteredTaskRecord>(RegisteredTaskIdentity.RegisteredTaskIdentityComparer.Exact);
                 }
 
                 taskRecords[taskIdentity] = taskRecord;
@@ -702,7 +700,7 @@ namespace Microsoft.Build.Execution
         /// the set of identity parameters
         /// </summary>
         [DebuggerDisplay("{Name} ParameterCount = {TaskIdentityParameters.Count}")]
-        internal class RegisteredTaskIdentity : INodePacketTranslatable
+        internal class RegisteredTaskIdentity : ITranslatable
         {
             private string _name;
             private IDictionary<string, string> _taskIdentityParameters;
@@ -968,7 +966,7 @@ namespace Microsoft.Build.Execution
                 }
             }
 
-            public void Translate(INodePacketTranslator translator)
+            public void Translate(ITranslator translator)
             {
                 translator.Translate(ref _name);
 
@@ -985,7 +983,7 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// A record for a task registration which also contains the factory which matches the record
         /// </summary>
-        internal class RegisteredTaskRecord : INodePacketTranslatable
+        internal class RegisteredTaskRecord : ITranslatable
         {
             /// <summary>
             /// Default task factory to use if one is not specified
@@ -1487,7 +1485,7 @@ namespace Microsoft.Build.Execution
             /// <summary>
             /// Keep track of the xml which will be sent to the inline task factory and the parameters if any which will also be passed in
             /// </summary>
-            internal class ParameterGroupAndTaskElementRecord : INodePacketTranslatable
+            internal class ParameterGroupAndTaskElementRecord : ITranslatable
             {
                 /// <summary>
                 /// The list of parameters found in the using task along with a corosponding UsingTaskParameterInfo which contains the specific information about it
@@ -1700,7 +1698,7 @@ namespace Microsoft.Build.Execution
                     }
                 }
 
-                public void Translate(INodePacketTranslator translator)
+                public void Translate(ITranslator translator)
                 {
                     translator.Translate(ref _inlineTaskXmlBody);
                     translator.Translate(ref _taskBodyEvaluated);
@@ -1709,13 +1707,13 @@ namespace Microsoft.Build.Execution
                 }
 
                 // todo move to nested function after C# 7
-                private static void TranslatorForTaskParametersKey(ref string key, INodePacketTranslator translator)
+                private static void TranslatorForTaskParametersKey(ref string key, ITranslator translator)
                 {
                     translator.Translate(ref key);
                 }
 
                 // todo move to nested function after C# 7
-                private static void TranslatorForTaskParameterValue(ref TaskPropertyInfo taskPropertyInfo, INodePacketTranslator translator)
+                private static void TranslatorForTaskParameterValue(ref TaskPropertyInfo taskPropertyInfo, ITranslator translator)
                 {
                     string name = null;
                     string propertyTypeName = null;
@@ -1745,7 +1743,7 @@ namespace Microsoft.Build.Execution
                 }
             }
 
-            public void Translate(INodePacketTranslator translator)
+            public void Translate(ITranslator translator)
             {
                 translator.Translate(ref _taskIdentity);
                 translator.Translate(ref _registeredName);
@@ -1762,7 +1760,7 @@ namespace Microsoft.Build.Execution
                 }
             }
 
-            internal static RegisteredTaskRecord FactoryForDeserialization(INodePacketTranslator translator)
+            internal static RegisteredTaskRecord FactoryForDeserialization(ITranslator translator)
             {
                 var instance = new RegisteredTaskRecord();
                 instance.Translate(translator);
@@ -1771,7 +1769,7 @@ namespace Microsoft.Build.Execution
             }
         }
 
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.Translate(ref _toolset, Toolset.FactoryForDeserialization);
 
@@ -1785,18 +1783,18 @@ namespace Microsoft.Build.Execution
         }
 
         //todo make nested after C# 7
-        void TranslateTaskRegistrationKey(ref RegisteredTaskIdentity taskIdentity, INodePacketTranslator translator)
+        void TranslateTaskRegistrationKey(ref RegisteredTaskIdentity taskIdentity, ITranslator translator)
         {
             translator.Translate(ref taskIdentity);
         }
 
         //todo make nested after C# 7
-        void TranslateTaskRegistrationValue(ref List<RegisteredTaskRecord> taskRecords, INodePacketTranslator translator)
+        void TranslateTaskRegistrationValue(ref List<RegisteredTaskRecord> taskRecords, ITranslator translator)
         {
             translator.Translate(ref taskRecords, RegisteredTaskRecord.FactoryForDeserialization);
         }
 
-        public static TaskRegistry FactoryForDeserialization(INodePacketTranslator translator)
+        public static TaskRegistry FactoryForDeserialization(ITranslator translator)
         {
             var instance = new TaskRegistry();
             instance.Translate(translator);

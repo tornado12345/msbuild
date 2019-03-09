@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Test the ProjectPropertyGroupElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System.IO;
 using System.Xml;
@@ -25,7 +21,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectRootElement project = ProjectRootElement.Create();
             Assert.Equal(0, Helpers.Count(project.Children));
-            Assert.Equal(null, project.PropertyGroups.GetEnumerator().Current);
+            Assert.Null(project.PropertyGroups.GetEnumerator().Current);
         }
 
         /// <summary>
@@ -84,7 +80,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             propertyGroup.Condition = "c";
 
             Assert.Equal("c", propertyGroup.Condition);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -101,7 +97,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             propertyGroup.Label = "c";
 
             Assert.Equal("c", propertyGroup.Label);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>

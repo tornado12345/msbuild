@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Packet describing why a node shut down..</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -107,7 +103,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Serializes or deserializes a packet.
         /// </summary>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.TranslateEnum(ref _reason, (int)_reason);
             translator.TranslateException(ref _exception);
@@ -116,7 +112,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Factory method for deserialization
         /// </summary>
-        internal static NodeShutdown FactoryForDeserialization(INodePacketTranslator translator)
+        internal static NodeShutdown FactoryForDeserialization(ITranslator translator)
         {
             NodeShutdown shutdown = new NodeShutdown();
             shutdown.Translate(translator);

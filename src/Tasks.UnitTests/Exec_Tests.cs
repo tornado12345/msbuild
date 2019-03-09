@@ -81,7 +81,7 @@ namespace Microsoft.Build.UnitTests
             Exec exec = PrepareExec(NativeMethodsShared.IsWindows ? "xcopy thisisanonexistentfile" : "cp thisisanonexistentfile thatisanonexistentfile");
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             Assert.Equal(NativeMethodsShared.IsWindows ? 4 : 1, exec.ExitCode);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB3073");
             if (!NativeMethodsShared.IsWindows)
@@ -93,18 +93,14 @@ namespace Microsoft.Build.UnitTests
         [Fact]
         public void Timeout()
         {
-            // On non-Windows the exit code of a killed sh should be
-            // SIGTERM (15) + exited-due-to-signal (128) = 143.
-            // On .NET Core 2.1 preview2 + High Sierra it's consistently
-            // just 128 for some reason.
-            int expectedExitCode = NativeMethodsShared.IsWindows ? -1 :
-                    (NativeMethodsShared.IsOSX && !NativeMethodsShared.IsMono) ? 128 : 143;
+            // On non-Windows the exit code of a killed process is SIGTERM (143)
+            int expectedExitCode = NativeMethodsShared.IsWindows ? -1 : 143;
 
             Exec exec = PrepareExec(NativeMethodsShared.IsWindows ? ":foo \n goto foo" : "while true; do sleep 1; done");
             exec.Timeout = 5;
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             Assert.Equal(expectedExitCode, exec.ExitCode);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB5002");
             Assert.Equal(1, ((MockEngine)exec.BuildEngine).Warnings);
@@ -120,7 +116,7 @@ namespace Microsoft.Build.UnitTests
             var exec = PrepareExec("echo hello\r\n\r\n");
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
             Assert.Equal(0, exec.ExitCode);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Warnings);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Errors);
@@ -132,7 +128,7 @@ namespace Microsoft.Build.UnitTests
         public void ExitCodeGetter()
         {
             Exec exec = PrepareExec("exit 120");
-            bool result = exec.Execute();
+            exec.Execute();
 
             Assert.Equal(120, exec.ExitCode);
         }
@@ -148,7 +144,7 @@ namespace Microsoft.Build.UnitTests
             Exec exec = PrepareExec(cmdLine);
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             // Exitcode is set to -1
             Assert.Equal(-1, exec.ExitCode);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB3073");
@@ -165,7 +161,7 @@ namespace Microsoft.Build.UnitTests
             exec.IgnoreExitCode = true;
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
         }
 
         [Fact]
@@ -175,10 +171,9 @@ namespace Microsoft.Build.UnitTests
             exec.IgnoreExitCode = true;
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
         }
 
-#if FEATURE_SPECIAL_FOLDERS
         [Fact]
         public void NonUNCWorkingDirectoryUsed()
         {
@@ -188,7 +183,7 @@ namespace Microsoft.Build.UnitTests
             exec.WorkingDirectory = working;
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("[" + working + "]");
         }
 
@@ -201,8 +196,8 @@ namespace Microsoft.Build.UnitTests
             exec.WorkingDirectory = working;
             bool result = exec.ValidateParametersAccessor();
 
-            Assert.Equal(true, result);
-            Assert.Equal(true, exec.workingDirectoryIsUNC);
+            Assert.True(result);
+            Assert.True(exec.workingDirectoryIsUNC);
             Assert.Equal(working, exec.WorkingDirectory);
             // Should give ToolTask the system folder as the working directory, when it's a UNC
             string system = Environment.GetFolderPath(Environment.SpecialFolder.System);
@@ -223,7 +218,7 @@ namespace Microsoft.Build.UnitTests
                 bool result = exec.Execute();
 
                 string expected = Directory.GetCurrentDirectory();
-                Assert.Equal(true, result);
+                Assert.True(result);
                 ((MockEngine)exec.BuildEngine).AssertLogContains("[" + expected + "]");
             }
             finally
@@ -231,7 +226,6 @@ namespace Microsoft.Build.UnitTests
                 Directory.SetCurrentDirectory(cd);
             }
         }
-#endif
 
         /// <summary>
         /// Tests that Exec still executes properly when there's an '&' in the temp directory path
@@ -529,7 +523,7 @@ namespace Microsoft.Build.UnitTests
             exec.WorkingDirectory = @"\\thiscomputerdoesnotexistxyz\thiscomputerdoesnotexistxyz";
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB6003");
         }
 
@@ -542,7 +536,7 @@ namespace Microsoft.Build.UnitTests
             exec.WorkingDirectory = @"||invalid||";
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB6003");
         }
 
@@ -557,7 +551,7 @@ namespace Microsoft.Build.UnitTests
 
             exec.CustomErrorRegularExpression = "~!@#$%^_)(*&^%$#@@#XF &%^%T$REd((((([[[[";
             exec.CustomWarningRegularExpression = "*";
-            bool result = exec.Execute();
+            exec.Execute();
 
             MockEngine e = (MockEngine)exec.BuildEngine;
             Console.WriteLine(e.Log);
@@ -631,7 +625,7 @@ namespace Microsoft.Build.UnitTests
             exec.IgnoreStandardErrorWarningFormat = true;
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Warnings);
         }
@@ -648,7 +642,7 @@ namespace Microsoft.Build.UnitTests
             exec.CustomErrorRegularExpression = ".*YOGI.*";
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             Assert.Equal(3, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(2, ((MockEngine)exec.BuildEngine).Warnings);
         }
@@ -663,7 +657,7 @@ namespace Microsoft.Build.UnitTests
             Exec exec = PrepareExec("echo unmatched curly {");
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("unmatched curly {");
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Warnings);
@@ -680,7 +674,7 @@ namespace Microsoft.Build.UnitTests
             exec.IgnoreStandardErrorWarningFormat = true;
             bool result = exec.Execute();
 
-            Assert.Equal(true, result);
+            Assert.True(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("unmatched curly {");
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Warnings);
@@ -698,7 +692,7 @@ namespace Microsoft.Build.UnitTests
             exec.CustomWarningRegularExpression = ".*canonicalw.*";
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             Assert.Equal(2, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(1, ((MockEngine)exec.BuildEngine).Warnings);
         }
@@ -711,7 +705,7 @@ namespace Microsoft.Build.UnitTests
             exec.CustomWarningRegularExpression = ".*BEAR.*";
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             Assert.Equal(2, ((MockEngine)exec.BuildEngine).Errors);
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Warnings);
         }
@@ -723,9 +717,9 @@ namespace Microsoft.Build.UnitTests
             exec.WorkingDirectory = "foo";
             Assert.Equal("foo", exec.WorkingDirectory);
             exec.IgnoreExitCode = true;
-            Assert.Equal(true, exec.IgnoreExitCode);
+            Assert.True(exec.IgnoreExitCode);
             exec.Outputs = null;
-            Assert.Equal(0, exec.Outputs.Length);
+            Assert.Empty(exec.Outputs);
 
             ITaskItem[] items = { new TaskItem("hi"), new TaskItem("ho") };
             exec.Outputs = items;
@@ -738,12 +732,12 @@ namespace Microsoft.Build.UnitTests
             ExecWrapper exec = PrepareExecWrapper("echo [%cd%]");
 
             exec.StdErrEncoding = "US-ASCII";
-            Assert.Equal(true, exec.StdErrEncoding.Contains("US-ASCII"));
-            Assert.Equal(true, exec.StdErrorEncoding.EncodingName.Contains("US-ASCII"));
+            Assert.Contains("US-ASCII", exec.StdErrEncoding);
+            Assert.Contains("US-ASCII", exec.StdErrorEncoding.EncodingName);
 
             exec.StdOutEncoding = "US-ASCII";
-            Assert.Equal(true, exec.StdOutEncoding.Contains("US-ASCII"));
-            Assert.Equal(true, exec.StdOutputEncoding.EncodingName.Contains("US-ASCII"));
+            Assert.Contains("US-ASCII", exec.StdOutEncoding);
+            Assert.Contains("US-ASCII", exec.StdOutputEncoding.EncodingName);
         }
 
         [Fact]
@@ -757,7 +751,7 @@ namespace Microsoft.Build.UnitTests
                 Environment.SetEnvironmentVariable("errorlevel", "1");
                 bool result = exec.Execute();
 
-                Assert.Equal(true, result);
+                Assert.True(result);
             }
             finally
             {
@@ -772,7 +766,7 @@ namespace Microsoft.Build.UnitTests
 
             bool result = exec.Execute();
 
-            Assert.Equal(false, result);
+            Assert.False(result);
             ((MockEngine)exec.BuildEngine).AssertLogContains("MSB3072");
         }
 
@@ -803,13 +797,13 @@ namespace Microsoft.Build.UnitTests
             Exec exec = PrepareExec("set foo=blah");
             //Test Set and Get of ConsoleToMSBuild
             exec.ConsoleToMSBuild = true;
-            Assert.Equal(true, exec.ConsoleToMSBuild);
+            Assert.True(exec.ConsoleToMSBuild);
 
             bool result = exec.Execute();
-            Assert.Equal(true, result);
+            Assert.True(result);
 
             //Nothing to run, so the list should be empty
-            Assert.Equal(0, exec.ConsoleOutput.Length);
+            Assert.Empty(exec.ConsoleOutput);
 
 
             //first echo prints "Hello stderr" to stderr, second echo prints to stdout
@@ -818,10 +812,10 @@ namespace Microsoft.Build.UnitTests
 
             //Test Set and Get of ConsoleToMSBuild
             exec.ConsoleToMSBuild = true;
-            Assert.Equal(true, exec.ConsoleToMSBuild);
+            Assert.True(exec.ConsoleToMSBuild);
 
             result = exec.Execute();
-            Assert.Equal(true, result);
+            Assert.True(result);
 
             //Both two lines should had gone to stdout
             Assert.Equal(2, exec.ConsoleOutput.Length);

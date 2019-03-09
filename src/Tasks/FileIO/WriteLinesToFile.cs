@@ -1,11 +1,12 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
-using System.IO;
-using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
+using System;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Microsoft.Build.Tasks
 {
@@ -14,50 +15,29 @@ namespace Microsoft.Build.Tasks
     /// </summary>
     public class WriteLinesToFile : TaskExtension
     {
-        private ITaskItem _file = null;
-        private ITaskItem[] _lines = null;
-        private bool _overwrite = false;
-        private string _encoding = null;
-
         // Default encoding taken from System.IO.WriteAllText()
-        private static readonly Encoding s_defaultEncoding = new UTF8Encoding(false, true);
+        private static readonly Encoding s_defaultEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
         /// <summary>
         /// File to write lines to.
         /// </summary>
         [Required]
-        public ITaskItem File
-        {
-            get { return _file; }
-            set { _file = value; }
-        }
+        public ITaskItem File { get; set; }
 
         /// <summary>
         /// Write each item as a line in the file.
         /// </summary>
-        public ITaskItem[] Lines
-        {
-            get { return _lines; }
-            set { _lines = value; }
-        }
+        public ITaskItem[] Lines { get; set; }
 
         /// <summary>
         /// If true, overwrite any existing file contents.
         /// </summary>
-        public bool Overwrite
-        {
-            get { return _overwrite; }
-            set { _overwrite = value; }
-        }
+        public bool Overwrite { get; set; }
 
         /// <summary>
         /// If true, overwrite any existing file contents.
         /// </summary>
-        public string Encoding
-        {
-            get { return _encoding; }
-            set { _encoding = value; }
-        }
+        public string Encoding { get; set; }
 
         /// <summary>
         /// If true, the target file specified, if it exists, will be read first to compare against
@@ -65,7 +45,6 @@ namespace Microsoft.Build.Tasks
         /// timestamp will be preserved.
         /// </summary>
         public bool WriteOnlyWhenDifferent { get; set; }
-
 
         /// <summary>
         /// Execute the task.
@@ -89,11 +68,11 @@ namespace Microsoft.Build.Tasks
                 }
 
                 Encoding encoding = s_defaultEncoding;
-                if (_encoding != null)
+                if (Encoding != null)
                 {
                     try
                     {
-                        encoding = System.Text.Encoding.GetEncoding(_encoding);
+                        encoding = System.Text.Encoding.GetEncoding(Encoding);
                     }
                     catch (ArgumentException)
                     {
@@ -104,72 +83,49 @@ namespace Microsoft.Build.Tasks
 
                 try
                 {
+                    var directoryPath = Path.GetDirectoryName(FileUtilities.NormalizePath(File.ItemSpec));
                     if (Overwrite)
                     {
-                        if (buffer.Length == 0)
+                        Directory.CreateDirectory(directoryPath);
+                        string contentsAsString = buffer.ToString();
+                        try
                         {
-                            // if overwrite==true, and there are no lines to write,
-                            // just delete the file to leave everything tidy.
-                            System.IO.File.Delete(File.ItemSpec);
-                        }
-                        else
-                        {
-                            string contentsAsString = null;
-
-                            try
+                            // When WriteOnlyWhenDifferent is set, read the file and if they're the same return.
+                            if (WriteOnlyWhenDifferent && FileUtilities.FileExistsNoThrow(File.ItemSpec))
                             {
-                                // When WriteOnlyWhenDifferent is set, read the file and if they're the same return.
-                                if (WriteOnlyWhenDifferent && FileUtilities.FileExistsNoThrow(File.ItemSpec))
+                                string existingContents = System.IO.File.ReadAllText(File.ItemSpec);
+                                if (existingContents.Length == buffer.Length)
                                 {
-                                    var existingContents = System.IO.File.ReadAllText(File.ItemSpec);
-                                    if (existingContents.Length == buffer.Length)
+                                    if (existingContents.Equals(contentsAsString))
                                     {
-                                        contentsAsString = buffer.ToString();
-                                        if (existingContents.Equals(contentsAsString))
-                                        {
-                                            Log.LogMessageFromResources(MessageImportance.Low, "WriteLinesToFile.SkippingUnchangedFile", File.ItemSpec);
-                                            return true;
-                                        }
+                                        Log.LogMessageFromResources(MessageImportance.Low, "WriteLinesToFile.SkippingUnchangedFile", File.ItemSpec);
+                                        return true;
                                     }
                                 }
                             }
-                            catch (IOException)
-                            {
-                                Log.LogMessageFromResources(MessageImportance.Low, "WriteLinesToFile.ErrorReadingFile", File.ItemSpec);
-                            }
-
-                            if (contentsAsString == null)
-                            {
-                                contentsAsString = buffer.ToString();
-                            }
-
-                            System.IO.File.WriteAllText(File.ItemSpec, contentsAsString, encoding);
                         }
+                        catch (IOException)
+                        {
+                            Log.LogMessageFromResources(MessageImportance.Low, "WriteLinesToFile.ErrorReadingFile", File.ItemSpec);
+                        }
+
+
+                        System.IO.File.WriteAllText(File.ItemSpec, contentsAsString, encoding);
                     }
                     else
                     {
+                        Directory.CreateDirectory(directoryPath);
                         System.IO.File.AppendAllText(File.ItemSpec, buffer.ToString(), encoding);
                     }
                 }
                 catch (Exception e) when (ExceptionHandling.IsIoRelatedException(e))
                 {
-                    LogError(_file, e, ref success);
+                    Log.LogErrorWithCodeFromResources("WriteLinesToFile.ErrorOrWarning", File.ItemSpec, e.Message);
+                    success = false;
                 }
             }
 
             return success;
-        }
-
-        /// <summary>
-        /// Log an error.
-        /// </summary>
-        /// <param name="file">The being accessed</param>
-        /// <param name="e">The exception.</param>
-        /// <param name="success">Whether the task should return an error.</param>
-        private void LogError(ITaskItem fileName, Exception e, ref bool success)
-        {
-            Log.LogErrorWithCodeFromResources("WriteLinesToFile.ErrorOrWarning", fileName.ItemSpec, e.Message);
-            success = false;
         }
     }
 }

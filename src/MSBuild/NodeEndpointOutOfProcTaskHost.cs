@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Implementation of a node endpoint for out-of-proc nodes.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.IO.Pipes;
@@ -20,7 +16,6 @@ namespace Microsoft.Build.CommandLine
     {
         #region Constructors and Factories
 
-#if FEATURE_NAMED_PIPES_FULL_DUPLEX
         /// <summary>
         /// Instantiates an endpoint to act as a client
         /// </summary>
@@ -29,12 +24,6 @@ namespace Microsoft.Build.CommandLine
         {
             InternalConstruct(pipeName);
         }
-#else
-        internal NodeEndpointOutOfProcTaskHost(string clientToServerPipeHandle, string serverToClientPipeHandle)
-        {
-            InternalConstruct(clientToServerPipeHandle, serverToClientPipeHandle);
-        }
-#endif
 
         #endregion // Constructors and Factories
 

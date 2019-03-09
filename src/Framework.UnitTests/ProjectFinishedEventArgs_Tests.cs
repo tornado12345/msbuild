@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit tests for ProjectFinishedEventArgs</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using Microsoft.Build.Framework;
@@ -16,11 +12,6 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     public class ProjectFinishedEventArgs_Tests
     {
-        /// <summary>
-        /// Default event to use in tests.
-        /// </summary>
-        private ProjectFinishedEventArgs _baseProjectFinishedEvent = new ProjectFinishedEventArgs("Message", "HelpKeyword", "ProjectFile", true);
-        
         /// <summary>
         /// Trivially exercise event args default ctors to boost Frameworks code coverage
         /// </summary>

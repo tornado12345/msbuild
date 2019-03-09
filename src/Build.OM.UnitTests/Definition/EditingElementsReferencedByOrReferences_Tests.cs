@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for editing elements that are related to other XML elements</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -52,7 +48,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             project.ReevaluateIfNecessary();
             IEnumerable<ProjectItem> items = project.GetItems("I");
 
-            Assert.Equal(1, items.Count()); // "Wrong number of items after changing type"
+            Assert.Single(items); // "Wrong number of items after changing type"
             Assert.Equal("Y", items.First().EvaluatedInclude); // "Wrong evaluated include after changing type"
         }
 

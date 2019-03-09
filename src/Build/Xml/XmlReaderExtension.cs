@@ -20,16 +20,16 @@ namespace Microsoft.Build.Internal
         /// </summary>
         /// <param name="filePath">Path to the file on disk.</param>
         /// <returns>Disposable XmlReaderExtension object.</returns>
-        internal static XmlReaderExtension Create(string filePath)
+        internal static XmlReaderExtension Create(string filePath, bool loadAsReadOnly)
         {
-            return new XmlReaderExtension(filePath);
+            return new XmlReaderExtension(filePath, loadAsReadOnly);
         }
 
         private static readonly Encoding s_utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         private readonly Stream _stream;
         private readonly StreamReader _streamReader;
 
-        private XmlReaderExtension(string file)
+        private XmlReaderExtension(string file, bool loadAsReadOnly)
         {
             try
             {
@@ -43,7 +43,7 @@ namespace Microsoft.Build.Internal
 
                 // The XmlDocumentWithWithLocation class relies on the reader's BaseURI property to be set,
                 // thus we pass the document's file path to the appropriate xml reader constructor.
-                Reader = GetXmlReader(file, _streamReader, out detectedEncoding);
+                Reader = GetXmlReader(file, _streamReader, loadAsReadOnly, out detectedEncoding);
 
                 // Override detected encoding if an XML encoding attribute is specified and that encoding is sufficiently
                 // different from the detected encoding.
@@ -74,45 +74,32 @@ namespace Microsoft.Build.Internal
             _stream?.Dispose();
         }
 
-        private static XmlReader GetXmlReader(string file, StreamReader input, out Encoding encoding)
+        private static XmlReader GetXmlReader(string file, StreamReader input, bool loadAsReadOnly, out Encoding encoding)
         {
             string uri = new UriBuilder(Uri.UriSchemeFile, string.Empty) { Path = file }.ToString();
-#if FEATURE_XMLTEXTREADER
-            var reader = new XmlTextReader(uri, input) { DtdProcessing = DtdProcessing.Ignore };
+
+            XmlReader reader;
+
+            if (loadAsReadOnly)
+            {
+                XmlReaderSettings xrs = new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Ignore,
+                    IgnoreComments = true,
+                    IgnoreWhitespace = true,
+                };
+                reader = XmlReader.Create(input, xrs, uri);
+            }
+            else
+            {
+                reader = new XmlTextReader(uri, input) { DtdProcessing = DtdProcessing.Ignore };
+            }
+
 
             reader.Read();
             encoding = input.CurrentEncoding;
 
             return reader;
-#else
-            var xr = XmlReader.Create(input, new XmlReaderSettings {DtdProcessing = DtdProcessing.Ignore}, uri);
-
-            // Set Normalization = false if possible. Without this, certain line endings will be normalized
-            // with \n (specifically in XML comments). Does not throw if if type or property is not found.
-            // This issue does not apply to XmlTextReader (above) which is not shipped with .NET Core yet.
-            
-            // NOTE: This doesn't work in .NET Core.
-            //var xmlReaderType = typeof(XmlReader).GetTypeInfo().Assembly.GetType("System.Xml.XmlTextReaderImpl");
-
-            //// Works in full framework, not in .NET Core
-            //var normalization = xmlReaderType?.GetProperty("Normalization", BindingFlags.Instance | BindingFlags.NonPublic);
-            //normalization?.SetValue(xr, false);
-
-            //// Set _normalize = false, and _ps.eolNormalized = true
-            //var normalizationMember = xmlReaderType?.GetField("_normalize", BindingFlags.Instance | BindingFlags.NonPublic);
-            //normalizationMember?.SetValue(xr, false);
-
-            //var psField = xmlReaderType.GetField("_ps", BindingFlags.Instance | BindingFlags.NonPublic);
-            //var ps = psField.GetValue(xr);
-            
-            //var eolField = ps.GetType().GetField("eolNormalized", BindingFlags.Instance | BindingFlags.NonPublic);
-            //eolField.SetValue(ps, true);
-
-            xr.Read();
-            encoding = input.CurrentEncoding;
-
-            return xr;
-#endif
         }
 
         /// <summary>

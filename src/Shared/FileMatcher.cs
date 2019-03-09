@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Functions for matching file names with patterns.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -13,11 +9,10 @@ using System.Text;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Globalization;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
+using Microsoft.Build.Shared.FileSystem;
 using Microsoft.Build.Utilities;
 
 namespace Microsoft.Build.Shared
@@ -25,10 +20,10 @@ namespace Microsoft.Build.Shared
     /// <summary>
     /// Functions for matching file names with patterns. 
     /// </summary>
-    internal static class FileMatcher
+    internal class FileMatcher
     {
+        private readonly IFileSystem _fileSystem;
         private const string recursiveDirectoryMatch = "**";
-        private const string dotdot = "..";
 
         private static readonly string s_directorySeparator = new string(Path.DirectorySeparatorChar, 1);
 
@@ -41,11 +36,12 @@ namespace Microsoft.Build.Shared
         internal static readonly char[] directorySeparatorCharacters = { '/', '\\' };
         internal static readonly string[] directorySeparatorStrings = directorySeparatorCharacters.Select(c => c.ToString()).ToArray();
 
-        internal static readonly GetFileSystemEntries s_defaultGetFileSystemEntries = new GetFileSystemEntries(GetAccessibleFileSystemEntries);
-        private static readonly DirectoryExists s_defaultDirectoryExists = new DirectoryExists(Directory.Exists);
+        // until Cloudbuild switches to EvaluationContext, we need to keep their dependence on global glob caching via an environment variable
+        private static readonly Lazy<ConcurrentDictionary<string, ImmutableArray<string>>> s_cachedGlobExpansions = new Lazy<ConcurrentDictionary<string, ImmutableArray<string>>>(() => new ConcurrentDictionary<string, ImmutableArray<string>>(StringComparer.OrdinalIgnoreCase));
+        private static readonly Lazy<ConcurrentDictionary<string, object>> s_cachedGlobExpansionsLock = new Lazy<ConcurrentDictionary<string, object>>(() => new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase));
 
-        private static readonly Lazy<ConcurrentDictionary<string, string[]>> s_cachedFileEnumerations = new Lazy<ConcurrentDictionary<string, string[]>>(() => new ConcurrentDictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
-        private static readonly Lazy<ConcurrentDictionary<string, object>> s_cachedFileEnumerationsLock = new Lazy<ConcurrentDictionary<string, object>>(() => new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase));
+        private readonly ConcurrentDictionary<string, ImmutableArray<string>> _cachedGlobExpansions;
+        private readonly Lazy<ConcurrentDictionary<string, object>> _cachedGlobExpansionsLock = new Lazy<ConcurrentDictionary<string, object>>(() => new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase));
 
         /// <summary>
         /// Cache of the list of invalid path characters, because this method returns a clone (for security reasons)
@@ -53,7 +49,85 @@ namespace Microsoft.Build.Shared
         /// </summary>
         private static readonly char[] s_invalidPathChars = Path.GetInvalidPathChars();
 
-        internal const RegexOptions DefaultRegexOptions = RegexOptions.IgnoreCase;
+        public const RegexOptions DefaultRegexOptions = RegexOptions.IgnoreCase;
+
+        private readonly GetFileSystemEntries _getFileSystemEntries;
+
+        private static class FileSpecRegexParts
+        {
+            internal const string FixedDirGroupStart = "^(?<FIXEDDIR>";
+            internal const string WildcardGroupStart = "(?<WILDCARDDIR>";
+            internal const string FilenameGroupStart = "(?<FILENAME>";
+            internal const string GroupEnd = ")";
+            internal const string EndOfLine = "$";
+
+            internal const string AnyNonSeparator = @"[^/\\]*";
+            internal const string AnySingleCharacterButDot = @"[^\.].";
+            internal const string AnythingButDot = @"[^\.]*";
+            internal const string DirSeparator = @"[/\\]+";
+            internal const string LeftDirs = @"((.*/)|(.*\\)|())";
+            internal const string MiddleDirs = @"((/)|(\\)|(/.*/)|(/.*\\)|(\\.*\\)|(\\.*/))";
+            internal const string SingleCharacter = ".";
+            internal const string UncSlashSlash = @"\\\\";
+        }
+
+        /*
+         * MAX_PATH + FileSpecRegexParts.BeginningOfLine.Length + FileSpecRegexParts.FixedDirWildcardDirSeparator.Length
+            + FileSpecRegexParts.WildcardDirFilenameSeparator.Length + FileSpecRegexParts.EndOfLine.Length;
+         */
+        private const int FileSpecRegexMinLength = 44;
+
+        /// <summary>
+        /// The Default FileMatcher does not cache directory enumeration.
+        /// </summary>
+        public static FileMatcher Default = new FileMatcher(FileSystems.Default, null);
+
+        public FileMatcher(IFileSystem fileSystem, ConcurrentDictionary<string, ImmutableArray<string>> fileEntryExpansionCache = null) : this(
+            fileSystem,
+            (entityType, path, pattern, projectDirectory, stripProjectDirectory) => GetAccessibleFileSystemEntries(
+                fileSystem,
+                entityType,
+                path,
+                pattern,
+                projectDirectory,
+                stripProjectDirectory),
+            fileEntryExpansionCache)
+        {
+        }
+
+        public FileMatcher(IFileSystem fileSystem, GetFileSystemEntries getFileSystemEntries, ConcurrentDictionary<string, ImmutableArray<string>> getFileSystemDirectoryEntriesCache = null)
+        {
+            if (Traits.Instance.MSBuildCacheFileEnumerations)
+            {
+                _cachedGlobExpansions = s_cachedGlobExpansions.Value;
+                _cachedGlobExpansionsLock = s_cachedGlobExpansionsLock;
+            }
+            else
+            {
+                _cachedGlobExpansions = getFileSystemDirectoryEntriesCache;
+            }
+
+            _fileSystem = fileSystem;
+
+            _getFileSystemEntries = getFileSystemDirectoryEntriesCache == null
+                ? getFileSystemEntries
+                : (type, path, pattern, directory, projectDirectory) =>
+                {
+                    // Cache only directories, for files we won't hit the cache because the file name patterns tend to be unique
+                    if (type == FileSystemEntity.Directories)
+                    {
+                        return getFileSystemDirectoryEntriesCache.GetOrAdd(
+                            $"{path};{pattern ?? "*"}",
+                            s => getFileSystemEntries(
+                                type,
+                                path,
+                                pattern,
+                                directory,
+                                projectDirectory));
+                    }
+                    return getFileSystemEntries(type, path, pattern, directory, projectDirectory);
+                };
+        }
 
         /// <summary>
         /// The type of entity that GetFileSystemEntries should return.
@@ -79,14 +153,14 @@ namespace Microsoft.Build.Shared
 
         internal static void ClearFileEnumerationsCache()
         {
-            if (s_cachedFileEnumerations.IsValueCreated)
+            if (s_cachedGlobExpansions.IsValueCreated)
             {
-                s_cachedFileEnumerations.Value.Clear();
+                s_cachedGlobExpansions.Value.Clear();
             }
 
-            if (s_cachedFileEnumerationsLock.IsValueCreated)
+            if (s_cachedGlobExpansionsLock.IsValueCreated)
             {
-                s_cachedFileEnumerationsLock.Value.Clear();
+                s_cachedGlobExpansionsLock.Value.Clear();
             }
         }
 
@@ -97,7 +171,13 @@ namespace Microsoft.Build.Shared
         /// <returns></returns>
         internal static bool HasWildcards(string filespec)
         {
-            return -1 != filespec.IndexOfAny(s_wildcardCharacters);
+            // Perf Note: Doing a [Last]IndexOfAny(...) is much faster than compiling a
+            // regular expression that does the same thing, regardless of whether
+            // filespec contains one of the characters.
+            // Choose LastIndexOfAny instead of IndexOfAny because it seems more likely
+            // that wildcards will tend to be towards the right side.
+
+            return -1 != filespec.LastIndexOfAny(s_wildcardCharacters);
         }
 
         /// <summary>
@@ -121,15 +201,16 @@ namespace Microsoft.Build.Shared
         /// <param name="pattern">The pattern to search.</param>
         /// <param name="projectDirectory">The directory for the project within which the call is made</param>
         /// <param name="stripProjectDirectory">If true the project directory should be stripped</param>
+        /// <param name="fileSystem">The file system abstraction to use that implements file system operations</param>
         /// <returns></returns>
-        private static ImmutableArray<string> GetAccessibleFileSystemEntries(FileSystemEntity entityType, string path, string pattern, string projectDirectory, bool stripProjectDirectory)
+        private static ImmutableArray<string> GetAccessibleFileSystemEntries(IFileSystem fileSystem, FileSystemEntity entityType, string path, string pattern, string projectDirectory, bool stripProjectDirectory)
         {
             path = FileUtilities.FixFilePath(path);
             switch (entityType)
             {
-                case FileSystemEntity.Files: return GetAccessibleFiles(path, pattern, projectDirectory, stripProjectDirectory);
-                case FileSystemEntity.Directories: return GetAccessibleDirectories(path, pattern);
-                case FileSystemEntity.FilesAndDirectories: return GetAccessibleFilesAndDirectories(path, pattern);
+                case FileSystemEntity.Files: return GetAccessibleFiles(fileSystem, path, pattern, projectDirectory, stripProjectDirectory);
+                case FileSystemEntity.Directories: return GetAccessibleDirectories(fileSystem, path, pattern);
+                case FileSystemEntity.FilesAndDirectories: return GetAccessibleFilesAndDirectories(fileSystem,path, pattern);
                 default:
                     ErrorUtilities.VerifyThrow(false, "Unexpected filesystem entity type.");
                     break;
@@ -143,18 +224,19 @@ namespace Microsoft.Build.Shared
         /// </summary>
         /// <param name="path"></param>
         /// <param name="pattern"></param>
+        /// <param name="fileSystem">The file system abstraction to use that implements file system operations</param>
         /// <returns>An immutable array of matching file system entries (can be empty).</returns>
-        private static ImmutableArray<string> GetAccessibleFilesAndDirectories(string path, string pattern)
+        private static ImmutableArray<string> GetAccessibleFilesAndDirectories(IFileSystem fileSystem, string path, string pattern)
         {
-            if (Directory.Exists(path))
+            if (fileSystem.DirectoryExists(path))
             {
                 try
                 {
                     return (ShouldEnforceMatching(pattern)
-                        ? Directory.EnumerateFileSystemEntries(path, pattern)
+                        ? fileSystem.EnumerateFileSystemEntries(path, pattern)
                             .Where(o => IsMatch(Path.GetFileName(o), pattern, true))
-                        : Directory.EnumerateFileSystemEntries(path, pattern)
-                    ).ToImmutableArray();
+                        : fileSystem.EnumerateFileSystemEntries(path, pattern)
+                        ).ToImmutableArray();
                 }
                 // for OS security
                 catch (UnauthorizedAccessException)
@@ -167,6 +249,7 @@ namespace Microsoft.Build.Shared
                     // do nothing
                 }
             }
+
             return ImmutableArray<string>.Empty;
         }
 
@@ -207,9 +290,11 @@ namespace Microsoft.Build.Shared
         /// <param name="filespec">The pattern.</param>
         /// <param name="projectDirectory">The project directory</param>
         /// <param name="stripProjectDirectory"></param>
+        /// <param name="fileSystem">The file system abstraction to use that implements file system operations</param>
         /// <returns>Files that can be accessed.</returns>
         private static ImmutableArray<string> GetAccessibleFiles
         (
+            IFileSystem fileSystem,
             string path,
             string filespec,     // can be null
             string projectDirectory,
@@ -225,11 +310,11 @@ namespace Microsoft.Build.Shared
                 IEnumerable<string> files;
                 if (filespec == null)
                 {
-                    files = Directory.EnumerateFiles(dir);
+                    files = fileSystem.EnumerateFiles(dir);
                 }
                 else
                 {
-                    files = Directory.EnumerateFiles(dir, filespec);
+                    files = fileSystem.EnumerateFiles(dir, filespec);
                     if (ShouldEnforceMatching(filespec))
                     {
                         files = files.Where(o => IsMatch(Path.GetFileName(o), filespec, true));
@@ -273,9 +358,11 @@ namespace Microsoft.Build.Shared
         /// </summary>
         /// <param name="path">The path.</param>
         /// <param name="pattern">Pattern to match</param>
+        /// <param name="fileSystem">The file system abstraction to use that implements file system operations</param>
         /// <returns>Accessible directories.</returns>
         private static ImmutableArray<string> GetAccessibleDirectories
         (
+            IFileSystem fileSystem,
             string path,
             string pattern
         )
@@ -286,11 +373,11 @@ namespace Microsoft.Build.Shared
 
                 if (pattern == null)
                 {
-                    directories = Directory.EnumerateDirectories((path.Length == 0) ? s_thisDirectory : path);
+                    directories = fileSystem.EnumerateDirectories((path.Length == 0) ? s_thisDirectory : path);
                 }
                 else
                 {
-                    directories = Directory.EnumerateDirectories((path.Length == 0) ? s_thisDirectory : path, pattern);
+                    directories = fileSystem.EnumerateDirectories((path.Length == 0) ? s_thisDirectory : path, pattern);
                     if (ShouldEnforceMatching(pattern))
                     {
                         directories = directories.Where(o => IsMatch(Path.GetFileName(o), pattern, true));
@@ -326,12 +413,12 @@ namespace Microsoft.Build.Shared
         /// </summary>
         /// <param name="path">The short path.</param>
         /// <returns>The long path.</returns>
-        internal static string GetLongPathName
+        internal string GetLongPathName
         (
             string path
         )
         {
-            return GetLongPathName(path, s_defaultGetFileSystemEntries);
+            return GetLongPathName(path, _getFileSystemEntries);
         }
 
         /// <summary>
@@ -447,15 +534,11 @@ namespace Microsoft.Build.Shared
         /// <param name="fixedDirectoryPart">Receives the fixed directory part.</param>
         /// <param name="wildcardDirectoryPart">The wildcard directory part.</param>
         /// <param name="filenamePart">The filename part.</param>
-        /// <param name="getFileSystemEntries">Delegate.</param>
-        internal static void SplitFileSpec
-        (
+        internal void SplitFileSpec(
             string filespec,
             out string fixedDirectoryPart,
             out string wildcardDirectoryPart,
-            out string filenamePart,
-            GetFileSystemEntries getFileSystemEntries
-        )
+            out string filenamePart)
         {
             PreprocessFileSpecForSplitting
             (
@@ -480,7 +563,7 @@ namespace Microsoft.Build.Shared
                 filenamePart = "*.*";
             }
 
-            fixedDirectoryPart = FileMatcher.GetLongPathName(fixedDirectoryPart, getFileSystemEntries);
+            fixedDirectoryPart = FileMatcher.GetLongPathName(fixedDirectoryPart, _getFileSystemEntries);
         }
 
         /// <summary>
@@ -710,21 +793,17 @@ namespace Microsoft.Build.Shared
         /// <param name="recursionState">Information about the search</param>
         /// <param name="projectDirectory"></param>
         /// <param name="stripProjectDirectory"></param>
-        /// <param name="getFileSystemEntries">Delegate.</param>
         /// <param name="searchesToExclude">Patterns to exclude from the results</param>
         /// <param name="searchesToExcludeInSubdirs">exclude patterns that might activate farther down the directory tree. Keys assume paths are normalized with forward slashes and no trailing slashes</param>
         /// <param name="taskOptions">Options for tuning the parallelization of subdirectories</param>
-        private static void GetFilesRecursive
-        (
+        private void GetFilesRecursive(
             ConcurrentStack<List<string>> listOfFiles,
             RecursionState recursionState,
             string projectDirectory,
             bool stripProjectDirectory,
-            GetFileSystemEntries getFileSystemEntries,
             IList<RecursionState> searchesToExclude,
             Dictionary<string, List<RecursionState>> searchesToExcludeInSubdirs,
-            TaskOptions taskOptions
-        )
+            TaskOptions taskOptions)
         {
             ErrorUtilities.VerifyThrow((recursionState.SearchData.Filespec== null) || (recursionState.SearchData.RegexFileMatch == null),
                 "File-spec overrides the regular expression -- pass null for file-spec if you want to use the regular expression.");
@@ -769,7 +848,7 @@ namespace Microsoft.Build.Shared
 
             List<string> files = null;
             foreach (string file in GetFilesForStep(nextStep, recursionState, projectDirectory,
-                stripProjectDirectory, getFileSystemEntries))
+                stripProjectDirectory))
             {
                 if (excludeNextSteps != null)
                 {
@@ -851,7 +930,6 @@ namespace Microsoft.Build.Shared
                     newRecursionState,
                     projectDirectory,
                     stripProjectDirectory,
-                    getFileSystemEntries,
                     newSearchesToExclude,
                     searchesToExcludeInSubdirs,
                     taskOptions);
@@ -882,7 +960,7 @@ namespace Microsoft.Build.Shared
             // Use a foreach to reduce the overhead of Parallel.ForEach when we are not running in parallel
             if (dop < 2)
             {
-                foreach (var subdir in getFileSystemEntries(FileSystemEntity.Directories, recursionState.BaseDirectory, nextStep.DirectoryPattern, null, false))
+                foreach (var subdir in _getFileSystemEntries(FileSystemEntity.Directories, recursionState.BaseDirectory, nextStep.DirectoryPattern, null, false))
                 {
                     processSubdirectory(subdir);
                 }
@@ -890,7 +968,7 @@ namespace Microsoft.Build.Shared
             else
             {
                 Parallel.ForEach(
-                    getFileSystemEntries(FileSystemEntity.Directories, recursionState.BaseDirectory, nextStep.DirectoryPattern, null, false),
+                    _getFileSystemEntries(FileSystemEntity.Directories, recursionState.BaseDirectory, nextStep.DirectoryPattern, null, false),
                     new ParallelOptions {MaxDegreeOfParallelism = dop},
                     processSubdirectory);
             }
@@ -912,20 +990,17 @@ namespace Microsoft.Build.Shared
             }
         }
 
-        private static IEnumerable<string> GetFilesForStep
-        (
+        private IEnumerable<string> GetFilesForStep(
             RecursiveStepResult stepResult,
             RecursionState recursionState,
             string projectDirectory,
-            bool stripProjectDirectory,
-            GetFileSystemEntries getFileSystemEntries
-        )
+            bool stripProjectDirectory)
         {
             if (!stepResult.ConsiderFiles)
             {
                 return Enumerable.Empty<string>();
             }
-            IEnumerable<string> files = getFileSystemEntries(FileSystemEntity.Files, recursionState.BaseDirectory,
+            IEnumerable<string> files = _getFileSystemEntries(FileSystemEntity.Files, recursionState.BaseDirectory,
                 recursionState.SearchData.Filespec, projectDirectory, stripProjectDirectory);
 
             if (!stepResult.NeedsToProcessEachFile)
@@ -1023,8 +1098,10 @@ namespace Microsoft.Build.Shared
         }
 
         /// <summary>
-        /// Given a file spec, create a regular expression that will match that
-        /// file spec.
+        /// Given a split file spec consisting of a directory without wildcard characters,
+        /// a sub-directory containing wildcard characters,
+        /// and a filename which may contain wildcard characters,
+        /// create a regular expression that will match that file spec.
         /// 
         /// PERF WARNING: this method is called in performance-critical
         /// scenarios, so keep it fast and cheap
@@ -1042,215 +1119,322 @@ namespace Microsoft.Build.Shared
             out bool isLegalFileSpec
         )
         {
-            isLegalFileSpec = true;
-
-            /*
-             * The code below uses tags in the form <:tag:> to encode special information
-             * while building the regular expression.
-             * 
-             * This format was chosen because it's not a legal form for filespecs. If the
-             * filespec comes in with either "<:" or ":>", return isLegalFileSpec=false to
-             * prevent intrusion into the special processing.
-             */
-            if ((fixedDirectoryPart.IndexOf("<:", StringComparison.Ordinal) != -1) ||
-                (fixedDirectoryPart.IndexOf(":>", StringComparison.Ordinal) != -1) ||
-                (wildcardDirectoryPart.IndexOf("<:", StringComparison.Ordinal) != -1) ||
-                (wildcardDirectoryPart.IndexOf(":>", StringComparison.Ordinal) != -1) ||
-                (filenamePart.IndexOf("<:", StringComparison.Ordinal) != -1) ||
-                (filenamePart.IndexOf(":>", StringComparison.Ordinal) != -1))
+            isLegalFileSpec = IsLegalFileSpec(wildcardDirectoryPart, filenamePart);
+            if (!isLegalFileSpec)
             {
-                isLegalFileSpec = false;
-                return String.Empty;
+                return string.Empty;
+            }
+#if DEBUG
+            ErrorUtilities.VerifyThrow(
+                FileSpecRegexMinLength == FileSpecRegexParts.FixedDirGroupStart.Length
+                + FileSpecRegexParts.WildcardGroupStart.Length
+                + FileSpecRegexParts.FilenameGroupStart.Length
+                + FileSpecRegexParts.GroupEnd.Length * 3
+                + FileSpecRegexParts.EndOfLine.Length,
+                "Checked-in length of known regex components differs from computed length. Update checked-in constant."
+            );
+#endif
+            using (var matchFileExpression = new ReuseableStringBuilder(FileSpecRegexMinLength + NativeMethodsShared.MAX_PATH))
+            {
+                AppendRegularExpressionFromFixedDirectory(matchFileExpression, fixedDirectoryPart);
+                AppendRegularExpressionFromWildcardDirectory(matchFileExpression, wildcardDirectoryPart);
+                AppendRegularExpressionFromFilename(matchFileExpression, filenamePart);
+
+                return matchFileExpression.ToString();
+            }
+        }
+
+
+        /// <summary>
+        /// Determine if the filespec is legal according to the following conditions:
+        /// 
+        /// (1) It is not legal for there to be a ".." after a wildcard.
+        /// 
+        /// (2) By definition, "**" must appear alone between directory slashes.If there is any remaining "**" then this is not
+        ///     a valid filespec.
+        /// </summary>
+        /// <returns>True if both parts meet all conditions for a legal filespec.</returns>
+        private static bool IsLegalFileSpec(string wildcardDirectoryPart, string filenamePart) =>
+            !HasDotDot(wildcardDirectoryPart)
+            && !HasMisplacedRecursiveOperator(wildcardDirectoryPart)
+            && !HasMisplacedRecursiveOperator(filenamePart);
+
+        private static bool HasDotDot(string str)
+        {
+            for (int i = 0; i < str.Length - 1; i++)
+            {
+                if (str[i] == '.' && str[i + 1] == '.')
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool HasMisplacedRecursiveOperator(string str)
+        {
+            for (int i = 0; i < str.Length - 1; i++)
+            {
+                bool isRecursiveOperator = str[i] == '*' && str[i + 1] == '*';
+
+                // Check boundaries for cases such as **\foo\ and *.cs**
+                bool isSurroundedBySlashes = (i == 0 || FileUtilities.IsAnySlash(str[i - 1]))
+                                             && i < str.Length - 2 && FileUtilities.IsAnySlash(str[i + 2]);
+
+                if (isRecursiveOperator && !isSurroundedBySlashes)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        /// <summary>
+        /// Append the regex equivalents for character sequences in the fixed directory part of a filespec:
+        ///
+        /// (1) The leading \\ in UNC paths, so that the doubled slash isn't reduced in the last step
+        /// 
+        /// (2) Common filespec characters
+        /// </summary>
+        private static void AppendRegularExpressionFromFixedDirectory(ReuseableStringBuilder regex, string fixedDir)
+        {
+            regex.Append(FileSpecRegexParts.FixedDirGroupStart);
+
+            bool isUncPath = NativeMethodsShared.IsWindows && fixedDir.Length > 1
+                             && fixedDir[0] == '\\' && fixedDir[1] == '\\';
+            if (isUncPath)
+            {
+                regex.Append(FileSpecRegexParts.UncSlashSlash);
+            }
+            int startIndex = isUncPath ? LastIndexOfDirectorySequence(fixedDir, 0) + 1 : LastIndexOfDirectorySequence(fixedDir, 0);
+
+            for (int i = startIndex; i < fixedDir.Length; i = LastIndexOfDirectorySequence(fixedDir, i + 1))
+            {
+                AppendRegularExpressionFromChar(regex, fixedDir[i]);
             }
 
-            /*
-             * Its not legal for there to be a ".." after a wildcard.
-             */
-            if (wildcardDirectoryPart.Contains(dotdot))
+            regex.Append(FileSpecRegexParts.GroupEnd);
+        }
+
+        /// <summary>
+        /// Append the regex equivalents for character sequences in the wildcard directory part of a filespec:
+        ///
+        /// (1) The leading **\ if existing
+        ///
+        /// (2) Each occurence of recursive wildcard \**\
+        /// 
+        /// (3) Common filespec characters
+        /// </summary>
+        private static void AppendRegularExpressionFromWildcardDirectory(ReuseableStringBuilder regex, string wildcardDir)
+        {
+            regex.Append(FileSpecRegexParts.WildcardGroupStart);
+
+            bool hasRecursiveOperatorAtStart = wildcardDir.Length > 2 && wildcardDir[0] == '*' && wildcardDir[1] == '*';
+
+            if (hasRecursiveOperatorAtStart)
             {
-                isLegalFileSpec = false;
-                return String.Empty;
+                regex.Append(FileSpecRegexParts.LeftDirs);
+            }
+            int startIndex = LastIndexOfDirectoryOrRecursiveSequence(wildcardDir, 0);
+
+            for (int i = startIndex; i < wildcardDir.Length; i = LastIndexOfDirectoryOrRecursiveSequence(wildcardDir, i + 1))
+            {
+                char ch = wildcardDir[i];
+                bool isRecursiveOperator = i < wildcardDir.Length - 2 && wildcardDir[i + 1] == '*' && wildcardDir[i + 2] == '*';
+
+                if (isRecursiveOperator)
+                {
+                    regex.Append(FileSpecRegexParts.MiddleDirs);
+                }
+                else
+                {
+                    AppendRegularExpressionFromChar(regex, ch);
+                }
             }
 
-            /* 
-             * Trailing dots in file names have to be treated specially.
-             * We want:
-             * 
-             *     *. to match foo
-             * 
-             * but 'foo' doesn't have a trailing '.' so we need to handle this while still being careful 
-             * not to match 'foo.txt'
-             */
-            if (filenamePart.EndsWith(".", StringComparison.Ordinal))
+            regex.Append(FileSpecRegexParts.GroupEnd);
+        }
+
+        /// <summary>
+        /// Append the regex equivalents for character sequences in the filename part of a filespec:
+        ///
+        /// (1) Trailing dots in file names have to be treated specially.
+        ///     We want:
+        ///
+        ///         *. to match foo
+        ///
+        ///     but 'foo' doesn't have a trailing '.' so we need to handle this while still being careful
+        ///     not to match 'foo.txt' by modifying the generated regex for wildcard characters * and ?
+        /// 
+        /// (2) Common filespec characters
+        ///
+        /// (3) Ignore the .* portion of any *.* sequence when no trailing dot exists
+        /// </summary>
+        private static void AppendRegularExpressionFromFilename(ReuseableStringBuilder regex, string filename)
+        {
+            regex.Append(FileSpecRegexParts.FilenameGroupStart);
+
+            bool hasTrailingDot = filename.Length > 0 && filename[filename.Length - 1] == '.';
+            int partLength = hasTrailingDot ? filename.Length - 1 : filename.Length;
+
+            for (int i = 0; i < partLength; i++)
             {
-                filenamePart = filenamePart.Replace("*", "<:anythingbutdot:>");
-                filenamePart = filenamePart.Replace("?", "<:anysinglecharacterbutdot:>");
-                filenamePart = filenamePart.Substring(0, filenamePart.Length - 1);
+                char ch = filename[i];
+
+                if (hasTrailingDot && ch == '*')
+                {
+                    regex.Append(FileSpecRegexParts.AnythingButDot);
+                }
+                else if (hasTrailingDot && ch == '?')
+                {
+                    regex.Append(FileSpecRegexParts.AnySingleCharacterButDot);
+                }
+                else
+                {
+                    AppendRegularExpressionFromChar(regex, ch);
+                }
+
+                if (!hasTrailingDot && i < partLength - 2 && ch == '*' && filename[i + 1] == '.' && filename[i + 2] == '*')
+                {
+                    i += 2;
+                }
             }
 
-            /*
-             * Now, build up the starting filespec but put tags in to identify where the fixedDirectory,
-             * wildcardDirectory and filenamePart are. Also tag the beginning of the line and the end of
-             * the line, so that we can identify patterns by whether they're on one end or the other.
-             */
-            StringBuilder matchFileExpression = new StringBuilder();
-            matchFileExpression.Append("<:bol:>");
-            matchFileExpression.Append("<:fixeddir:>").Append(fixedDirectoryPart).Append("<:endfixeddir:>");
-            matchFileExpression.Append("<:wildcarddir:>").Append(wildcardDirectoryPart).Append("<:endwildcarddir:>");
-            matchFileExpression.Append("<:filename:>").Append(filenamePart).Append("<:endfilename:>");
-            matchFileExpression.Append("<:eol:>");
+            regex.Append(FileSpecRegexParts.GroupEnd);
+            regex.Append(FileSpecRegexParts.EndOfLine);
+        }
 
-            /*
-             *  Call out our special matching characters.
-             */
-            foreach (var separator in directorySeparatorStrings)
+        /// <summary>
+        /// Append the regex equivalents for characters common to all filespec parts.
+        /// </summary>
+        private static void AppendRegularExpressionFromChar(ReuseableStringBuilder regex, char ch)
+        {
+            if (ch == '*')
             {
-                matchFileExpression.Replace(separator, "<:dirseparator:>");
+                regex.Append(FileSpecRegexParts.AnyNonSeparator);
+            }
+            else if (ch == '?')
+            {
+                regex.Append(FileSpecRegexParts.SingleCharacter);
+            }
+            else if (FileUtilities.IsAnySlash(ch))
+            {
+                regex.Append(FileSpecRegexParts.DirSeparator);
+            }
+            else if (IsSpecialRegexCharacter(ch))
+            {
+                regex.Append('\\');
+                regex.Append(ch);
+            }
+            else
+            {
+                regex.Append(ch);
+            }
+        }
+
+        private static bool IsSpecialRegexCharacter(char ch) =>
+            ch == '$' || ch == '(' || ch == ')' || ch == '+' || ch == '.'
+            || ch == '[' || ch == '^' || ch == '{' || ch == '|';
+
+        /// <summary>
+        /// Given an index at a directory separator,
+        /// iteratively skip to the end of two sequences:
+        ///
+        ///  (1) \.\ -> \
+        ///     This is an identity, so for example, these two are equivalent,
+        ///
+        ///         dir1\.\dir2 == dir1\dir2
+        /// 
+        ///     (2) \\ -> \
+        ///         Double directory separators are treated as a single directory separator,
+        ///         so, for example, this is an identity:
+        ///
+        ///             f:\dir1\\dir2 == f:\dir1\dir2
+        ///
+        ///         The single exemption is for UNC path names, like this:
+        ///
+        ///             \\server\share != \server\share
+        /// 
+        ///         This case is handled by isUncPath in
+        ///         a prior step.
+        ///
+        /// </summary>
+        /// <returns>The last index of a directory sequence.</returns>
+        private static int LastIndexOfDirectorySequence(string str, int startIndex)
+        {
+            if (startIndex >= str.Length || !FileUtilities.IsAnySlash(str[startIndex]))
+            {
+                return startIndex;
+            }
+            int i = startIndex;
+            bool isSequenceEndFound = false;
+
+            while (!isSequenceEndFound && i < str.Length)
+            {
+                bool isSeparator = i < str.Length - 1 && FileUtilities.IsAnySlash(str[i + 1]);
+                bool isRelativeSeparator = i < str.Length - 2 && str[i + 1] == '.' && FileUtilities.IsAnySlash(str[i + 2]);
+
+                if (isSeparator)
+                {
+                    i++;
+                }
+                else if (isRelativeSeparator)
+                {
+                    i += 2;
+                }
+                else
+                {
+                    isSequenceEndFound = true;
+                }
             }
 
-            /*
-             * Capture the leading \\ in UNC paths, so that the doubled slash isn't
-             * reduced in a later step.
-             */
-            matchFileExpression.Replace("<:fixeddir:><:dirseparator:><:dirseparator:>", "<:fixeddir:><:uncslashslash:>");
+            return i;
+        }
 
-            /*
-             * Iteratively reduce four cases involving directory separators
-             * 
-             *  (1) <:dirseparator:>.<:dirseparator:> -> <:dirseparator:>
-             *        This is an identity, so for example, these two are equivalent,
-             * 
-             *            dir1\.\dir2 == dir1\dir2
-             * 
-             *    (2) <:dirseparator:><:dirseparator:> -> <:dirseparator:>
-             *      Double directory separators are treated as a single directory separator,
-             *      so, for example, this is an identity:
-             * 
-             *          f:\dir1\\dir2 == f:\dir1\dir2
-             * 
-             *      The single exemption is for UNC path names, like this:
-             * 
-             *          \\server\share != \server\share
-             * 
-             *      This case is handled by the <:uncslashslash:> which was substituted in
-             *      a prior step.
-             * 
-             *  (3) <:fixeddir:>.<:dirseparator:>.<:dirseparator:> -> <:fixeddir:>.<:dirseparator:>
-             *      A ".\" at the beginning of a line is equivalent to nothing, so:
-             * 
-             *          .\.\dir1\file.txt == .\dir1\file.txt
-             * 
-             *  (4) <:dirseparator:>.<:eol:> -> <:eol:>
-             *      A "\." at the end of a line is equivalent to nothing, so:
-             * 
-             *          dir1\dir2\. == dir1\dir2             *
-             */
-            int sizeBefore;
-            do
+        /// <summary>
+        /// Given an index at a directory separator or start of a recursive operator,
+        /// iteratively skip to the end of three sequences:
+        /// 
+        /// (1), (2) Both sequences handled by IndexOfNextNonCollapsibleChar
+        /// 
+        /// (3) \**\**\ -> \**\
+        ///              This is an identity, so for example, these two are equivalent,
+        ///
+        ///                 dir1\**\**\ == dir1\**\
+        /// </summary>
+        /// <returns>]
+        /// If starting at a recursive operator, the last index of a recursive sequence.
+        /// Otherwise, the last index of a directory sequence.
+        /// </returns>
+        private static int LastIndexOfDirectoryOrRecursiveSequence(string str, int startIndex)
+        {
+            bool isRecursiveSequence = startIndex < str.Length - 1
+                                            && str[startIndex] == '*' && str[startIndex + 1] == '*';
+            if (!isRecursiveSequence)
             {
-                sizeBefore = matchFileExpression.Length;
-
-                // NOTE: all these replacements will necessarily reduce the expression length i.e. length will either reduce or
-                // stay the same through this loop
-                matchFileExpression.Replace("<:dirseparator:>.<:dirseparator:>", "<:dirseparator:>");
-                matchFileExpression.Replace("<:dirseparator:><:dirseparator:>", "<:dirseparator:>");
-                matchFileExpression.Replace("<:fixeddir:>.<:dirseparator:>.<:dirseparator:>", "<:fixeddir:>.<:dirseparator:>");
-                matchFileExpression.Replace("<:dirseparator:>.<:endfilename:>", "<:endfilename:>");
-                matchFileExpression.Replace("<:filename:>.<:endfilename:>", "<:filename:><:endfilename:>");
-
-                ErrorUtilities.VerifyThrow(matchFileExpression.Length <= sizeBefore,
-                    "Expression reductions cannot increase the length of the expression.");
-            } while (matchFileExpression.Length < sizeBefore);
-
-            /*
-             * Collapse **\** into **.
-             */
-            do
-            {
-                sizeBefore = matchFileExpression.Length;
-                matchFileExpression.Replace(recursiveDirectoryMatch + "<:dirseparator:>" + recursiveDirectoryMatch, recursiveDirectoryMatch);
-
-                ErrorUtilities.VerifyThrow(matchFileExpression.Length <= sizeBefore,
-                    "Expression reductions cannot increase the length of the expression.");
-            } while (matchFileExpression.Length < sizeBefore);
-
-            /*
-             * Call out legal recursion operators:
-             * 
-             *        fixed-directory + **\
-             *        \**\
-             *        **\**
-             * 
-             */
-            do
-            {
-                sizeBefore = matchFileExpression.Length;
-                matchFileExpression.Replace("<:dirseparator:>" + recursiveDirectoryMatch + "<:dirseparator:>", "<:middledirs:>");
-                matchFileExpression.Replace("<:wildcarddir:>" + recursiveDirectoryMatch + "<:dirseparator:>", "<:wildcarddir:><:leftdirs:>");
-
-                ErrorUtilities.VerifyThrow(matchFileExpression.Length <= sizeBefore,
-                    "Expression reductions cannot increase the length of the expression.");
-            } while (matchFileExpression.Length < sizeBefore);
-
-
-            /*
-             * By definition, "**" must appear alone between directory slashes. If there is any remaining "**" then this is not
-             * a valid filespec.
-             */
-            // NOTE: this condition is evaluated left-to-right -- this is important because we want the length BEFORE stripping
-            // any "**"s remaining in the expression
-            if (matchFileExpression.Length > matchFileExpression.Replace(recursiveDirectoryMatch, null).Length)
-            {
-                isLegalFileSpec = false;
-                return String.Empty;
+                return LastIndexOfDirectorySequence(str, startIndex);
             }
 
-            /*
-             * Remaining call-outs not involving "**"
-             */
-            matchFileExpression.Replace("*.*", "<:anynonseparator:>");
-            matchFileExpression.Replace("*", "<:anynonseparator:>");
-            matchFileExpression.Replace("?", "<:singlecharacter:>");
+            int i = startIndex + 2;
+            bool isSequenceEndFound = false;
 
-            /*
-             *  Escape all special characters defined for regular expresssions.
-             */
-            matchFileExpression.Replace("\\", "\\\\"); // Must be first.
-            matchFileExpression.Replace("$", "\\$");
-            matchFileExpression.Replace("(", "\\(");
-            matchFileExpression.Replace(")", "\\)");
-            matchFileExpression.Replace("*", "\\*");
-            matchFileExpression.Replace("+", "\\+");
-            matchFileExpression.Replace(".", "\\.");
-            matchFileExpression.Replace("[", "\\[");
-            matchFileExpression.Replace("?", "\\?");
-            matchFileExpression.Replace("^", "\\^");
-            matchFileExpression.Replace("{", "\\{");
-            matchFileExpression.Replace("|", "\\|");
+            while (!isSequenceEndFound && i < str.Length)
+            {
+                i = LastIndexOfDirectorySequence(str, i);
+                bool isRecursiveOperator = i < str.Length - 2 && str[i + 1] == '*' && str[i + 2] == '*';
 
-            /*
-             *  Now, replace call-outs with their regex equivalents.
-             */
-            matchFileExpression.Replace("<:middledirs:>", "((/)|(\\\\)|(/.*/)|(/.*\\\\)|(\\\\.*\\\\)|(\\\\.*/))");
-            matchFileExpression.Replace("<:leftdirs:>", "((.*/)|(.*\\\\)|())");
-            matchFileExpression.Replace("<:rightdirs:>", ".*");
-            matchFileExpression.Replace("<:anything:>", ".*");
-            matchFileExpression.Replace("<:anythingbutdot:>", "[^\\.]*");
-            matchFileExpression.Replace("<:anysinglecharacterbutdot:>", "[^\\.].");
-            matchFileExpression.Replace("<:anynonseparator:>", "[^/\\\\]*");
-            matchFileExpression.Replace("<:singlecharacter:>", ".");
-            matchFileExpression.Replace("<:dirseparator:>", "[/\\\\]+");
-            matchFileExpression.Replace("<:uncslashslash:>", @"\\\\");
-            matchFileExpression.Replace("<:bol:>", "^");
-            matchFileExpression.Replace("<:eol:>", "$");
-            matchFileExpression.Replace("<:fixeddir:>", "(?<FIXEDDIR>");
-            matchFileExpression.Replace("<:endfixeddir:>", ")");
-            matchFileExpression.Replace("<:wildcarddir:>", "(?<WILDCARDDIR>");
-            matchFileExpression.Replace("<:endwildcarddir:>", ")");
-            matchFileExpression.Replace("<:filename:>", "(?<FILENAME>");
-            matchFileExpression.Replace("<:endfilename:>", ")");
+                if (isRecursiveOperator)
+                {
+                    i += 3;
+                }
+                else
+                {
+                    isSequenceEndFound = true;
+                }
+            }
 
-            return matchFileExpression.ToString();
+            return i + 1;
         }
 
         /// <summary>
@@ -1260,16 +1444,11 @@ namespace Microsoft.Build.Shared
         /// <param name="regexFileMatch">Receives the regular expression.</param>
         /// <param name="needsRecursion">Receives the flag that is true if recursion is required.</param>
         /// <param name="isLegalFileSpec">Receives the flag that is true if the filespec is legal.</param>
-        /// <param name="getFileSystemEntries">Delegate.</param>
-        internal static void GetFileSpecInfoWithRegexObject
-        (
+        internal void GetFileSpecInfoWithRegexObject(
             string filespec,
             out Regex regexFileMatch,
             out bool needsRecursion,
-            out bool isLegalFileSpec,
-            GetFileSystemEntries getFileSystemEntries
-
-        )
+            out bool isLegalFileSpec)
         {
             string fixedDirectoryPart;
             string wildcardDirectoryPart;
@@ -1278,8 +1457,7 @@ namespace Microsoft.Build.Shared
 
             GetFileSpecInfo(filespec,
                 out fixedDirectoryPart, out wildcardDirectoryPart, out filenamePart,
-                out matchFileExpression, out needsRecursion, out isLegalFileSpec,
-                getFileSystemEntries);
+                out matchFileExpression, out needsRecursion, out isLegalFileSpec);
 
             
             regexFileMatch = isLegalFileSpec
@@ -1302,10 +1480,8 @@ namespace Microsoft.Build.Shared
         /// <param name="matchFileExpression">Receives the regular expression.</param>
         /// <param name="needsRecursion">Receives the flag that is true if recursion is required.</param>
         /// <param name="isLegalFileSpec">Receives the flag that is true if the filespec is legal.</param>
-        /// <param name="getFileSystemEntries">Delegate.</param>
         /// <param name="fixupParts">hook method to further change the parts</param>
-        internal static void GetFileSpecInfo
-        (
+        internal void GetFileSpecInfo(
             string filespec,
             out string fixedDirectoryPart,
             out string wildcardDirectoryPart,
@@ -1313,9 +1489,7 @@ namespace Microsoft.Build.Shared
             out string matchFileExpression,
             out bool needsRecursion,
             out bool isLegalFileSpec,
-            GetFileSystemEntries getFileSystemEntries,
-            FixupParts fixupParts = null
-        )
+            FixupParts fixupParts = null)
         {
             isLegalFileSpec = true;
             needsRecursion = false;
@@ -1333,7 +1507,7 @@ namespace Microsoft.Build.Shared
             /*
              * Now break up the filespec into constituent parts--fixed, wildcard and filename.
              */
-            SplitFileSpec(filespec, out fixedDirectoryPart, out wildcardDirectoryPart, out filenamePart, getFileSystemEntries);
+            SplitFileSpec(filespec, out fixedDirectoryPart, out wildcardDirectoryPart, out filenamePart);
 
             if (fixupParts != null)
             {
@@ -1602,7 +1776,7 @@ namespace Microsoft.Build.Shared
         /// <param name="filespec">The filespec.</param>
         /// <param name="fileToMatch">The candidate to match against.</param>
         /// <returns>The result class.</returns>
-        internal static Result FileMatch
+        internal Result FileMatch
         (
             string filespec,
             string fileToMatch
@@ -1610,7 +1784,7 @@ namespace Microsoft.Build.Shared
         {
             Result matchResult = new Result();
 
-            fileToMatch = GetLongPathName(fileToMatch, s_defaultGetFileSystemEntries);
+            fileToMatch = GetLongPathName(fileToMatch, _getFileSystemEntries);
 
             Regex regexFileMatch;
             GetFileSpecInfoWithRegexObject
@@ -1618,8 +1792,7 @@ namespace Microsoft.Build.Shared
                 filespec,
                 out regexFileMatch,
                 out matchResult.isFileSpecRecursive,
-                out matchResult.isLegalFileSpec,
-                s_defaultGetFileSystemEntries
+                out matchResult.isLegalFileSpec
             );
 
             if (matchResult.isLegalFileSpec)
@@ -1688,90 +1861,132 @@ namespace Microsoft.Build.Shared
         /// <param name="projectDirectoryUnescaped">The project directory.</param>
         /// <param name="filespecUnescaped">Get files that match the given file spec.</param>
         /// <param name="excludeSpecsUnescaped">Exclude files that match this file spec.</param>
-        /// <param name="entriesCache">Cache used for caching IO operation results</param>
         /// <returns>The array of files.</returns>
-        internal static string[] GetFiles
-        (
+        internal string[] GetFiles
+            (
             string projectDirectoryUnescaped,
             string filespecUnescaped,
-            IEnumerable<string> excludeSpecsUnescaped = null,
-            ConcurrentDictionary<string, ImmutableArray<string>> entriesCache = null
-        )
+            List<string> excludeSpecsUnescaped = null
+            )
         {
-            var getFileSystemEntries = entriesCache == null
-                ? s_defaultGetFileSystemEntries
-                : (type, path, pattern, directory, projectDirectory) =>
-                {
-                    // Cache only directories, for files we won't ever hit the cache while open a project
-                    if (type == FileSystemEntity.Directories)
-                    {
-                        return entriesCache.GetOrAdd($"{path};{pattern ?? "*"}",
-                            s => s_defaultGetFileSystemEntries(type, path, pattern,
-                                directory, projectDirectory));
-                    }
-                    return s_defaultGetFileSystemEntries(type, path, pattern, directory, projectDirectory);
-                };
 
-            // Possible future improvement: make sure file existence caching happens only at evaluation time, and maybe only within a build session. https://github.com/Microsoft/msbuild/issues/2306
-            if (Traits.Instance.MSBuildCacheFileEnumerations)
+            // For performance. Short-circuit iff there is no wildcard.
+            if (!HasWildcards(filespecUnescaped))
             {
-                string filesKey = ComputeFileEnumerationCacheKey(projectDirectoryUnescaped, filespecUnescaped, excludeSpecsUnescaped);
-                string[] files;
-                if (!s_cachedFileEnumerations.Value.TryGetValue(filesKey, out files))
-                {
-                    // avoid parallel evaluations of the same wildcard by using a unique lock for each wildcard
-                    object locks = s_cachedFileEnumerationsLock.Value.GetOrAdd(filesKey, _ => new object());
-                    lock (locks)
-                    {
-                        if (!s_cachedFileEnumerations.Value.TryGetValue(filesKey, out files))
-                        {
-                            files =
-                                s_cachedFileEnumerations.Value.GetOrAdd(
-                                    filesKey,
-                                    (_) =>
-                                        GetFiles(
-                                            projectDirectoryUnescaped,
-                                            filespecUnescaped,
-                                            excludeSpecsUnescaped,
-                                            getFileSystemEntries,
-                                            s_defaultDirectoryExists));
-                        }
-                    }
-                }
-
-                // Copy the file enumerations to prevent outside modifications of the cache (e.g. sorting, escaping) and to maintain the original contract that a new array is created on each call.
-                var filesToReturn = new string[files.Length];
-                Array.Copy(files, filesToReturn, files.Length);
-                return filesToReturn;
+                return CreateArrayWithSingleItemIfNotExcluded(filespecUnescaped, excludeSpecsUnescaped);
             }
-            else
+
+            if (_cachedGlobExpansions == null)
             {
-                string[] files = GetFiles(
+                return GetFilesImplementation(
                     projectDirectoryUnescaped,
                     filespecUnescaped,
-                    excludeSpecsUnescaped,
-                    getFileSystemEntries,
-                    s_defaultDirectoryExists);
-                return files;
+                    excludeSpecsUnescaped);
             }
+
+            var enumerationKey = ComputeFileEnumerationCacheKey(projectDirectoryUnescaped, filespecUnescaped, excludeSpecsUnescaped);
+
+            ImmutableArray<string> files;
+            if (!_cachedGlobExpansions.TryGetValue(enumerationKey, out files))
+            {
+                // avoid parallel evaluations of the same wildcard by using a unique lock for each wildcard
+                object locks = _cachedGlobExpansionsLock.Value.GetOrAdd(enumerationKey, _ => new object());
+                lock (locks)
+                {
+                    if (!_cachedGlobExpansions.TryGetValue(enumerationKey, out files))
+                    {
+                        files =
+                            _cachedGlobExpansions.GetOrAdd(
+                                enumerationKey,
+                                (_) =>
+                                    GetFilesImplementation(
+                                        projectDirectoryUnescaped,
+                                        filespecUnescaped,
+                                        excludeSpecsUnescaped)
+                                        .ToImmutableArray());
+                    }
+                }
+            }
+
+            // Copy the file enumerations to prevent outside modifications of the cache (e.g. sorting, escaping) and to maintain the original method contract that a new array is created on each call.
+            var filesToReturn = files.ToArray();
+
+            return filesToReturn;
         }
 
-        private static string ComputeFileEnumerationCacheKey(string projectDirectoryUnescaped, string filespecUnescaped, IEnumerable<string> excludes)
+        private static string ComputeFileEnumerationCacheKey(string projectDirectoryUnescaped, string filespecUnescaped, List<string> excludes)
         {
-            var sb = new StringBuilder();
+            Debug.Assert(projectDirectoryUnescaped != null);
+            Debug.Assert(filespecUnescaped != null);
+            Debug.Assert(Path.IsPathRooted(projectDirectoryUnescaped));
 
-            sb.Append(projectDirectoryUnescaped);
-            sb.Append(filespecUnescaped);
+            const string projectPathPrependedToken = "p";
+            const string pathValityExceptionTriggeredToken = "e";
+
+            var excludeSize = 0;
 
             if (excludes != null)
             {
                 foreach (var exclude in excludes)
                 {
-                    sb.Append(exclude);
+                    excludeSize += exclude.Length;
                 }
             }
 
-            return sb.ToString();
+            using (var sb = new ReuseableStringBuilder(projectDirectoryUnescaped.Length + filespecUnescaped.Length + excludeSize))
+            {
+                var pathValidityExceptionTriggered = false;
+
+                try
+                {
+                    // Ideally, ensure that the cache key is an absolute, normalized path so that other projects evaluating an equivalent glob can get a hit.
+                    // Corollary caveat: including the project directory when the glob is independent of it leads to cache misses
+
+                    var filespecUnescapedFullyQualified = Path.Combine(projectDirectoryUnescaped, filespecUnescaped);
+
+                    if (filespecUnescapedFullyQualified.Equals(filespecUnescaped, StringComparison.Ordinal))
+                    {
+                        // filespec is absolute, don't include the project directory path
+                        sb.Append(filespecUnescaped);
+                    }
+                    else
+                    {
+                        // filespec is not absolute, include the project directory path
+                        // differentiate fully qualified filespecs vs relative filespecs that got prepended with the project directory
+                        sb.Append(projectPathPrependedToken);
+                        sb.Append(filespecUnescapedFullyQualified);
+                    }
+
+                    // increase the chance of cache hits when multiple relative globs refer to the same base directory
+                    // todo https://github.com/Microsoft/msbuild/issues/3889
+                    //if (FileUtilities.ContainsRelativePathSegments(filespecUnescaped))
+                    //{
+                    //    filespecUnescaped = FileUtilities.GetFullPathNoThrow(filespecUnescaped);
+                    //}
+                }
+                catch (Exception e) when (ExceptionHandling.IsIoRelatedException(e))
+                {
+                    pathValidityExceptionTriggered = true;
+                }
+
+                if (pathValidityExceptionTriggered)
+                {
+                    sb.Append(pathValityExceptionTriggeredToken);
+                    sb.Append(projectPathPrependedToken);
+                    sb.Append(projectDirectoryUnescaped);
+                    sb.Append(filespecUnescaped);
+                }
+
+                if (excludes != null)
+                {
+                    foreach (var exclude in excludes)
+                    {
+                        sb.Append(exclude);
+                    }
+                }
+
+                return sb.ToString();
+            }
         }
 
         enum SearchAction
@@ -1781,8 +1996,10 @@ namespace Microsoft.Build.Shared
             ReturnEmptyList,
         }
 
-        static SearchAction GetFileSearchData(string projectDirectoryUnescaped, string filespecUnescaped,
-            GetFileSystemEntries getFileSystemEntries, DirectoryExists directoryExists, out bool stripProjectDirectory,
+        private SearchAction GetFileSearchData(
+            string projectDirectoryUnescaped,
+            string filespecUnescaped,
+            out bool stripProjectDirectory,
             out RecursionState result)
         {
             stripProjectDirectory = false;
@@ -1802,8 +2019,7 @@ namespace Microsoft.Build.Shared
                 out filenamePart,
                 out matchFileExpression,
                 out needsRecursion,
-                out isLegalFileSpec,
-                getFileSystemEntries
+                out isLegalFileSpec
             );
 
             /*
@@ -1843,7 +2059,7 @@ namespace Microsoft.Build.Shared
              * If the fixed directory part doesn't exist, then this means no files should be
              * returned.
              */
-            if (fixedDirectoryPart.Length > 0 && !directoryExists(fixedDirectoryPart))
+            if (fixedDirectoryPart.Length > 0 && !_fileSystem.DirectoryExists(fixedDirectoryPart))
             {
                 return SearchAction.ReturnEmptyList;
             }
@@ -1892,7 +2108,7 @@ namespace Microsoft.Build.Shared
                 sb.Append(aString[0]);
                 sb.Append(aString[1]);
 
-                var i = SkipCharacters(aString, 2, c => IsSlash(c));
+                var i = SkipCharacters(aString, 2, c => FileUtilities.IsAnySlash(c));
 
                 if (index != i)
                 {
@@ -1904,22 +2120,22 @@ namespace Microsoft.Build.Shared
             else if (aString.StartsWith("/", StringComparison.Ordinal))
             {
                 sb.Append('/');
-                index = SkipCharacters(aString, 1, c => IsSlash(c));
+                index = SkipCharacters(aString, 1, c => FileUtilities.IsAnySlash(c));
             }
             else if (aString.StartsWith(@"\\", StringComparison.Ordinal))
             {
                 sb.Append(@"\\");
-                index = SkipCharacters(aString, 2, c => IsSlash(c));
+                index = SkipCharacters(aString, 2, c => FileUtilities.IsAnySlash(c));
             }
             else if (aString.StartsWith(@"\", StringComparison.Ordinal))
             {
                 sb.Append(@"\");
-                index = SkipCharacters(aString, 1, c => IsSlash(c));
+                index = SkipCharacters(aString, 1, c => FileUtilities.IsAnySlash(c));
             }
 
             while (index < aString.Length)
             {
-                var afterSlashesIndex = SkipCharacters(aString, index, c => IsSlash(c));
+                var afterSlashesIndex = SkipCharacters(aString, index, c => FileUtilities.IsAnySlash(c));
 
                 // do not append separator at the end of the string
                 if (afterSlashesIndex >= aString.Length)
@@ -1932,7 +2148,7 @@ namespace Microsoft.Build.Shared
                     sb.Append(s_directorySeparator);
                 }
 
-                var afterNonSlashIndex = SkipCharacters(aString, afterSlashesIndex, c => !IsSlash(c));
+                var afterNonSlashIndex = SkipCharacters(aString, afterSlashesIndex, c => !FileUtilities.IsAnySlash(c));
 
                 sb.Append(aString, afterSlashesIndex, afterNonSlashIndex - afterSlashesIndex);
 
@@ -1941,8 +2157,6 @@ namespace Microsoft.Build.Shared
 
             return sb.ToString();
         }
-
-        private static bool IsSlash(char c) => c == '/' || c == '\\';
 
         /// <summary>
         /// Skips characters that satisfy the condition <param name="jumpOverCharacter"></param>
@@ -1971,7 +2185,7 @@ namespace Microsoft.Build.Shared
             return ((value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z'));
         }
 
-        static string[] CreateArrayWithSingleItemIfNotExcluded(string filespecUnescaped, IEnumerable<string> excludeSpecsUnescaped)
+        static string[] CreateArrayWithSingleItemIfNotExcluded(string filespecUnescaped, List<string> excludeSpecsUnescaped)
         {
             if (excludeSpecsUnescaped != null)
             {
@@ -1986,7 +2200,7 @@ namespace Microsoft.Build.Shared
                         return Array.Empty<string>();
                     }
 
-                    var match = FileMatch(excludeSpec, filespecUnescaped);
+                    var match = Default.FileMatch(excludeSpec, filespecUnescaped);
 
                     if (match.isLegalFileSpec && match.isMatch)
                     {
@@ -2004,29 +2218,12 @@ namespace Microsoft.Build.Shared
         /// <param name="projectDirectoryUnescaped">The project directory.</param>
         /// <param name="filespecUnescaped">Get files that match the given file spec.</param>
         /// <param name="excludeSpecsUnescaped">Exclude files that match this file spec.</param>
-        /// <param name="getFileSystemEntries">Get files that match the given file spec.</param>
-        /// <param name="directoryExists">Determine whether a directory exists.</param>
         /// <returns>The array of files.</returns>
-        internal static string[] GetFiles
-        (
+        private string[] GetFilesImplementation(
             string projectDirectoryUnescaped,
             string filespecUnescaped,
-            IEnumerable<string> excludeSpecsUnescaped,
-            GetFileSystemEntries getFileSystemEntries,
-            DirectoryExists directoryExists
-        )
+            List<string> excludeSpecsUnescaped)
         {
-            // For performance. Short-circuit iff there is no wildcard.
-            // Perf Note: Doing a [Last]IndexOfAny(...) is much faster than compiling a
-            // regular expression that does the same thing, regardless of whether
-            // filespec contains one of the characters.
-            // Choose LastIndexOfAny instead of IndexOfAny because it seems more likely
-            // that wildcards will tend to be towards the right side.
-            if (!HasWildcards(filespecUnescaped))
-            {
-                return CreateArrayWithSingleItemIfNotExcluded(filespecUnescaped, excludeSpecsUnescaped);
-            }
-
             // UNDONE (perf): Short circuit the complex processing when we only have a path and a wildcarded filename
 
             /*
@@ -2034,7 +2231,7 @@ namespace Microsoft.Build.Shared
              */
             bool stripProjectDirectory;
             RecursionState state;
-            var action = GetFileSearchData(projectDirectoryUnescaped, filespecUnescaped, getFileSystemEntries, directoryExists,
+            var action = GetFileSearchData(projectDirectoryUnescaped, filespecUnescaped,
                 out stripProjectDirectory, out state);
 
             if (action == SearchAction.ReturnEmptyList)
@@ -2067,7 +2264,7 @@ namespace Microsoft.Build.Shared
                     bool excludeStripProjectDirectory;
 
                     RecursionState excludeState;
-                    var excludeAction = GetFileSearchData(projectDirectoryUnescaped, excludeSpec, getFileSystemEntries, directoryExists,
+                    var excludeAction = GetFileSearchData(projectDirectoryUnescaped, excludeSpec,
                         out excludeStripProjectDirectory, out excludeState);
 
                     if (excludeAction == SearchAction.ReturnFileSpec)
@@ -2213,7 +2410,6 @@ namespace Microsoft.Build.Shared
                     state,
                     projectDirectoryUnescaped,
                     stripProjectDirectory,
-                    getFileSystemEntries,
                     searchesToExclude,
                     searchesToExcludeInSubdirs,
                     taskOptions);

@@ -1,14 +1,11 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Utility methods for classifying and handling exceptions.</summary>
-//-----------------------------------------------------------------------
 
 #if BUILDINGAPPXTASKS
 namespace Microsoft.Build.AppxPackage.Shared
 #else
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -16,8 +13,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security;
+using System.Text;
 using System.Threading;
 using System.Xml;
+using Microsoft.Build.Shared.FileSystem;
 #if FEATURE_VARIOUS_EXCEPTIONS
 using System.Xml.Schema;
 using System.Runtime.Serialization;
@@ -328,7 +327,7 @@ namespace Microsoft.Build.Shared
 
                     // For some reason we get Watson buckets because GetTempPath gives us a folder here that doesn't exist.
                     // Either because %TMP% is misdefined, or because they deleted the temp folder during the build.
-                    if (!Directory.Exists(DebugDumpPath))
+                    if (!FileSystems.Default.DirectoryExists(DebugDumpPath))
                     {
                         // If this throws, no sense catching it, we can't log it now, and we're here
                         // because we're a child node with no console to log to, so die
@@ -336,6 +335,7 @@ namespace Microsoft.Build.Shared
                     }
 
                     var pid = Process.GetCurrentProcess().Id;
+                    // This naming pattern is assumed in ReadAnyExceptionFromFile
                     s_dumpFileName = Path.Combine(DebugDumpPath, $"MSBuild_pid-{pid}_{guid:n}.failure.txt");
 
                     using (StreamWriter writer = FileUtilities.OpenWrite(s_dumpFileName, append: true))
@@ -353,6 +353,31 @@ namespace Microsoft.Build.Shared
                     writer.WriteLine("===================");
                 }
             }
+        }
+
+        /// <summary>
+        /// Returns the content of any exception dump files modified
+        /// since the provided time, otherwise returns an empty string.
+        /// </summary>
+        internal static string ReadAnyExceptionFromFile(DateTime fromTimeUtc)
+        {
+            var builder = new StringBuilder();
+            IEnumerable<string> files = FileSystems.Default.EnumerateFiles(DebugDumpPath, "MSBuild*failure.txt");
+
+            foreach (string file in files)
+            {
+                if (File.GetLastWriteTimeUtc(file) >= fromTimeUtc)
+                {
+                    builder.Append(Environment.NewLine);
+                    builder.Append(file);
+                    builder.Append(":");
+                    builder.Append(Environment.NewLine);
+                    builder.Append(File.ReadAllText(file));
+                    builder.Append(Environment.NewLine);
+                }
+            }
+
+            return builder.ToString();
         }
 #endif
 

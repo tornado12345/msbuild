@@ -1,28 +1,19 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Class which can load and hold toolsets.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
 using Microsoft.Build.Collections;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Shared;
 using Microsoft.Build.BackEnd;
-
-using Constants = Microsoft.Build.Internal.Constants;
 
 namespace Microsoft.Build.Evaluation
 {
     /// <summary>
     /// Class which provides access to toolsets.
     /// </summary>
-    internal class ToolsetProvider : IToolsetProvider, INodePacketTranslatable
+    internal class ToolsetProvider : IToolsetProvider, ITranslatable
     {
         /// <summary>
         /// A mapping of tools versions to Toolsets, which contain the public Toolsets.
@@ -35,7 +26,7 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public ToolsetProvider(string defaultToolsVersion, PropertyDictionary<ProjectPropertyInstance> environmentProperties, PropertyDictionary<ProjectPropertyInstance> globalProperties, ToolsetDefinitionLocations toolsetDefinitionLocations)
         {
-            InitializeToolsetCollection(defaultToolsVersion, environmentProperties, globalProperties, toolsetDefinitionLocations);
+            InitializeToolsetCollection(environmentProperties, globalProperties, toolsetDefinitionLocations);
         }
 
         /// <summary>
@@ -53,9 +44,9 @@ namespace Microsoft.Build.Evaluation
         /// <summary>
         /// Private constructor for deserialization
         /// </summary>
-        private ToolsetProvider(INodePacketTranslator translator)
+        private ToolsetProvider(ITranslator translator)
         {
-            ((INodePacketTranslatable)this).Translate(translator);
+            ((ITranslatable)this).Translate(translator);
         }
 
         #region IToolsetProvider Members
@@ -66,10 +57,7 @@ namespace Microsoft.Build.Evaluation
         /// <comments>
         /// ValueCollection is already read-only. 
         /// </comments>
-        public ICollection<Toolset> Toolsets
-        {
-            get { return _toolsets.Values; }
-        }
+        public ICollection<Toolset> Toolsets => _toolsets.Values;
 
         /// <summary>
         /// Gets the specified toolset.
@@ -77,9 +65,7 @@ namespace Microsoft.Build.Evaluation
         public Toolset GetToolset(string toolsVersion)
         {
             ErrorUtilities.VerifyThrowArgumentLength(toolsVersion, "toolsVersion");
-
-            Toolset toolset;
-            _toolsets.TryGetValue(toolsVersion, out toolset);
+            _toolsets.TryGetValue(toolsVersion, out var toolset);
 
             return toolset;
         }
@@ -91,7 +77,7 @@ namespace Microsoft.Build.Evaluation
         /// <summary>
         /// Translates to and from binary form.
         /// </summary>
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             translator.TranslateDictionary(ref _toolsets, StringComparer.OrdinalIgnoreCase, Toolset.FactoryForDeserialization);
         }
@@ -99,7 +85,7 @@ namespace Microsoft.Build.Evaluation
         /// <summary>
         /// Factory for deserialization.
         /// </summary>
-        static internal ToolsetProvider FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ToolsetProvider FactoryForDeserialization(ITranslator translator)
         {
             ToolsetProvider provider = new ToolsetProvider(translator);
             return provider;
@@ -111,11 +97,11 @@ namespace Microsoft.Build.Evaluation
         /// Populate Toolsets with a dictionary of (toolset version, Toolset) 
         /// using information from the registry and config file, if any.  
         /// </summary>
-        private void InitializeToolsetCollection(string defaultToolsVersion, PropertyDictionary<ProjectPropertyInstance> environmentProperties, PropertyDictionary<ProjectPropertyInstance> globalProperties, ToolsetDefinitionLocations toolsetDefinitionLocations)
+        private void InitializeToolsetCollection(PropertyDictionary<ProjectPropertyInstance> environmentProperties, PropertyDictionary<ProjectPropertyInstance> globalProperties, ToolsetDefinitionLocations toolsetDefinitionLocations)
         {
             _toolsets = new Dictionary<string, Toolset>(StringComparer.OrdinalIgnoreCase);
 
-            defaultToolsVersion = ToolsetReader.ReadAllToolsets(_toolsets, environmentProperties, globalProperties, toolsetDefinitionLocations);
+            ToolsetReader.ReadAllToolsets(_toolsets, environmentProperties, globalProperties, toolsetDefinitionLocations);
         }
     }
 }

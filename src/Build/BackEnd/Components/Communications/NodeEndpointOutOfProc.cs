@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Implementation of a node endpoint for out-of-proc nodes.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -44,7 +40,6 @@ namespace Microsoft.Build.BackEnd
 
         #region Constructors and Factories
 
-#if FEATURE_NAMED_PIPES_FULL_DUPLEX
         /// <summary>
         /// Instantiates an endpoint to act as a client
         /// </summary>
@@ -55,26 +50,12 @@ namespace Microsoft.Build.BackEnd
             string pipeName, 
             IBuildComponentHost host,
             bool enableReuse)
-#else
-        /// <summary>
-        /// Instantiates an endpoint to act as a client
-        /// </summary>
-        internal NodeEndpointOutOfProc(
-            string clientToServerPipeHandle,
-            string serverToClientPipeHandle,
-            IBuildComponentHost host,
-            bool enableReuse)
-#endif
         {
             ErrorUtilities.VerifyThrowArgumentNull(host, "host");
             _componentHost = host;
             _enableReuse = enableReuse;
 
-#if FEATURE_NAMED_PIPES_FULL_DUPLEX
             InternalConstruct(pipeName);
-#else
-            InternalConstruct(clientToServerPipeHandle, serverToClientPipeHandle);
-#endif
         }
 
         #endregion

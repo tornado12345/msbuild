@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ProjectUsingTaskElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -33,7 +29,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectRootElement project = ProjectRootElement.Create();
 
-            Assert.Equal(null, project.UsingTasks.GetEnumerator().Current);
+            Assert.Null(project.UsingTasks.GetEnumerator().Current);
         }
 
         /// <summary>
@@ -268,7 +264,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             usingTask.AssemblyFile = "afb";
             Assert.Equal("afb", usingTask.AssemblyFile);
-            Assert.Equal(true, usingTask.ContainingProject.HasUnsavedChanges);
+            Assert.True(usingTask.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -282,7 +278,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             usingTask.AssemblyName = "anb";
             Assert.Equal("anb", usingTask.AssemblyName);
-            Assert.Equal(true, usingTask.ContainingProject.HasUnsavedChanges);
+            Assert.True(usingTask.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -325,7 +321,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             usingTask.TaskName = "tt";
             Assert.Equal("tt", usingTask.TaskName);
-            Assert.Equal(true, usingTask.ContainingProject.HasUnsavedChanges);
+            Assert.True(usingTask.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -340,7 +336,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             usingTask.Condition = "c";
             Assert.Equal("c", usingTask.Condition);
-            Assert.Equal(true, usingTask.ContainingProject.HasUnsavedChanges);
+            Assert.True(usingTask.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -355,7 +351,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             usingTask.TaskFactory = "AssemblyFactory";
             Assert.Equal("AssemblyFactory", usingTask.TaskFactory);
-            Assert.Equal(true, usingTask.ContainingProject.HasUnsavedChanges);
+            Assert.True(usingTask.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -374,7 +370,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                         </UsingTask>
                     </Project>
                 ";
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
                 Assert.True(false);
             }
            );
@@ -395,7 +391,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                         </UsingTask>
                     </Project>
                 ";
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
                 Assert.True(false);
             }
            );
@@ -415,7 +411,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                         </UsingTask>
                     </Project>
                 ";
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
                 Assert.True(false);
             }
            );
@@ -464,7 +460,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                 ";
 
                 ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
-                ProjectUsingTaskElement usingTask = (ProjectUsingTaskElement)Helpers.GetFirst(project.Children);
+                Helpers.GetFirst(project.Children);
                 Assert.True(false);
             }
            );
@@ -486,7 +482,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                 ";
 
                 ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
-                ProjectUsingTaskElement usingTask = (ProjectUsingTaskElement)Helpers.GetFirst(project.Children);
+                Helpers.GetFirst(project.Children);
                 Assert.True(false);
             }
            );
@@ -545,9 +541,9 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         /// </summary>
         private static void VerifyAttributesRemoved(ProjectUsingTaskElement usingTask, string value)
         {
-            Assert.True(usingTask.ContainingProject.RawXml.Contains("TaskFactory"));
+            Assert.Contains("TaskFactory", usingTask.ContainingProject.RawXml);
             usingTask.TaskFactory = value;
-            Assert.False(usingTask.ContainingProject.RawXml.Contains("TaskFactory"));
+            Assert.DoesNotContain("TaskFactory", usingTask.ContainingProject.RawXml);
         }
     }
 }

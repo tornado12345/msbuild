@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Wraps an onerror element.</summary>
-//-----------------------------------------------------------------------
 
 using System.Diagnostics;
 using Microsoft.Build.BackEnd;
@@ -20,7 +16,7 @@ namespace Microsoft.Build.Execution
     /// This is an immutable class
     /// </remarks>
     [DebuggerDisplay("ExecuteTargets={_executeTargets} Condition={_condition}")]
-    public sealed class ProjectOnErrorInstance : ProjectTargetInstanceChild, INodePacketTranslatable
+    public sealed class ProjectOnErrorInstance : ProjectTargetInstanceChild, ITranslatable
     {
         /// <summary>
         /// Unevaluated executetargets value.
@@ -117,7 +113,7 @@ namespace Microsoft.Build.Execution
             get { return _executeTargetsLocation; }
         }
 
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             if (translator.Mode == TranslationDirection.WriteToStream)
             {
@@ -132,7 +128,7 @@ namespace Microsoft.Build.Execution
             translator.Translate(ref _executeTargetsLocation, ElementLocation.FactoryForDeserialization);
         }
 
-        internal new static ProjectOnErrorInstance FactoryForDeserialization(INodePacketTranslator translator)
+        internal new static ProjectOnErrorInstance FactoryForDeserialization(ITranslator translator)
         {
             return translator.FactoryForDeserializingTypeWithName<ProjectOnErrorInstance>();
         }

@@ -1,19 +1,12 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Definition of ProjectItemDefinitionElement class.</summary>
-//-----------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Xml;
 using System.Diagnostics;
-using Microsoft.Build.Framework;
+using System.Linq;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Collections;
-
-using ProjectXmlUtilities = Microsoft.Build.Internal.ProjectXmlUtilities;
 
 namespace Microsoft.Build.Construction
 {
@@ -29,7 +22,7 @@ namespace Microsoft.Build.Construction
         internal ProjectItemDefinitionElement(XmlElement xmlElement, ProjectItemDefinitionGroupElement parent, ProjectRootElement containingProject)
             : base(xmlElement, parent, containingProject)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(parent, "parent");
+            ErrorUtilities.VerifyThrowArgumentNull(parent, nameof(parent));
         }
 
         /// <summary>
@@ -43,24 +36,12 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Gets the definition's type.
         /// </summary>
-        public string ItemType
-        {
-            get { return XmlElement.Name; }
-        }
+        public string ItemType => XmlElement.Name;
 
         /// <summary>
         /// Get any child metadata definitions.
         /// </summary>
-        public ICollection<ProjectMetadataElement> Metadata
-        {
-            get
-            {
-                return new ReadOnlyCollection<ProjectMetadataElement>
-                    (
-                        new FilteringEnumerable<ProjectElement, ProjectMetadataElement>(Children)
-                    );
-            }
-        }
+        public ICollection<ProjectMetadataElement> Metadata => new ReadOnlyCollection<ProjectMetadataElement>(Children.OfType<ProjectMetadataElement>());
 
         /// <summary>
         /// Convenience method to add a piece of metadata to this item definition.
@@ -68,11 +49,31 @@ namespace Microsoft.Build.Construction
         /// </summary>
         public ProjectMetadataElement AddMetadata(string name, string unevaluatedValue)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(name, "name");
-            ErrorUtilities.VerifyThrowArgumentNull(unevaluatedValue, "unevaluatedValue");
+            return AddMetadata(name, unevaluatedValue, false);
+        }
+
+        /// <summary>
+        /// Convenience method to add a piece of metadata to this item definition.
+        /// Adds after any existing metadata. Does not modify any existing metadata.
+        /// </summary>
+        /// <param name="name">The name of the metadata to add</param>
+        /// <param name="unevaluatedValue">The value of the metadata to add</param>
+        /// <param name="expressAsAttribute">If true, then the metadata will be expressed as an attribute instead of a child element, for example
+        /// &lt;Content CopyToOutputDirectory="PreserveNewest" /&gt;
+        /// </param>
+        public ProjectMetadataElement AddMetadata(string name, string unevaluatedValue, bool expressAsAttribute)
+        {
+            ErrorUtilities.VerifyThrowArgumentLength(name, nameof(name));
+            ErrorUtilities.VerifyThrowArgumentNull(unevaluatedValue, nameof(unevaluatedValue));
+
+            if (expressAsAttribute)
+            {
+                ProjectMetadataElement.ValidateValidMetadataAsAttributeName(name, ElementName, Location);
+            }
 
             ProjectMetadataElement metadata = ContainingProject.CreateMetadataElement(name);
             metadata.Value = unevaluatedValue;
+            metadata.ExpressedAsAttribute = expressAsAttribute;
 
             AppendChild(metadata);
 
@@ -108,7 +109,12 @@ namespace Microsoft.Build.Construction
         /// <inheritdoc />
         protected override ProjectElement CreateNewInstance(ProjectRootElement owner)
         {
-            return owner.CreateItemDefinitionElement(this.ItemType);
+            return owner.CreateItemDefinitionElement(ItemType);
         }
+
+        /// <summary>
+        /// Do not clone attributes which can be metadata. The corresponding expressed as attribute project elements are responsible for adding their attribute
+        /// </summary>
+        protected override bool ShouldCloneXmlAttribute(XmlAttribute attribute) => !ProjectMetadataElement.AttributeNameIsValidMetadataName(attribute.LocalName);
     }
 }

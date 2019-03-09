@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Wraps an evaluated item.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -21,6 +17,7 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Construction;
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.Internal;
+using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Execution
 {
@@ -32,7 +29,7 @@ namespace Microsoft.Build.Execution
     /// and evaluation has already been performed, so it is unnecessary bulk.
     /// </remarks>
     [DebuggerDisplay("{ItemType}={EvaluatedInclude} #DirectMetadata={DirectMetadataCount})")]
-    public class ProjectItemInstance : IKeyed, IItem<ProjectMetadataInstance>, ITaskItem, ITaskItem2, IMetadataTable, INodePacketTranslatable, IDeepCloneable<ProjectItemInstance>
+    public class ProjectItemInstance : IKeyed, IItem<ProjectMetadataInstance>, ITaskItem, ITaskItem2, IMetadataTable, ITranslatable, IDeepCloneable<ProjectItemInstance>
     {
         /// <summary>
         /// The project instance to which this item belongs.
@@ -569,7 +566,7 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Translation method.
         /// </summary>
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             translator.Translate(ref _itemType);
             translator.Translate(ref _taskItem, TaskItem.FactoryForDeserialization);
@@ -611,10 +608,10 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Factory for deserialization.
         /// </summary>
-        static internal ProjectItemInstance FactoryForDeserialization(INodePacketTranslator translator, ProjectInstance projectInstance)
+        static internal ProjectItemInstance FactoryForDeserialization(ITranslator translator, ProjectInstance projectInstance)
         {
             ProjectItemInstance newItem = new ProjectItemInstance(projectInstance);
-            ((INodePacketTranslatable)newItem).Translate(translator);
+            ((ITranslatable)newItem).Translate(translator);
             return newItem;
         }
 
@@ -694,7 +691,7 @@ namespace Microsoft.Build.Execution
             ErrorUtilities.VerifyThrowArgumentNull(projectToUse, "project");
             ErrorUtilities.VerifyThrowArgumentLength(itemTypeToUse, "itemType");
             XmlUtilities.VerifyThrowArgumentValidElementName(itemTypeToUse);
-            ErrorUtilities.VerifyThrowArgument(XMakeElements.IllegalItemPropertyNames[itemTypeToUse] == null, "OM_ReservedName", itemTypeToUse);
+            ErrorUtilities.VerifyThrowArgument(!XMakeElements.ReservedItemNames.Contains(itemTypeToUse), "OM_ReservedName", itemTypeToUse);
 
             // TaskItems don't have an item type. So for their benefit, we have to lookup and add the regular item definition.
             List<ProjectItemDefinitionInstance> inheritedItemDefinitions = (itemDefinitions == null) ? null : new List<ProjectItemDefinitionInstance>(itemDefinitions);
@@ -727,7 +724,7 @@ namespace Microsoft.Build.Execution
 #if FEATURE_APPDOMAIN
             MarshalByRefObject,
 #endif
-            ITaskItem, ITaskItem2, IItem<ProjectMetadataInstance>, INodePacketTranslatable, IEquatable<TaskItem>
+            ITaskItem, ITaskItem2, IItem<ProjectMetadataInstance>, ITranslatable, IEquatable<TaskItem>
         {
             /// <summary>
             /// The source file that defined this item.
@@ -849,15 +846,15 @@ namespace Microsoft.Build.Execution
             /// <summary>
             /// Private constructor used for serialization.
             /// </summary>
-            private TaskItem(INodePacketTranslator translator)
+            private TaskItem(ITranslator translator)
             {
-                ((INodePacketTranslatable)this).Translate(translator);
+                ((ITranslatable)this).Translate(translator);
             }
 
             /// <summary>
             /// Private constructor used for serialization.
             /// </summary>
-            private TaskItem(INodePacketTranslator translator, LookasideStringInterner interner)
+            private TaskItem(ITranslator translator, LookasideStringInterner interner)
             {
                 this.TranslateWithInterning(translator, interner);
             }
@@ -1246,7 +1243,7 @@ namespace Microsoft.Build.Execution
 
                 if (null != metadatum && Expander<ProjectProperty, ProjectItem>.ExpressionMayContainExpandableExpressions(metadatum.EvaluatedValueEscaped))
                 {
-                    Expander<ProjectPropertyInstance, ProjectItemInstance> expander = new Expander<ProjectPropertyInstance, ProjectItemInstance>(null, null, new BuiltInMetadataTable(null, this));
+                    Expander<ProjectPropertyInstance, ProjectItemInstance> expander = new Expander<ProjectPropertyInstance, ProjectItemInstance>(null, null, new BuiltInMetadataTable(null, this), FileSystems.Default);
 
                     // We don't have a location to use, but this is very unlikely to error
                     value = expander.ExpandIntoStringLeaveEscaped(metadatum.EvaluatedValueEscaped, ExpanderOptions.ExpandBuiltInMetadata, ElementLocation.EmptyLocation);
@@ -1425,17 +1422,27 @@ namespace Microsoft.Build.Execution
             /// Built-in metadata is not transmitted, but other metadata is.
             /// Does not lose escaped nature.
             /// </summary>
-            void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+            void ITranslatable.Translate(ITranslator translator)
             {
                 translator.Translate(ref _includeEscaped);
                 translator.Translate(ref _includeBeforeWildcardExpansionEscaped);
                 translator.Translate(ref _isImmutable);
                 translator.Translate(ref _definingFileEscaped);
 
-                CopyOnWritePropertyDictionary<ProjectMetadataInstance> temp = (translator.Mode == TranslationDirection.WriteToStream) ? MetadataCollection : null;
-                translator.TranslateDictionary<CopyOnWritePropertyDictionary<ProjectMetadataInstance>, ProjectMetadataInstance>(ref temp, ProjectMetadataInstance.FactoryForDeserialization);
-                ErrorUtilities.VerifyThrow(translator.Mode == TranslationDirection.WriteToStream || _directMetadata == null, "Should be null");
-                _directMetadata = (temp.Count == 0) ? null : temp; // If the metadata was all removed, toss the dictionary
+                translator.Translate(ref _itemDefinitions, ProjectItemDefinitionInstance.FactoryForDeserialization);
+                translator.TranslateDictionary(ref _directMetadata, ProjectMetadataInstance.FactoryForDeserialization);
+
+                if (_itemDefinitions?.Count == 0)
+                {
+                    // If there are no item definitions, toss the list.
+                    _itemDefinitions = null;
+                }
+
+                if (_directMetadata?.Count == 0)
+                {
+                    // If there is no metadata, toss the dictionary.
+                    _directMetadata = null;
+                }
             }
 
             #endregion
@@ -1561,7 +1568,7 @@ namespace Microsoft.Build.Execution
             /// <summary>
             /// Factory for serialization.
             /// </summary>
-            internal static TaskItem FactoryForDeserialization(INodePacketTranslator translator)
+            internal static TaskItem FactoryForDeserialization(ITranslator translator)
             {
                 return new TaskItem(translator);
             }
@@ -1569,7 +1576,7 @@ namespace Microsoft.Build.Execution
             /// <summary>
             /// Factory for serialization.
             /// </summary>
-            internal static TaskItem FactoryForDeserialization(INodePacketTranslator translator, LookasideStringInterner interner)
+            internal static TaskItem FactoryForDeserialization(ITranslator translator, LookasideStringInterner interner)
             {
                 return new TaskItem(translator, interner);
             }
@@ -1577,7 +1584,7 @@ namespace Microsoft.Build.Execution
             /// <summary>
             /// Reads or writes the task item to the translator using an interner for metadata.
             /// </summary>
-            internal void TranslateWithInterning(INodePacketTranslator translator, LookasideStringInterner interner)
+            internal void TranslateWithInterning(ITranslator translator, LookasideStringInterner interner)
             {
                 translator.Translate(ref _includeEscaped);
                 translator.Translate(ref _includeBeforeWildcardExpansionEscaped);

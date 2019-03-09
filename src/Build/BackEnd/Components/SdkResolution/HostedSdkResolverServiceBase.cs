@@ -32,6 +32,10 @@ namespace Microsoft.Build.BackEnd.SdkResolution
         {
         }
 
+        public virtual void ClearCaches()
+        {
+        }
+
         /// <inheritdoc cref="IBuildComponent.InitializeComponent"/>
         public virtual void InitializeComponent(IBuildComponentHost host)
         {
@@ -43,7 +47,7 @@ namespace Microsoft.Build.BackEnd.SdkResolution
         public abstract void PacketReceived(int node, INodePacket packet);
 
         /// <inheritdoc cref="ISdkResolverService.ResolveSdk"/>
-        public abstract SdkResult ResolveSdk(int submissionId, SdkReference sdk, LoggingContext loggingContext, ElementLocation sdkReferenceLocation, string solutionPath, string projectPath);
+        public abstract SdkResult ResolveSdk(int submissionId, SdkReference sdk, LoggingContext loggingContext, ElementLocation sdkReferenceLocation, string solutionPath, string projectPath, bool interactive);
 
         /// <inheritdoc cref="IBuildComponent.ShutdownComponent"/>
         public virtual void ShutdownComponent()

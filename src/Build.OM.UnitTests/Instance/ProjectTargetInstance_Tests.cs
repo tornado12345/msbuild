@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ProjectTargetInstanceTests class.</summary>
-//-----------------------------------------------------------------------
 
 using System.Collections;
 using System.Collections.Generic;
@@ -39,7 +35,7 @@ namespace Microsoft.Build.UnitTests.OM.Instance
             Assert.Equal("t1", ((ProjectTaskInstance)target.Children[0]).Name);
 
             IList<ProjectTaskInstance> tasks = Helpers.MakeList(target.Tasks);
-            Assert.Equal(1, tasks.Count);
+            Assert.Single(tasks);
             Assert.Equal("t1", tasks[0].Name);
         }
 

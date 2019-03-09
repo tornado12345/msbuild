@@ -14,6 +14,7 @@ using System.IO;
 using ColorSetter = Microsoft.Build.Logging.ColorSetter;
 using ColorResetter = Microsoft.Build.Logging.ColorResetter;
 using WriteHandler = Microsoft.Build.Logging.WriteHandler;
+using Microsoft.Build.Exceptions;
 
 namespace Microsoft.Build.BackEnd.Logging
 {
@@ -202,7 +203,7 @@ namespace Microsoft.Build.BackEnd.Logging
         /// </summary>
         internal void WriteLinePrettyFromResource(int indentLevel, string resourceString, params object[] args)
         {
-            string formattedString = ResourceUtilities.FormatResourceString(resourceString, args);
+            string formattedString = ResourceUtilities.FormatResourceStringStripCodeAndKeyword(resourceString, args);
             WriteLinePretty(indentLevel, formattedString);
         }
 
@@ -659,9 +660,19 @@ namespace Microsoft.Build.BackEnd.Logging
 
                 foreach (DictionaryEntry metadatum in metadata)
                 {
+                    string valueOrError;
+                    try
+                    {
+                        valueOrError = item.GetMetadata(metadatum.Key as string);
+                    }
+                    catch (InvalidProjectFileException e)
+                    {
+                        valueOrError = e.Message;
+                    }
+
                     // A metadatum's "value" is its escaped value, since that's how we represent them internally.
                     // So unescape before returning to the world at large.
-                    WriteLinePretty("        " + metadatum.Key + " = " + item.GetMetadata(metadatum.Key as string));
+                    WriteLinePretty("        " + metadatum.Key + " = " + valueOrError);
                 }
             }
             resetColor();
@@ -1048,7 +1059,7 @@ namespace Microsoft.Build.BackEnd.Logging
                 default:
                     string errorCode;
                     string helpKeyword;
-                    string message = ResourceUtilities.FormatResourceString(out errorCode, out helpKeyword, "InvalidVerbosity", parameterValue);
+                    string message = ResourceUtilities.FormatResourceStringStripCodeAndKeyword(out errorCode, out helpKeyword, "InvalidVerbosity", parameterValue);
                     throw new LoggerException(message, null, errorCode, helpKeyword);
             }
         }
@@ -1123,12 +1134,12 @@ namespace Microsoft.Build.BackEnd.Logging
         /// <summary>
         /// Console logger parameters delimiters.
         /// </summary>
-        internal static readonly char[] parameterDelimiters = { ';' };
+        internal static readonly char[] parameterDelimiters = MSBuildConstants.SemicolonChar;
 
         /// <summary>
         /// Console logger parameter value split character.
         /// </summary>
-        private static readonly char[] s_parameterValueSplitCharacter = { '=' };
+        private static readonly char[] s_parameterValueSplitCharacter = MSBuildConstants.EqualsChar;
 
         /// <summary>
         /// When true, accumulate performance numbers.

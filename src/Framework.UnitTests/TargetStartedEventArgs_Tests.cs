@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>NodePackets which are used for node communication</summary>
-//-----------------------------------------------------------------------
 
 using System;
 
@@ -17,11 +13,6 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     public class TargetStartedEventArgs_Tests
     {
-        /// <summary>
-        /// Default event to use in tests.
-        /// </summary>
-        private TargetStartedEventArgs _baseTargetStartedEvent = new TargetStartedEventArgs("Message", "HelpKeyword", "TargetName", "ProjectFile", "TargetFile");
-
         /// <summary>
         /// Trivially exercise event args default ctors to boost Frameworks code coverage
         /// </summary>

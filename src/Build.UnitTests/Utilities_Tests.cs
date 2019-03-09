@@ -85,8 +85,11 @@ namespace Microsoft.Build.UnitTests
             string input = FileUtilities.GetTemporaryFile();
             string output = FileUtilities.GetTemporaryFile();
 
+            string _initialLoadFilesWriteable = Environment.GetEnvironmentVariable("MSBUILDLOADALLFILESASWRITEABLE");
             try
             {
+                Environment.SetEnvironmentVariable("MSBUILDLOADALLFILESASWRITEABLE", "1");
+
                 string content = ObjectModelHelpers.CleanupFileContents(@"
 <Project DefaultTargets='Build' ToolsVersion='msbuilddefaulttoolsversion' xmlns='msbuildnamespace'>
   <Import Project='$(MSBuildToolsPath)\Microsoft.CSharp.targets'/>
@@ -118,12 +121,13 @@ namespace Microsoft.Build.UnitTests
                     }
                 }
 
-                Assert.Equal(true, foundDoNotModify);
+                Assert.True(foundDoNotModify);
             }
             finally
             {
                 File.Delete(input);
                 File.Delete(output);
+                Environment.SetEnvironmentVariable("MSBUILDLOADALLFILESASWRITEABLE", _initialLoadFilesWriteable);
             }
         }
 
@@ -167,7 +171,7 @@ namespace Microsoft.Build.UnitTests
         {
             Assert.Throws<InvalidProjectFileException>(() =>
             {
-                Project p = ObjectModelHelpers.CreateInMemoryProject(@"
+                ObjectModelHelpers.CreateInMemoryProject(@"
 
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`msbuildnamespace`>
                     <ProjectExtensions Condition=`'a'=='b'`/>
@@ -185,7 +189,7 @@ namespace Microsoft.Build.UnitTests
         {
             Assert.Throws<InvalidProjectFileException>(() =>
             {
-                Project p = ObjectModelHelpers.CreateInMemoryProject(@"
+                ObjectModelHelpers.CreateInMemoryProject(@"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`msbuildnamespace`> 
                     <ProjectExtensions/>
                     <Import Project=`$(MSBuildBinPath)\\Microsoft.CSharp.Targets` />

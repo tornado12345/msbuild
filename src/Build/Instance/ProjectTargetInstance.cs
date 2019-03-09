@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Represents a target for build purposes.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +20,7 @@ namespace Microsoft.Build.Execution
     /// This is an immutable class.
     /// </remarks>
     [DebuggerDisplay("Name={_name} Count={_children.Count} Condition={_condition} Inputs={_inputs} Outputs={_outputs} DependsOnTargets={_dependsOnTargets}")]
-    public sealed class ProjectTargetInstance : IImmutable, IKeyed, INodePacketTranslatable
+    public sealed class ProjectTargetInstance : IImmutable, IKeyed, ITranslatable
     {
         /// <summary>
         /// Name of the target
@@ -298,10 +294,7 @@ namespace Microsoft.Build.Execution
         {
             get
             {
-                return new ReadOnlyCollection<ProjectTaskInstance>
-                    (
-                        new FilteringEnumerable<ProjectTargetInstanceChild, ProjectTaskInstance>(Children)
-                    );
+                return new ReadOnlyCollection<ProjectTaskInstance>(Children.OfType<ProjectTaskInstance>());
             }
         }
 
@@ -518,7 +511,7 @@ namespace Microsoft.Build.Execution
             return task;
         }
 
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             translator.Translate(ref _name);
             translator.Translate(ref _condition);
@@ -551,10 +544,10 @@ namespace Microsoft.Build.Execution
             }
         }
 
-        internal static ProjectTargetInstance FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ProjectTargetInstance FactoryForDeserialization(ITranslator translator)
         {
             var instance = new ProjectTargetInstance();
-            var translatable = (INodePacketTranslatable) instance;
+            var translatable = (ITranslatable) instance;
 
             translatable.Translate(translator);
 

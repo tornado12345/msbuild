@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>AssemblyInfo for Engine.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Reflection;
@@ -44,11 +40,4 @@ using System.Security.Permissions;
 #endif
 
 [assembly: ComVisible(false)]
-
 [assembly: CLSCompliant(true)]
-
-[assembly: AssemblyTitle("Microsoft.Build.dll")]
-[assembly: AssemblyDescription("Microsoft.Build.dll")]
-[assembly: AssemblyCompany("Microsoft Corporation")]
-[assembly: AssemblyProduct("Microsoft® Build Tools®")]
-[assembly: AssemblyCopyright("© Microsoft Corporation. All rights reserved.")]

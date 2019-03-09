@@ -1,15 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Packet used to communicate configuration id back to the node</summary>
-//-----------------------------------------------------------------------
-
-using System;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.Build.Shared;
-using Microsoft.Build.Framework;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -52,7 +42,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Constructor for deserialization
         /// </summary>
-        private BuildRequestConfigurationResponse(INodePacketTranslator translator)
+        private BuildRequestConfigurationResponse(ITranslator translator)
         {
             Translate(translator);
         }
@@ -60,44 +50,29 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Returns the node-assigned configuration id
         /// </summary>
-        public int NodeConfigurationId
-        {
-            get { return _nodeConfigId; }
-        }
+        public int NodeConfigurationId => _nodeConfigId;
 
         /// <summary>
         /// Returns the build manager assigned configuration id
         /// </summary>
-        public int GlobalConfigurationId
-        {
-            get { return _globalConfigId; }
-        }
+        public int GlobalConfigurationId => _globalConfigId;
 
         /// <summary>
         /// Returns the results node for the global configuration.
         /// </summary>
-        public int ResultsNodeId
-        {
-            get { return _resultsNodeId; }
-        }
+        public int ResultsNodeId => _resultsNodeId;
 
         #region INodePacket Members
 
         /// <summary>
         /// INodePacket property.  Returns the packet type.
         /// </summary>
-        public NodePacketType Type
-        {
-            get
-            {
-                return NodePacketType.BuildRequestConfigurationResponse;
-            }
-        }
+        public NodePacketType Type => NodePacketType.BuildRequestConfigurationResponse;
 
         /// <summary>
         /// Reads/writes this packet
         /// </summary>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.Translate(ref _nodeConfigId);
             translator.Translate(ref _globalConfigId);
@@ -107,7 +82,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Factory for serialization.
         /// </summary>
-        static internal INodePacket FactoryForDeserialization(INodePacketTranslator translator)
+        internal static INodePacket FactoryForDeserialization(ITranslator translator)
         {
             return new BuildRequestConfigurationResponse(translator);
         }

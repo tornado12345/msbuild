@@ -1,15 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Interface for node packets.</summary>
-//-----------------------------------------------------------------------
-
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using Microsoft.Build.Framework;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -194,7 +184,7 @@ namespace Microsoft.Build.BackEnd
     /// This interface represents a packet which may be transmitted using an INodeEndpoint.
     /// Implementations define the serialized form of the data.
     /// </summary>
-    internal interface INodePacket : INodePacketTranslatable
+    internal interface INodePacket : ITranslatable
     {
         #region Properties
         /// <summary>

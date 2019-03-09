@@ -1,10 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit Tests for TaskParameter class, specifically focusing on
-// testing its serialization.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -35,7 +30,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Null(t.WrappedParameter);
             Assert.Equal(TaskParameterType.Null, t.ParameterType);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Null(t2.WrappedParameter);
@@ -53,7 +48,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("foo", t.WrappedParameter);
             Assert.Equal(TaskParameterType.String, t.ParameterType);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal("foo", t2.WrappedParameter);
@@ -76,7 +71,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("foo", wrappedParameter[0]);
             Assert.Equal("bar", wrappedParameter[1]);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.StringArray, t2.ParameterType);
@@ -99,7 +94,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal(1, t.WrappedParameter);
             Assert.Equal(TaskParameterType.ValueType, t.ParameterType);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(1, t2.WrappedParameter);
@@ -122,7 +117,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal(2, wrappedParameter[0]);
             Assert.Equal(15, wrappedParameter[1]);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ValueTypeArray, t2.ParameterType);
@@ -148,7 +143,7 @@ namespace Microsoft.Build.UnitTests
             Assert.NotNull(foo);
             Assert.Equal("foo", foo.ItemSpec);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -178,7 +173,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("a1", foo.GetMetadata("a"));
             Assert.Equal("b1", foo.GetMetadata("b"));
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -206,8 +201,8 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("foo", wrappedParameter[0].ItemSpec);
             Assert.Equal("bar", wrappedParameter[1].ItemSpec);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
-            TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItemArray, t.ParameterType);
 
@@ -233,7 +228,7 @@ namespace Microsoft.Build.UnitTests
             Assert.NotNull(foo);
             Assert.Equal("foo;bar", foo.ItemSpec);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -258,7 +253,7 @@ namespace Microsoft.Build.UnitTests
             Assert.NotNull(foo);
             Assert.Equal("foo%3bbar", foo.ItemSpec);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -269,7 +264,7 @@ namespace Microsoft.Build.UnitTests
 
             TaskParameter t3 = new TaskParameter(t2.WrappedParameter);
 
-            ((INodePacketTranslatable)t3).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t3).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t4 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t4.ParameterType);
@@ -295,7 +290,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("foo;bar", foo.ItemSpec);
             Assert.Equal("foo;bar", foo.EvaluatedIncludeEscaped);
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -327,7 +322,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("a1%b1", foo.GetMetadata("a"));
             Assert.Equal("c1(d1", foo.GetMetadata("b"));
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -360,7 +355,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("a1%25b1", foo.GetMetadata("a"));
             Assert.Equal("c1%28d1", foo.GetMetadata("b"));
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);
@@ -373,7 +368,7 @@ namespace Microsoft.Build.UnitTests
 
             TaskParameter t3 = new TaskParameter(t2.WrappedParameter);
 
-            ((INodePacketTranslatable)t3).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t3).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t4 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t4.ParameterType);
@@ -409,7 +404,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal("a1(b1", foo.GetMetadataValueEscaped("a"));
             Assert.Equal("c1)d1", foo.GetMetadataValueEscaped("b"));
 
-            ((INodePacketTranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)t).Translate(TranslationHelpers.GetWriteTranslator());
             TaskParameter t2 = TaskParameter.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(TaskParameterType.ITaskItem, t2.ParameterType);

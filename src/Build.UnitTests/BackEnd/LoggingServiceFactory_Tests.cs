@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Verify the LoggingService Factory</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using Microsoft.Build.Framework;
@@ -26,7 +22,7 @@ namespace Microsoft.Build.UnitTests.Logging
         {
             LoggingServiceFactory factory = new LoggingServiceFactory(LoggerMode.Synchronous, 1);
             LoggingService loggingService = (LoggingService)factory.CreateInstance(BuildComponentType.LoggingService);
-            Assert.Equal(loggingService.LoggingMode, LoggerMode.Synchronous); // "Expected to create a Synchronous LoggingService"
+            Assert.Equal(LoggerMode.Synchronous, loggingService.LoggingMode); // "Expected to create a Synchronous LoggingService"
         }
 
         /// <summary>
@@ -37,7 +33,7 @@ namespace Microsoft.Build.UnitTests.Logging
         {
             LoggingServiceFactory factory = new LoggingServiceFactory(LoggerMode.Asynchronous, 1);
             LoggingService loggingService = (LoggingService)factory.CreateInstance(BuildComponentType.LoggingService);
-            Assert.Equal(loggingService.LoggingMode, LoggerMode.Asynchronous); // "Expected to create an Asynchronous LoggingService"
+            Assert.Equal(LoggerMode.Asynchronous, loggingService.LoggingMode); // "Expected to create an Asynchronous LoggingService"
         }
     }
 }

@@ -1,13 +1,11 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// Cache file state over file name.
-//-----------------------------------------------------------------------
 
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Build.Shared;
+using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Tasks
 {
@@ -77,7 +75,6 @@ namespace Microsoft.Build.Tasks
             /// On Win32 it uses native means. Otherwise,
             /// uses standard .NET FileInfo/DirInfo
             /// </summary>
-            /// <param name="filename"></param>
             public FileDirInfo(string filename)
             {
                 Exists = false;
@@ -118,7 +115,7 @@ namespace Microsoft.Build.Tasks
                             //
                             // Also, when not under debugger (!) it will give error == 3 for path too long. Make that consistently throw instead.
                             if ((error == 2 /* ERROR_FILE_NOT_FOUND */|| error == 3 /* ERROR_PATH_NOT_FOUND */)
-                                && _filename.Length <= NativeMethodsShared.MAX_PATH)
+                                && _filename.Length <= NativeMethodsShared.MaxPath)
                             {
                                 Exists = false;
                                 return;
@@ -142,30 +139,30 @@ namespace Microsoft.Build.Tasks
                     }
                     else
                     {
-                        // Check if we have a directory
-                        IsDirectory = Directory.Exists(_filename);
-                        Exists = IsDirectory;
+                        var fileInfo = new FileInfo(_filename);
 
-                        // If not exists, see if this is a file
-                        if (!Exists)
-                        {
-                            Exists = File.Exists(_filename);
-                        }
-
-                        if (IsDirectory)
-                        {
-                            // Use DirectoryInfo to get the last write date
-                            var directoryInfo = new DirectoryInfo(_filename);
-                            IsReadOnly = false;
-                            LastWriteTimeUtc = directoryInfo.LastWriteTimeUtc;
-                        }
-                        else if (Exists)
+                        if (fileInfo.Exists)
                         {
                             // Use FileInfo to get readonly and last write date
-                            var fileInfo = new FileInfo(_filename);
+                            Exists = true;
                             IsReadOnly = fileInfo.IsReadOnly;
                             LastWriteTimeUtc = fileInfo.LastWriteTimeUtc;
                             Length = fileInfo.Length;
+
+                        }
+                        else
+                        {
+                            var directoryInfo = new DirectoryInfo(_filename);
+
+                            if (directoryInfo.Exists)
+                            {
+                                // Use DirectoryInfo to get the last write date
+                                Exists = true;
+                                IsDirectory = true;
+                                IsReadOnly = false;
+                                LastWriteTimeUtc = directoryInfo.LastWriteTimeUtc;
+                            }
+
                         }
                     }
                 }
@@ -190,7 +187,6 @@ namespace Microsoft.Build.Tasks
             /// know that getting the length of a file would
             /// throw exception if there are IO problems
             /// </summary>
-            /// <param name="doThrow"></param>
             public void ThrowFileInfoException(bool doThrow)
             {
                 if (doThrow)
@@ -204,7 +200,6 @@ namespace Microsoft.Build.Tasks
             /// Throw non-IO-related exception if occurred during creation.
             /// Return true if exception did occur, but was IO-related
             /// </summary>
-            /// <returns></returns>
             public bool ThrowNonIoExceptionIfPending()
             {
                 if (_exceptionThrown != null)
@@ -223,7 +218,6 @@ namespace Microsoft.Build.Tasks
             /// <summary>
             /// Throw any exception collected during construction
             /// </summary>
-            /// <returns></returns>
             public void ThrowException()
             {
                 if (_exceptionThrown != null)
@@ -241,7 +235,7 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// Actual file or directory information
         /// </summary>
-        Lazy<FileDirInfo> _data;
+        private Lazy<FileDirInfo> _data;
 
         /// <summary>
         /// Constructor.
@@ -249,7 +243,7 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         internal FileState(string filename)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(filename, "filename");
+            ErrorUtilities.VerifyThrowArgumentLength(filename, nameof(filename));
             _filename = filename;
             _data = new Lazy<FileDirInfo>(() => new FileDirInfo(_filename));
         }

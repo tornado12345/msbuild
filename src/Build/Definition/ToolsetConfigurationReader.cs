@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>A class used to read the Toolset configuration.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -14,7 +10,7 @@ using Microsoft.Build.Collections;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Shared;
-
+using Microsoft.Build.Shared.FileSystem;
 using ErrorUtilities = Microsoft.Build.Shared.ErrorUtilities;
 using InvalidToolsetDefinitionException = Microsoft.Build.Exceptions.InvalidToolsetDefinitionException;
 
@@ -44,7 +40,7 @@ namespace Microsoft.Build.Evaluation
         /// Character used to separate search paths specified for MSBuildExtensionsPath* in
         /// the config file
         /// </summary>
-        private char _separatorForExtensionsPathSearchPaths = ';';
+        private static readonly char[] s_separatorForExtensionsPathSearchPaths = MSBuildConstants.SemicolonChar;
 
         /// <summary>
         /// Cached values of tools version -> project import search paths table
@@ -241,7 +237,7 @@ namespace Microsoft.Build.Evaluation
 
                 //FIXME: handle ; in path on Unix
                 var paths = property.Value
-                    .Split(new[] {_separatorForExtensionsPathSearchPaths}, StringSplitOptions.RemoveEmptyEntries)
+                    .Split(s_separatorForExtensionsPathSearchPaths, StringSplitOptions.RemoveEmptyEntries)
                     .Distinct()
                     .Where(path => !string.IsNullOrEmpty(path));
 
@@ -261,7 +257,7 @@ namespace Microsoft.Build.Evaluation
             // When running from the command-line or from VS, use the msbuild.exe.config file.
             if (BuildEnvironmentHelper.Instance.Mode != BuildEnvironmentMode.None &&
                 !BuildEnvironmentHelper.Instance.RunningTests &&
-                File.Exists(BuildEnvironmentHelper.Instance.CurrentMSBuildConfigurationFile))
+                FileSystems.Default.FileExists(BuildEnvironmentHelper.Instance.CurrentMSBuildConfigurationFile))
             {
                 var configFile = new ExeConfigurationFileMap { ExeConfigFilename = BuildEnvironmentHelper.Instance.CurrentMSBuildConfigurationFile };
                 return ConfigurationManager.OpenMappedExeConfiguration(configFile, ConfigurationUserLevel.None);

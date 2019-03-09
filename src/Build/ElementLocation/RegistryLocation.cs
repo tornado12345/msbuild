@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>The location something in the registry</summary>
-//-----------------------------------------------------------------------
 
 using Microsoft.Build.Shared;
 using Microsoft.Build.Framework;
@@ -21,7 +17,7 @@ namespace Microsoft.Build.Construction
     /// DO NOT make it public without considering a solution to this problem.
     /// </remarks>
     [Serializable]
-    internal class RegistryLocation : IElementLocation, INodePacketTranslatable
+    internal class RegistryLocation : IElementLocation, ITranslatable
     {
         /// <summary>
         /// The location.
@@ -41,7 +37,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Private constructor for deserialization
         /// </summary>
-        private RegistryLocation(INodePacketTranslator translator)
+        private RegistryLocation(ITranslator translator)
         {
             Translate(translator);
         }
@@ -84,7 +80,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Reads or writes the packet to the serializer.
         /// </summary>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.Translate(ref registryPath);
         }
@@ -92,7 +88,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Factory for serialization.
         /// </summary>
-        static internal RegistryLocation FactoryForDeserialization(INodePacketTranslator translator)
+        static internal RegistryLocation FactoryForDeserialization(ITranslator translator)
         {
             return new RegistryLocation(translator);
         }

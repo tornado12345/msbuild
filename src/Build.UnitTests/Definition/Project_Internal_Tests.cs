@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for Project that involve some reference to internal code</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -55,7 +51,7 @@ namespace Microsoft.Build.UnitTests.Definition
 
                 Project project = new Project(XmlReader.Create(new StringReader(content)), null, null, collection);
 
-                Assert.Equal(project.ToolsVersion, "x");
+                Assert.Equal("x", project.ToolsVersion);
             }
             finally
             {

@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for protecting imported files while editing</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -68,16 +64,6 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         /// Project metadata value
         /// </summary>
         private const string ProjectMetadataValue = "ProjectMetadataValue";
-
-        /// <summary>
-        /// Same item type
-        /// </summary>
-        private const string SameItemType = "SameItemType";
-
-        /// <summary>
-        /// Same item value in project
-        /// </summary>
-        private const string SameItemValueInProject = "SameItemValueInProject";
 
         /// <summary>
         /// Same property name
@@ -161,7 +147,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         public void PropertySetViaProject()
         {
             Project project = GetProject();
-            ProjectProperty property = GetProperty(project);
+            GetProperty(project);
 
             project.SetProperty(PropertyName, NewValue);
 
@@ -262,7 +248,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             ProjectItem item = GetProjectItem(project);
 
             item.ItemType = NewValue;
-            Assert.Equal(1, project.GetItems(NewValue).Count()); // "Item in project didn't change name"
+            Assert.Single(project.GetItems(NewValue)); // "Item in project didn't change name"
             Assert.True(project.IsDirty); // "Project was not marked dirty."
         }
 
@@ -304,7 +290,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             ProjectItem item = GetProjectItem(project);
 
             project.RemoveItem(item);
-            Assert.Equal(1, project.GetItems(ItemType).Count()); // "Item in project wasn't removed."
+            Assert.Single(project.GetItems(ItemType)); // "Item in project wasn't removed."
             Assert.True(project.IsDirty); // "Project was not marked dirty."
         }
 
@@ -548,7 +534,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         private ProjectItem GetImportedItem(Project project)
         {
             IEnumerable<ProjectItem> items = project.GetItems(ItemType).Where(pi => pi.IsImported);
-            Assert.Equal(1, items.Count()); // "Wrong number of items in the import."
+            Assert.Single(items); // "Wrong number of items in the import."
 
             ProjectItem item = items.First();
             Assert.Equal(_importFilename, item.Xml.ContainingProject.FullPath); // "Item was not found in the imported project."
@@ -565,7 +551,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         {
             ProjectItem item = GetImportedItem(project);
             IEnumerable<ProjectMetadata> metadatum = item.Metadata.Where(m => m.Name == ImportedMetadataName);
-            Assert.Equal(1, metadatum.Count()); // "Incorrect number of imported metadata found."
+            Assert.Single(metadatum); // "Incorrect number of imported metadata found."
 
             ProjectMetadata metadata = metadatum.First();
             Assert.True(metadata.IsImported); // "IsImport property is not set."
@@ -582,7 +568,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         {
             ProjectItem item = GetProjectItem(project);
             IEnumerable<ProjectMetadata> metadatum = item.Metadata.Where(m => m.Name == NonOverridableMetadataName);
-            Assert.Equal(1, metadatum.Count()); // "Incorrect number of imported metadata found."
+            Assert.Single(metadatum); // "Incorrect number of imported metadata found."
 
             ProjectMetadata metadata = metadatum.First();
             Assert.True(metadata.IsImported); // "IsImport property is not set."
@@ -599,7 +585,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         {
             ProjectItem item = GetProjectItem(project);
             IEnumerable<ProjectMetadata> metadatum = item.Metadata.Where(m => m.Name == OverridableMetadataName);
-            Assert.Equal(1, metadatum.Count()); // "Incorrect number of imported metadata found."
+            Assert.Single(metadatum); // "Incorrect number of imported metadata found."
 
             ProjectMetadata metadata = metadatum.First();
             Assert.False(metadata.IsImported); // "IsImport property is set."
@@ -653,10 +639,10 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         private ProjectItem GetProjectItem(Project project)
         {
             IEnumerable<ProjectItem> items = project.GetItems(ItemType).Where(pi => !pi.IsImported);
-            Assert.Equal(1, items.Count()); // "Wrong number of items in the project."
+            Assert.Single(items); // "Wrong number of items in the project."
 
             ProjectItem item = items.First();
-            Assert.Equal(null, item.Xml.ContainingProject.FullPath); // "Item was not found in the project." // null because XML is in-memory
+            Assert.Null(item.Xml.ContainingProject.FullPath); // "Item was not found in the project." // null because XML is in-memory
 
             return item;
         }
@@ -670,7 +656,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
         {
             ProjectItem item = GetProjectItem(project);
             IEnumerable<ProjectMetadata> metadatum = item.Metadata.Where(m => m.Name == ProjectMetadataName);
-            Assert.Equal(1, metadatum.Count()); // "Incorrect number of imported metadata found."
+            Assert.Single(metadatum); // "Incorrect number of imported metadata found."
 
             ProjectMetadata metadata = metadatum.First();
             Assert.False(metadata.IsImported); // "IsImport property is set."

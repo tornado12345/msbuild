@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit Tests for TaskHostConfiguration packet.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -294,7 +290,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 @"c:\MyTasks\MyTask.dll",
                 null);
 
-            ((INodePacketTranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
@@ -334,7 +330,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 @"c:\MyTasks\MyTask.dll",
                 new Dictionary<string, object>());
 
-            ((INodePacketTranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
@@ -373,7 +369,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 @"c:\MyTasks\MyTask.dll",
                 parameters);
 
-            ((INodePacketTranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
@@ -418,7 +414,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 @"c:\MyTasks\MyTask.dll",
                 parameters);
 
-            ((INodePacketTranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
@@ -462,7 +458,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 @"c:\MyTasks\MyTask.dll",
                 parameters);
 
-            ((INodePacketTranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;

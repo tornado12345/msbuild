@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Class which maintains the relationships between requests for the Scheduler.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -81,11 +77,6 @@ namespace Microsoft.Build.BackEnd
         #endregion
 
         #region Configuration-related Information
-        /// <summary>
-        /// Maps a configuration id to the number of requests in the system which are assigned to that configuration.
-        /// </summary>
-        private readonly Dictionary<int, int> _configurationCounts = new Dictionary<int, int>(32);
-
         /// <summary>
         /// Maps a configuration id to the node to which it is assigned.
         /// </summary>

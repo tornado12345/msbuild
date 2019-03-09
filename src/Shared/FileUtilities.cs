@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
@@ -11,13 +11,13 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Threading;
 using Microsoft.Build.Utilities;
+using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Shared
 {
@@ -37,10 +37,6 @@ namespace Microsoft.Build.Shared
         // have the impossible combination of runningTests = false and currentExecutableOverride = null.
 
         // This is the fake current executable we use in case we are running tests.
-
-        // MaxPath accounts for the null-terminating character, for example, the maximum path on the D drive is "D:\<256 chars>\0".
-        // See: ndp\clr\src\BCL\System\IO\Path.cs
-        internal const int MaxPath = 260;
 
         /// <summary>
         /// The directory where MSBuild stores cache information used during the build.
@@ -90,8 +86,11 @@ namespace Microsoft.Build.Shared
         private static readonly char[] Slashes = { '/', '\\' };
 
 #if !CLR2COMPATIBILITY
-        private static ConcurrentDictionary<string, bool> FileExistenceCache = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, bool> FileExistenceCache = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+#else
+        private static readonly Microsoft.Build.Shared.Concurrent.ConcurrentDictionary<string, bool> FileExistenceCache = new Microsoft.Build.Shared.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 #endif
+        private static readonly IFileSystem DefaultFileSystem = FileSystems.Default;
 
         /// <summary>
         /// Retrieves the MSBuild runtime cache directory
@@ -100,7 +99,7 @@ namespace Microsoft.Build.Shared
         {
             if (cacheDirectory == null)
             {
-                cacheDirectory = Path.Combine(Path.GetTempPath(), String.Format(CultureInfo.CurrentUICulture, "MSBuild{0}", Process.GetCurrentProcess().Id));
+                cacheDirectory = Path.Combine(Path.GetTempPath(), String.Format(CultureInfo.CurrentUICulture, "MSBuild{0}-{1}", Process.GetCurrentProcess().Id, AppDomain.CurrentDomain.Id));
             }
 
             return cacheDirectory;
@@ -150,7 +149,7 @@ namespace Microsoft.Build.Shared
         {
             string cacheDirectory = GetCacheDirectory();
 
-            if (Directory.Exists(cacheDirectory))
+            if (DefaultFileSystem.DirectoryExists(cacheDirectory))
             {
                 DeleteDirectoryNoThrow(cacheDirectory, true);
             }
@@ -251,35 +250,58 @@ namespace Microsoft.Build.Shared
             return null;
         }
 
-        /// <summary>
-        /// Compare an unsafe char buffer with a <see cref="System.String"/> to see if their contents are identical.
-        /// </summary>
-        /// <param name="buffer">The beginning of the char buffer.</param>
-        /// <param name="len">The length of the buffer.</param>
-        /// <param name="s">The string.</param>
-        /// <returns>True only if the contents of <paramref name="s"/> and the first <paramref name="len"/> characters in <paramref name="buffer"/> are identical.</returns>
-        private unsafe static bool AreStringsEqual(char* buffer, int len, string s)
+        internal static bool ContainsRelativePathSegments(string path)
         {
-            if (len != s.Length)
+            for (int i = 0; i < path.Length; i++)
             {
-                return false;
-            }
-
-            foreach (char ch in s)
-            {
-                if (ch != *buffer++)
+                if (i + 1 < path.Length && path[i] == '.' && path[i + 1] == '.')
                 {
-                    return false;
+                    if (RelativePathBoundsAreValid(path, i, i + 1))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        i = i + 2;
+                        continue;
+                    }
+                }
+
+                if (path[i] == '.' && RelativePathBoundsAreValid(path, i, i))
+                {
+                    return true;
                 }
             }
 
-            return true;
+            return false;
+        }
+
+#if !CLR2COMPATIBILITY
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        private static bool RelativePathBoundsAreValid(string path, int leftIndex, int rightIndex)
+        {
+            var leftBound = leftIndex - 1 >= 0
+                ? path[leftIndex - 1]
+                : (char?)null;
+
+            var rightBound = rightIndex + 1 < path.Length
+                ? path[rightIndex + 1]
+                : (char?)null;
+
+            return IsValidRelativePathBound(leftBound) && IsValidRelativePathBound(rightBound);
+        }
+
+#if !CLR2COMPATIBILITY
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        private static bool IsValidRelativePathBound(char? c)
+        {
+            return c == null || IsAnySlash(c.Value);
         }
 
         /// <summary>
         /// Gets the canonicalized full path of the provided path.
-        /// Path.GetFullPath The pre .Net 4.6.2 implementation of Path.GetFullPath is slow and creates strings in its work.
-        /// Therefore MSBuild has its own implementation on full framework.
         /// Guidance for use: call this on all paths accepted through public entry
         /// points that need normalization. After that point, only verify the path
         /// is rooted, using ErrorUtilities.VerifyThrowPathRooted.
@@ -287,116 +309,10 @@ namespace Microsoft.Build.Shared
         /// </summary>
         internal static string NormalizePath(string path)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(path, "path");
 
-#if FEATURE_LEGACY_GETFULLPATH
-
-            if (NativeMethodsShared.IsWindows)
-            {
-                int errorCode = 0; // 0 == success in Win32
-
-#if _DEBUG
-                // Just to make sure and exercise the code that sets the correct buffer size
-                // we'll start out with it deliberately too small
-                int lenDir = 1;
-#else
-                int lenDir = MaxPath;
-#endif
-                unsafe
-                {
-                    char* finalBuffer = stackalloc char[lenDir + 1]; // One extra for the null terminator
-
-                    int length = NativeMethodsShared.GetFullPathName(path, lenDir + 1, finalBuffer, IntPtr.Zero);
-                    errorCode = Marshal.GetLastWin32Error();
-
-                    // If the length returned from GetFullPathName is greater than the length of the buffer we've
-                    // allocated, then reallocate the buffer with the correct size, and repeat the call
-                    if (length > lenDir)
-                    {
-                        lenDir = length;
-                        char* tempBuffer = stackalloc char[lenDir];
-                        finalBuffer = tempBuffer;
-                        length = NativeMethodsShared.GetFullPathName(path, lenDir, finalBuffer, IntPtr.Zero);
-                        errorCode = Marshal.GetLastWin32Error();
-                        // If we find that the length returned from GetFullPathName is longer than the buffer capacity, then
-                        // something very strange is going on!
-                        ErrorUtilities.VerifyThrow(
-                            length <= lenDir,
-                            "Final buffer capacity should be sufficient for full path name and null terminator.");
-                    }
-
-                    if (length > 0)
-                    {
-                        // In order to prevent people from taking advantage of our ability to extend beyond MaxPath
-                        // since it is unlikely that the CLR fix will be a complete removal of maxpath madness
-                        // we reluctantly have to restrict things here.
-                        if (length >= MaxPath)
-                        {
-                            throw new PathTooLongException();
-                        }
-
-                        // Avoid creating new strings unnecessarily
-                        string finalFullPath = AreStringsEqual(finalBuffer, length, path)
-                            ? path
-                            : new string(
-                                finalBuffer,
-                                startIndex: 0,
-                                length: length);
-
-                        // We really don't care about extensions here, but Path.HasExtension provides a great way to
-                        // invoke the CLR's invalid path checks (these are independent of path length)
-                        Path.HasExtension(finalFullPath);
-
-                        if (finalFullPath.StartsWith(@"\\", StringComparison.Ordinal))
-                        {
-                            // If we detect we are a UNC path then we need to use the regular get full path in order to do the correct checks for UNC formatting
-                            // and security checks for strings like \\?\GlobalRoot
-                            int startIndex = 2;
-                            while (startIndex < finalFullPath.Length)
-                            {
-                                if (finalFullPath[startIndex] == '\\')
-                                {
-                                    startIndex++;
-                                    break;
-                                }
-                                else
-                                {
-                                    startIndex++;
-                                }
-                            }
-
-                            /*
-                              From Path.cs in the CLR
-
-                              Throw an ArgumentException for paths like \\, \\server, \\server\
-                              This check can only be properly done after normalizing, so
-                              \\foo\.. will be properly rejected.  Also, reject \\?\GLOBALROOT\
-                              (an internal kernel path) because it provides aliases for drives.
-
-                              throw new ArgumentException(Environment.GetResourceString("Arg_PathIllegalUNC"));
-
-                               // Check for \\?\Globalroot, an internal mechanism to the kernel
-                               // that provides aliases for drives and other undocumented stuff.
-                               // The kernel team won't even describe the full set of what
-                               // is available here - we don't want managed apps mucking
-                               // with this for security reasons.
-                            */
-                    if (startIndex == finalFullPath.Length || finalFullPath.IndexOf(@"\\?\globalroot", PathComparison) != -1)
-                    {
-                        finalFullPath = Path.GetFullPath(finalFullPath);
-                    }
-                }
-
-                        return finalFullPath;
-                    }
-                }
-
-                NativeMethodsShared.ThrowExceptionForErrorCode(errorCode);
-                return null;
-            }
-#endif
-            return FixFilePath(Path.GetFullPath(path));
-
+            ErrorUtilities.VerifyThrowArgumentLength(path, nameof(path));
+            string fullPath = GetFullPath(path);
+            return FixFilePath(fullPath);
         }
 
         internal static string NormalizePath(string directory, string file)
@@ -410,6 +326,68 @@ namespace Microsoft.Build.Shared
             return NormalizePath(Path.Combine(paths));
         }
 #endif
+
+        private static string GetFullPath(string path)
+        {
+#if FEATURE_LEGACY_GETFULLPATH
+            if (NativeMethodsShared.IsWindows)
+            {
+                string uncheckedFullPath = NativeMethodsShared.GetFullPath(path);
+
+                if (IsPathTooLong(uncheckedFullPath))
+                {
+                    string message = ResourceUtilities.FormatString(AssemblyResources.GetString("Shared.PathTooLong"), path, NativeMethodsShared.MaxPath);
+                    throw new PathTooLongException(message);
+                }
+
+                // We really don't care about extensions here, but Path.HasExtension provides a great way to
+                // invoke the CLR's invalid path checks (these are independent of path length)
+                Path.HasExtension(uncheckedFullPath);
+
+                // If we detect we are a UNC path then we need to use the regular get full path in order to do the correct checks for UNC formatting
+                // and security checks for strings like \\?\GlobalRoot
+                return IsUNCPath(uncheckedFullPath) ? Path.GetFullPath(uncheckedFullPath) : uncheckedFullPath;
+            }
+#endif
+            return Path.GetFullPath(path);
+        }
+
+#if FEATURE_LEGACY_GETFULLPATH
+        private static bool IsUNCPath(string path)
+        {
+            if (!NativeMethodsShared.IsWindows || !path.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return false;
+            }
+            bool isUNC = true;
+            for (int i = 2; i < path.Length - 1; i++)
+            {
+                if (path[i] == '\\')
+                {
+                    isUNC = false;
+                    break;
+                }
+            }
+
+            /*
+              From Path.cs in the CLR
+
+              Throw an ArgumentException for paths like \\, \\server, \\server\
+              This check can only be properly done after normalizing, so
+              \\foo\.. will be properly rejected.  Also, reject \\?\GLOBALROOT\
+              (an internal kernel path) because it provides aliases for drives.
+
+              throw new ArgumentException(Environment.GetResourceString("Arg_PathIllegalUNC"));
+
+               // Check for \\?\Globalroot, an internal mechanism to the kernel
+               // that provides aliases for drives and other undocumented stuff.
+               // The kernel team won't even describe the full set of what
+               // is available here - we don't want managed apps mucking
+               // with this for security reasons.
+            */
+            return isUNC || path.IndexOf(@"\\?\globalroot", StringComparison.OrdinalIgnoreCase) != -1;
+        }
+#endif // FEATURE_LEGACY_GETFULLPATH
 
         internal static string FixFilePath(string path)
         {
@@ -425,42 +403,118 @@ namespace Microsoft.Build.Shared
         ///
         /// @baseDirectory is just passed to LooksLikeUnixFilePath, to help with the check
         /// </summary>
-        internal static string MaybeAdjustFilePath(string value, string baseDirectory="")
+        internal static string MaybeAdjustFilePath(string value, string baseDirectory = "")
         {
+            var comparisonType = StringComparison.Ordinal;
+
             // Don't bother with arrays or properties or network paths, or those that
             // have no slashes.
-            if (NativeMethodsShared.IsWindows || string.IsNullOrEmpty(value) ||
-                value.StartsWith("$(") || value.StartsWith("@(") || value.StartsWith("\\\\") ||
-                value.IndexOfAny(Slashes) == -1)
+            if (NativeMethodsShared.IsWindows || string.IsNullOrEmpty(value)
+                || value.StartsWith("$(", comparisonType) || value.StartsWith("@(", comparisonType)
+                || value.StartsWith("\\\\", comparisonType))
             {
                 return value;
             }
 
             // For Unix-like systems, we may want to convert backslashes to slashes
-            string newValue = Regex.Replace(value, @"[\\/]+", "/");
+#if FEATURE_SPAN
+            Span<char> newValue = ConvertToUnixSlashes(value.ToCharArray());
+#else
+            string newValue = ConvertToUnixSlashes(value);
+#endif
 
-            string quote = string.Empty;
             // Find the part of the name we want to check, that is remove quotes, if present
-            string checkValue = newValue;
-            if (newValue.Length > 2)
+            bool shouldAdjust = newValue.IndexOf('/') != -1 && LooksLikeUnixFilePath(RemoveQuotes(newValue), baseDirectory);
+            return shouldAdjust ? newValue.ToString() : value;
+        }
+
+#if !FEATURE_SPAN
+        private static string ConvertToUnixSlashes(string path)
+        {
+            if (path.IndexOf('\\') == -1)
             {
-                if (newValue.StartsWith("'"))
+                return path;
+            }
+            StringBuilder unixPath = StringBuilderCache.Acquire(path.Length);
+            CopyAndCollapseSlashes(path, unixPath);
+            return StringBuilderCache.GetStringAndRelease(unixPath);
+        }
+
+#if !CLR2COMPATIBILITY && !FEATURE_SPAN
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        private static void CopyAndCollapseSlashes(string str, StringBuilder copy)
+        {
+            // Performs Regex.Replace(str, @"[\\/]+", "/")
+            for (int i = 0; i < str.Length; i++)
+            {
+                bool isCurSlash = IsAnySlash(str[i]);
+                bool isPrevSlash = i > 0 && IsAnySlash(str[i - 1]);
+
+                if (!isCurSlash || !isPrevSlash)
                 {
-                    if (newValue.EndsWith("'"))
-                    {
-                        checkValue = newValue.Substring(1, newValue.Length - 2);
-                        quote = "'";
-                    }
+                    copy.Append(str[i] == '\\' ? '/' : str[i]);
                 }
-                else if (newValue.StartsWith("\"") && newValue.EndsWith("\""))
+            }
+        }
+
+        private static string RemoveQuotes(string path)
+        {
+            int endId = path.Length - 1;
+            char singleQuote = '\'';
+            char doubleQuote = '\"';
+
+            bool hasQuotes = path.Length > 2
+                && (path[0] == singleQuote && path[endId] == singleQuote
+                || path[0] == doubleQuote && path[endId] == doubleQuote);
+
+            return hasQuotes ? path.Substring(1, endId - 1) : path;
+        }
+#else
+        private static Span<char> ConvertToUnixSlashes(Span<char> path)
+        {
+            return path.IndexOf('\\') == -1 ? path : CollapseSlashes(path);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static Span<char> CollapseSlashes(Span<char> str)
+        {
+            int sliceLength = 0;
+
+            // Performs Regex.Replace(str, @"[\\/]+", "/")
+            for (int i = 0; i < str.Length; i++)
+            {
+                bool isCurSlash = IsAnySlash(str[i]);
+                bool isPrevSlash = i > 0 && IsAnySlash(str[i - 1]);
+
+                if (!isCurSlash || !isPrevSlash)
                 {
-                    checkValue = newValue.Substring(1, newValue.Length - 2);
-                    quote = "\"";
+                    str[sliceLength] = str[i] == '\\' ? '/' : str[i];
+                    sliceLength++;
                 }
             }
 
-            return LooksLikeUnixFilePath(checkValue, baseDirectory) ? newValue : value;
+            return str.Slice(0, sliceLength);
         }
+
+        private static Span<char> RemoveQuotes(Span<char> path)
+        {
+            int endId = path.Length - 1;
+            char singleQuote = '\'';
+            char doubleQuote = '\"';
+
+            bool hasQuotes = path.Length > 2
+                && (path[0] == singleQuote && path[endId] == singleQuote
+                || path[0] == doubleQuote && path[endId] == doubleQuote);
+
+            return hasQuotes ? path.Slice(1, endId - 1) : path;
+        }
+#endif
+
+#if !CLR2COMPATIBILITY
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        internal static bool IsAnySlash(char c) => c == '/' || c == '\\';
 
         /// <summary>
         /// If on Unix, check if the string looks like a file path.
@@ -470,34 +524,44 @@ namespace Microsoft.Build.Shared
         /// If @baseDirectory is not null, then look for the first segment exists under
         /// that
         /// </summary>
-        internal static bool LooksLikeUnixFilePath(string value, string baseDirectory="")
+        internal static bool LooksLikeUnixFilePath(string value, string baseDirectory = "")
         {
-            if (!NativeMethodsShared.IsUnixLike)
+            if (NativeMethodsShared.IsWindows)
             {
                 return false;
             }
 
-            var firstSlash = value.IndexOf('/');
-
             // The first slash will either be at the beginning of the string or after the first directory name
-            if (firstSlash == 0)
-            {
-                firstSlash = value.Substring(1).IndexOf('/') + 1;
-            }
-
-            if (firstSlash > 0 && Directory.Exists(Path.Combine(baseDirectory, value.Substring(0, firstSlash))))
-            {
-                return true;
-            }
+            int directoryLength = value.IndexOf('/', 1) + 1;
+            bool shouldCheckDirectory = directoryLength != 0;
 
             // Check for actual files or directories under / that get missed by the above logic
-            if (firstSlash == 0 && value[0] == '/' && (Directory.Exists(value) || File.Exists(value)))
+            bool shouldCheckFileOrDirectory = !shouldCheckDirectory && value.Length > 0 && value[0] == '/';
+
+            return shouldCheckDirectory && DefaultFileSystem.DirectoryExists(Path.Combine(baseDirectory, value.Substring(0, directoryLength)))
+                || shouldCheckFileOrDirectory && DefaultFileSystem.DirectoryEntryExists(value);
+        }
+
+#if FEATURE_SPAN
+        internal static bool LooksLikeUnixFilePath(ReadOnlySpan<char> value, string baseDirectory = "")
+        {
+            if (NativeMethodsShared.IsWindows)
             {
-                return true;
+                return false;
             }
 
-            return false;
+            // The first slash will either be at the beginning of the string or after the first directory name
+            int directoryLength = value.Slice(1).IndexOf('/') + 1;
+            bool shouldCheckDirectory = directoryLength != 0;
+
+            // Check for actual files or directories under / that get missed by the above logic
+            bool shouldCheckFileOrDirectory = !shouldCheckDirectory && value.Length > 0 && value[0] == '/';
+            ReadOnlySpan<char> directory = value.Slice(0, directoryLength);
+
+            return shouldCheckDirectory && DefaultFileSystem.DirectoryExists(Path.Combine(baseDirectory, directory.ToString()))
+                || shouldCheckFileOrDirectory && DefaultFileSystem.DirectoryEntryExists(value.ToString());
         }
+#endif
 
         /// <summary>
         /// Extracts the directory from the given file-spec.
@@ -578,11 +642,8 @@ namespace Microsoft.Build.Shared
 
             if (NativeMethodsShared.IsWindows && !EndsWithSlash(fullPath))
             {
-                Match drive = FileUtilitiesRegex.DrivePattern.Match(fileSpec);
-                Match UNCShare = FileUtilitiesRegex.UNCPattern.Match(fullPath);
-
-                if ((drive.Success && (drive.Length == fileSpec.Length)) ||
-                    (UNCShare.Success && (UNCShare.Length == fullPath.Length)))
+                if (FileUtilitiesRegex.DrivePattern.IsMatch(fileSpec) ||
+                    FileUtilitiesRegex.UncPattern.IsMatch(fullPath))
                 {
                     // append trailing slash if Path.GetFullPath failed to (this happens with drive-specs and UNC shares)
                     fullPath += Path.DirectorySeparatorChar;
@@ -708,7 +769,7 @@ namespace Microsoft.Build.Shared
             {
                 try
                 {
-                    if (Directory.Exists(path))
+                    if (DefaultFileSystem.DirectoryExists(path))
                     {
                         Directory.Delete(path, recursive);
                         break;
@@ -763,25 +824,6 @@ namespace Microsoft.Build.Shared
         }
 
         /// <summary>
-        /// A variation of Path.IsRooted that not throw any IO exception.
-        /// </summary>
-        internal static bool IsRootedNoThrow(string path)
-        {
-            bool result;
-
-            try
-            {
-                result = Path.IsPathRooted(FixFilePath(path));
-            }
-            catch (Exception ex) when (ExceptionHandling.IsIoRelatedException(ex))
-            {
-                result = false;
-            }
-
-            return result;
-        }
-
-        /// <summary>
         /// Gets a file info object for the specified file path. If the file path
         /// is invalid, or is a directory, or cannot be accessed, or does not exist,
         /// it returns null rather than throwing or returning a FileInfo around a non-existent file.
@@ -823,33 +865,24 @@ namespace Microsoft.Build.Shared
         /// Returns if the directory exists
         /// </summary>
         /// <param name="fullPath">Full path to the directory in the filesystem</param>
+        /// <param name="fileSystem">The file system</param>
         /// <returns></returns>
-        internal static bool DirectoryExistsNoThrow(string fullPath)
+        internal static bool DirectoryExistsNoThrow(string fullPath, IFileSystem fileSystem = null)
         {
             fullPath = AttemptToShortenPath(fullPath);
-            if (NativeMethodsShared.IsWindows)
+
+            try
             {
-                NativeMethodsShared.WIN32_FILE_ATTRIBUTE_DATA data = new NativeMethodsShared.WIN32_FILE_ATTRIBUTE_DATA();
-                bool success = false;
+                fileSystem = fileSystem ?? DefaultFileSystem;
 
-                success = NativeMethodsShared.GetFileAttributesEx(fullPath, 0, ref data);
-                if (success)
-                {
-                    return ((data.fileAttributes & NativeMethodsShared.FILE_ATTRIBUTE_DIRECTORY) != 0);
-                }
+                return Traits.Instance.CacheFileExistence
+                    ? FileExistenceCache.GetOrAdd(fullPath, fileSystem.DirectoryExists)
+                    : fileSystem.DirectoryExists(fullPath);
 
-                return false;
             }
-            else
+            catch
             {
-                try
-                {
-                    return Directory.Exists(fullPath);
-                }
-                catch
-                {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -857,27 +890,20 @@ namespace Microsoft.Build.Shared
         /// Returns if the directory exists
         /// </summary>
         /// <param name="fullPath">Full path to the file in the filesystem</param>
+        /// <param name="fileSystem">The file system</param>
         /// <returns></returns>
-        internal static bool FileExistsNoThrow(string fullPath)
+        internal static bool FileExistsNoThrow(string fullPath, IFileSystem fileSystem = null)
         {
             fullPath = AttemptToShortenPath(fullPath);
-            if (NativeMethodsShared.IsWindows)
-            {
-                NativeMethodsShared.WIN32_FILE_ATTRIBUTE_DATA data = new NativeMethodsShared.WIN32_FILE_ATTRIBUTE_DATA();
-                bool success = false;
-
-                success = NativeMethodsShared.GetFileAttributesEx(fullPath, 0, ref data);
-                if (success)
-                {
-                    return ((data.fileAttributes & NativeMethodsShared.FILE_ATTRIBUTE_DIRECTORY) == 0);
-                }
-
-                return false;
-            }
 
             try
             {
-                return File.Exists(fullPath);
+                fileSystem = fileSystem ?? DefaultFileSystem;
+
+                return Traits.Instance.CacheFileExistence
+                    ? FileExistenceCache.GetOrAdd(fullPath, fileSystem.FileExists)
+                    : fileSystem.FileExists(fullPath);
+
             }
             catch
             {
@@ -891,35 +917,21 @@ namespace Microsoft.Build.Shared
         /// Does not throw IO exceptions, to match Directory.Exists and File.Exists.
         /// Unlike calling each of those in turn it only accesses the disk once, which is faster.
         /// </summary>
-        internal static bool FileOrDirectoryExistsNoThrow(string fullPath)
+        internal static bool FileOrDirectoryExistsNoThrow(string fullPath, IFileSystem fileSystem = null)
         {
             fullPath = AttemptToShortenPath(fullPath);
-            if (NativeMethodsShared.IsWindows)
+
+            try
             {
-#if !CLR2COMPATIBILITY
-                if (Traits.Instance.CacheFileExistence)
-                {
-                    // Possible future improvement: make sure file existence caching happens only at evaluation time, and maybe only within a build session. https://github.com/Microsoft/msbuild/issues/2306
-                    return FileExistenceCache.GetOrAdd(fullPath, NativeMethodsShared.FileExists);
-                }
-                else
-                {
-#endif
-                    return NativeMethodsShared.FileExists(fullPath);
-#if !CLR2COMPATIBILITY
-                }
-#endif
+                fileSystem = fileSystem ?? DefaultFileSystem;
+
+                return Traits.Instance.CacheFileExistence
+                    ? FileExistenceCache.GetOrAdd(fullPath, fileSystem.DirectoryEntryExists)
+                    : fileSystem.DirectoryEntryExists(fullPath);
             }
-            else
+            catch
             {
-                try
-                {
-                    return File.Exists(fullPath) || Directory.Exists(fullPath);
-                }
-                catch
-                {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -938,6 +950,11 @@ namespace Microsoft.Build.Shared
         internal static bool IsVCProjFilename(string filename)
         {
             return HasExtension(filename, ".vcproj");
+        }
+
+        internal static bool IsDspFilename(string filename)
+        {
+            return HasExtension(filename, ".dsp");
         }
 
         /// <summary>
@@ -977,8 +994,8 @@ namespace Microsoft.Build.Shared
         /// <returns>relative path (can be the full path)</returns>
         internal static string MakeRelative(string basePath, string path)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(basePath, "basePath");
-            ErrorUtilities.VerifyThrowArgumentLength(path, "path");
+            ErrorUtilities.VerifyThrowArgumentNull(basePath, nameof(basePath));
+            ErrorUtilities.VerifyThrowArgumentLength(path, nameof(path));
 
             if (basePath.Length == 0)
             {
@@ -1010,7 +1027,7 @@ namespace Microsoft.Build.Shared
         /// <returns>uri object</returns>
         private static Uri CreateUriFromPath(string path)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(path, "path");
+            ErrorUtilities.VerifyThrowArgumentLength(path, nameof(path));
 
             Uri pathUri = null;
 
@@ -1031,15 +1048,41 @@ namespace Microsoft.Build.Shared
         /// </summary>
         internal static string AttemptToShortenPath(string path)
         {
-            // >= not > because MAX_PATH assumes a trailing null
-            if (path.Length >= NativeMethodsShared.MAX_PATH ||
-               (!IsRootedNoThrow(path) && ((Directory.GetCurrentDirectory().Length + path.Length + 1 /* slash */) >= NativeMethodsShared.MAX_PATH)))
+            if (IsPathTooLong(path) || IsPathTooLongIfRooted(path))
             {
                 // Attempt to make it shorter -- perhaps there are some \..\ elements
                 path = GetFullPathNoThrow(path);
             }
-
             return FixFilePath(path);
+        }
+
+        private static bool IsPathTooLong(string path)
+        {
+            // >= not > because MAX_PATH assumes a trailing null
+            return path.Length >= NativeMethodsShared.MaxPath;
+        }
+
+        private static bool IsPathTooLongIfRooted(string path)
+        {
+            bool hasMaxPath = NativeMethodsShared.HasMaxPath;
+            int maxPath = NativeMethodsShared.MaxPath;
+            // >= not > because MAX_PATH assumes a trailing null
+            return hasMaxPath && !IsRootedNoThrow(path) && NativeMethodsShared.GetCurrentDirectory().Length + path.Length + 1 /* slash */ >= maxPath;
+        }
+
+        /// <summary>
+        /// A variation of Path.IsRooted that not throw any IO exception.
+        /// </summary>
+        private static bool IsRootedNoThrow(string path)
+        {
+            try
+            {
+                return Path.IsPathRooted(FixFilePath(path));
+            }
+            catch (Exception ex) when (ExceptionHandling.IsIoRelatedException(ex))
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -1092,6 +1135,11 @@ namespace Microsoft.Build.Shared
         internal static string ToSlash(this string s)
         {
             return s.Replace('\\', '/');
+        }
+
+        internal static string ToBackslash(this string s)
+        {
+            return s.Replace('/', '\\');
         }
 
         /// <summary>
@@ -1228,10 +1276,12 @@ namespace Microsoft.Build.Shared
         /// Locate a file in either the directory specified or a location in the
         /// directory structure above that directory.
         /// </summary>
-        internal static string GetDirectoryNameOfFileAbove(string startingDirectory, string fileName)
+        internal static string GetDirectoryNameOfFileAbove(string startingDirectory, string fileName, IFileSystem fileSystem = null)
         {
+            fileSystem = fileSystem ?? DefaultFileSystem;
+
             // Canonicalize our starting location
-            string lookInDirectory = Path.GetFullPath(startingDirectory);
+            string lookInDirectory = GetFullPath(startingDirectory);
 
             do
             {
@@ -1241,7 +1291,7 @@ namespace Microsoft.Build.Shared
                 // If we successfully locate the file in the directory that we're
                 // looking in, simply return that location. Otherwise we'll
                 // keep moving up the tree.
-                if (File.Exists(possibleFileDirectory))
+                if (fileSystem.FileExists(possibleFileDirectory))
                 {
                     // We've found the file, return the directory we found it in
                     return lookInDirectory;
@@ -1264,9 +1314,10 @@ namespace Microsoft.Build.Shared
         /// </summary>
         /// <param name="file">The file to search for.</param>
         /// <param name="startingDirectory">An optional directory to start the search in.  The default location is the directory
-        /// of the file containing the property function.</param>
+        ///     of the file containing the property function.</param>
+        /// <param name="fileSystem">The filesystem</param>
         /// <returns>The full path of the file if it is found, otherwise an empty string.</returns>
-        internal static string GetPathOfFileAbove(string file, string startingDirectory)
+        internal static string GetPathOfFileAbove(string file, string startingDirectory, IFileSystem fileSystem = null)
         {
             // This method does not accept a path, only a file name
             if (file.Any(i => i.Equals(Path.DirectorySeparatorChar) || i.Equals(Path.AltDirectorySeparatorChar)))
@@ -1275,16 +1326,17 @@ namespace Microsoft.Build.Shared
             }
 
             // Search for a directory that contains that file
-            string directoryName = GetDirectoryNameOfFileAbove(startingDirectory, file);
+            string directoryName = GetDirectoryNameOfFileAbove(startingDirectory, file, fileSystem);
 
             return String.IsNullOrEmpty(directoryName) ? String.Empty : NormalizePath(directoryName, file);
         }
 
-        internal static bool TryGetPathOfFileAbove(string file, string startingDirectory, out string fullPath)
+        internal static void EnsureDirectoryExists(string directoryPath)
         {
-            fullPath = GetPathOfFileAbove(file, startingDirectory);
-
-            return fullPath != String.Empty;
+            if (directoryPath != null && !DefaultFileSystem.DirectoryExists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
         }
 
         // Method is simple set of function calls and may inline;

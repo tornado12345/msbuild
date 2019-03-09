@@ -1,8 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// </copyright>
-// <summary>Implementation of an in-proc node provider.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -266,7 +263,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Deserializes and routes a packet.  Not used in the in-proc node.
         /// </summary>
-        public void DeserializeAndRoutePacket(int nodeId, NodePacketType packetType, INodePacketTranslator translator)
+        public void DeserializeAndRoutePacket(int nodeId, NodePacketType packetType, ITranslator translator)
         {
             // Not used
             ErrorUtilities.ThrowInternalErrorUnreachable();

@@ -1,17 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#region Using directives
-
 using System;
 using Microsoft.Build.Shared;
 using Xunit;
 
-#endregion
-
 namespace Microsoft.Build.UnitTests
 {
-    sealed public class ErrorUtilities_Tests
+    public sealed class ErrorUtilities_Tests
     {
         [Fact]
         public void VerifyThrowFalse()
@@ -22,7 +18,7 @@ namespace Microsoft.Build.UnitTests
             }
             catch (InternalErrorException e)
             {
-                Assert.True(e.Message.Contains("msbuild rules")); // "exception message"
+                Assert.Contains("msbuild rules", e.Message); // "exception message"
                 return;
             }
 

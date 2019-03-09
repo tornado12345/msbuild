@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the BuildRequestConfigurationResponse class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Xml;
@@ -92,9 +88,9 @@ namespace Microsoft.Build.UnitTests.BackEnd
         public void TestTranslation()
         {
             BuildRequestConfigurationResponse response = new BuildRequestConfigurationResponse(1, 2, 3);
-            Assert.Equal(response.Type, NodePacketType.BuildRequestConfigurationResponse);
+            Assert.Equal(NodePacketType.BuildRequestConfigurationResponse, response.Type);
 
-            ((INodePacketTranslatable)response).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)response).Translate(TranslationHelpers.GetWriteTranslator());
 
             INodePacket deserializedPacket = BuildRequestConfigurationResponse.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
             BuildRequestConfigurationResponse deserializedResponse = deserializedPacket as BuildRequestConfigurationResponse;

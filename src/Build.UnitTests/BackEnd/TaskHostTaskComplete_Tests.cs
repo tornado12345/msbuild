@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit Tests for TaskHostTaskComplete packet.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -68,14 +64,14 @@ namespace Microsoft.Build.UnitTests.BackEnd
         {
             TaskHostTaskComplete complete = new TaskHostTaskComplete(new OutOfProcTaskHostTaskResult(TaskCompleteType.Success), null);
 
-            ((INodePacketTranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskComplete.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskComplete deserializedComplete = packet as TaskHostTaskComplete;
 
             Assert.Equal(complete.TaskResult, deserializedComplete.TaskResult);
             Assert.NotNull(deserializedComplete.TaskOutputParameters);
-            Assert.Equal(0, deserializedComplete.TaskOutputParameters.Count);
+            Assert.Empty(deserializedComplete.TaskOutputParameters);
         }
 
         /// <summary>
@@ -86,7 +82,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
         {
             TaskHostTaskComplete complete = new TaskHostTaskComplete(new OutOfProcTaskHostTaskResult(TaskCompleteType.Success, new Dictionary<string, object>()), null);
 
-            ((INodePacketTranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskComplete.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskComplete deserializedComplete = packet as TaskHostTaskComplete;
@@ -107,7 +103,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             parameters.Add("BoolValue", false);
             TaskHostTaskComplete complete = new TaskHostTaskComplete(new OutOfProcTaskHostTaskResult(TaskCompleteType.Success, parameters), null);
 
-            ((INodePacketTranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskComplete.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskComplete deserializedComplete = packet as TaskHostTaskComplete;
@@ -129,7 +125,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             parameters.Add("TaskItemValue", new TaskItem("Foo"));
             TaskHostTaskComplete complete = new TaskHostTaskComplete(new OutOfProcTaskHostTaskResult(TaskCompleteType.Success, parameters), null);
 
-            ((INodePacketTranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskComplete.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskComplete deserializedComplete = packet as TaskHostTaskComplete;
@@ -150,7 +146,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             parameters.Add("TaskItemArrayValue", new ITaskItem[] { new TaskItem("Foo"), new TaskItem("Baz") });
             TaskHostTaskComplete complete = new TaskHostTaskComplete(new OutOfProcTaskHostTaskResult(TaskCompleteType.Success, parameters), null);
 
-            ((INodePacketTranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)complete).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskComplete.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskComplete deserializedComplete = packet as TaskHostTaskComplete;

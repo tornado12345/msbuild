@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Class implementing INodeProvider for out-of-proc nodes.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -140,7 +136,7 @@ namespace Microsoft.Build.BackEnd
                 return true;
             }
 
-            throw new BuildAbortedException(ResourceUtilities.FormatResourceString("CouldNotConnectToMSBuildExe", ComponentHost.BuildParameters.NodeExeLocation));
+            throw new BuildAbortedException(ResourceUtilities.FormatResourceStringStripCodeAndKeyword("CouldNotConnectToMSBuildExe", ComponentHost.BuildParameters.NodeExeLocation));
         }
 
         /// <summary>

@@ -28,13 +28,13 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         public override bool Execute()
         {
-            IDictionary<string, string> properties = new Dictionary<string, string>();
+            IDictionary<string, string> properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             if (!String.IsNullOrEmpty(EventData))
             {
-                foreach (string pair in EventData.Split(new[] {';'}, StringSplitOptions.RemoveEmptyEntries))
+                foreach (string pair in EventData.Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    var item = pair.Split(new[] {'='}, 2, StringSplitOptions.RemoveEmptyEntries);
+                    var item = pair.Split(MSBuildConstants.EqualsChar, 2, StringSplitOptions.RemoveEmptyEntries);
 
                     if (item.Length != 2)
                     {

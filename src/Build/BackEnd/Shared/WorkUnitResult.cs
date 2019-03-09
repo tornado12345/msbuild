@@ -1,13 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>The class representing a result from running a task.</summary>
-//-----------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -56,7 +50,7 @@ namespace Microsoft.Build.BackEnd
     /// <summary>
     /// A result of executing a target or task.
     /// </summary>
-    internal class WorkUnitResult : INodePacketTranslatable
+    internal class WorkUnitResult : ITranslatable
     {
         /// <summary>
         /// The result.
@@ -96,42 +90,36 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Translator constructor
         /// </summary>
-        private WorkUnitResult(INodePacketTranslator translator)
+        private WorkUnitResult(ITranslator translator)
         {
-            ((INodePacketTranslatable)this).Translate(translator);
+            ((ITranslatable)this).Translate(translator);
         }
 
         /// <summary>
         /// Get the result code.
         /// </summary>
-        internal WorkUnitResultCode ResultCode
-        {
-            get { return _resultCode; }
-        }
+        internal WorkUnitResultCode ResultCode => _resultCode;
 
         /// <summary>
         /// Get the action code.
         /// </summary>
         internal WorkUnitActionCode ActionCode
         {
-            get { return _actionCode; }
-            set { _actionCode = value; }
+            get => _actionCode;
+            set => _actionCode = value;
         }
 
         /// <summary>
         /// Get the exception
         /// </summary>
-        internal Exception Exception
-        {
-            get { return _exception; }
-        }
+        internal Exception Exception => _exception;
 
         #region INodePacketTranslatable Members
 
         /// <summary>
         /// Translator.
         /// </summary>
-        public void Translate(INodePacketTranslator translator)
+        public void Translate(ITranslator translator)
         {
             translator.TranslateEnum(ref _resultCode, (int)_resultCode);
             translator.TranslateEnum(ref _actionCode, (int)_actionCode);
@@ -143,7 +131,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Factory for serialization.
         /// </summary>
-        static internal WorkUnitResult FactoryForDeserialization(INodePacketTranslator translator)
+        internal static WorkUnitResult FactoryForDeserialization(ITranslator translator)
         {
             return new WorkUnitResult(translator);
         }

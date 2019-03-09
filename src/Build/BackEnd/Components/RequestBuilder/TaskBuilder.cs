@@ -1,15 +1,13 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>The object which executes tasks.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +18,7 @@ using Microsoft.Build.Exceptions;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
+using Microsoft.Build.Shared.FileSystem;
 using ElementLocation = Microsoft.Build.Construction.ElementLocation;
 using ProjectItemInstanceFactory = Microsoft.Build.Execution.ProjectItemInstance.TaskItem.ProjectItemInstanceFactory;
 using ReservedPropertyNames = Microsoft.Build.Internal.ReservedPropertyNames;
@@ -385,8 +384,8 @@ namespace Microsoft.Build.BackEnd
                 _buildRequestEntry.ProjectRootDirectory,
                 _targetChildInstance.ConditionLocation,
                 _targetLoggingContext.LoggingService,
-                _targetLoggingContext.BuildEventContext
-                );
+                _targetLoggingContext.BuildEventContext,
+                FileSystems.Default);
 
             if (!condition)
             {
@@ -762,15 +761,39 @@ namespace Microsoft.Build.BackEnd
                     {
                         MSBuild msbuildTask = host.TaskInstance as MSBuild;
                         ErrorUtilities.VerifyThrow(msbuildTask != null, "Unexpected MSBuild internal task.");
-                        _targetBuilderCallback.EnterMSBuildCallbackState();
 
-                        try
+                        var undeclaredProjects = GetUndeclaredProjects(msbuildTask);
+
+                        if (undeclaredProjects != null && undeclaredProjects.Count != 0)
                         {
-                            taskResult = await msbuildTask.ExecuteInternal();
+                            _continueOnError = ContinueOnError.ErrorAndStop;
+
+                            taskException = new InvalidProjectFileException(
+                                taskHost.ProjectFileOfTaskNode,
+                                taskHost.LineNumberOfTaskNode,
+                                taskHost.ColumnNumberOfTaskNode,
+                                0,
+                                0,
+                                ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword(
+                                    "UndeclaredMSBuildTasksNotAllowedInIsolatedGraphBuilds",
+                                    string.Join(";", undeclaredProjects.Select(p => $"\"{p}\"")),
+                                    taskExecutionHost.ProjectInstance.FullPath),
+                                null,
+                                null,
+                                null);
                         }
-                        finally
+                        else
                         {
-                            _targetBuilderCallback.ExitMSBuildCallbackState();
+                            _targetBuilderCallback.EnterMSBuildCallbackState();
+
+                            try
+                            {
+                                taskResult = await msbuildTask.ExecuteInternal();
+                            }
+                            finally
+                            {
+                                _targetBuilderCallback.ExitMSBuildCallbackState();
+                            }
                         }
                     }
                     else if (taskType == typeof(CallTarget))
@@ -810,7 +833,7 @@ namespace Microsoft.Build.BackEnd
                 }
                 else
                 {
-                    Type type = taskException.GetType();
+                    var type = taskException.GetType();
 
                     if (type == typeof(LoggerException))
                     {
@@ -965,6 +988,45 @@ namespace Microsoft.Build.BackEnd
             return result;
         }
 
+        private List<string> GetUndeclaredProjects(MSBuild msbuildTask)
+        {
+            if (!_componentHost.BuildParameters.IsolateProjects)
+            {
+                return null;
+            }
+
+            var projectReferenceItems = _taskExecutionHost.ProjectInstance.GetItems(MSBuildConstants.ProjectReferenceItemName);
+
+            var declaredProjects = new HashSet<string>(projectReferenceItems.Count);
+
+            foreach (var projectReferenceItem in projectReferenceItems)
+            {
+                declaredProjects.Add(FileUtilities.NormalizePath(projectReferenceItem.EvaluatedInclude));
+            }
+
+            // allow a project to msbuild itself
+            declaredProjects.Add(_taskExecutionHost.ProjectInstance.FullPath);
+
+            List<string> undeclaredProjects = null;
+
+            foreach (var msbuildProject in msbuildTask.Projects)
+            {
+                var normalizedMSBuildProject = FileUtilities.NormalizePath(msbuildProject.ItemSpec);
+
+                if (!declaredProjects.Contains(normalizedMSBuildProject))
+                {
+                    if (undeclaredProjects == null)
+                    {
+                        undeclaredProjects = new List<string>(projectReferenceItems.Count);
+                    }
+
+                    undeclaredProjects.Add(normalizedMSBuildProject);
+                }
+            }
+
+            return undeclaredProjects;
+        }
+
         /// <summary>
         /// Gathers task outputs in two ways:
         /// 1) Given an instantiated task that has finished executing, it extracts the outputs using .NET reflection.
@@ -990,8 +1052,8 @@ namespace Microsoft.Build.BackEnd
                     _buildRequestEntry.ProjectRootDirectory,
                     taskOutputSpecification.ConditionLocation,
                     _targetLoggingContext.LoggingService,
-                    _targetLoggingContext.BuildEventContext
-                    );
+                    _targetLoggingContext.BuildEventContext,
+                    FileSystems.Default);
 
                 if (condition)
                 {

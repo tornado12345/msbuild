@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for ProjectMetadataInstance internal members</summary>
-//-----------------------------------------------------------------------
 
 using System.Collections.Generic;
 using Microsoft.Build.Execution;
@@ -30,7 +26,7 @@ namespace Microsoft.Build.UnitTests.OM.Instance
 
             ProjectMetadataInstance clone = metadata.DeepClone();
 
-            Assert.Equal(false, Object.ReferenceEquals(metadata, clone));
+            Assert.False(Object.ReferenceEquals(metadata, clone));
             Assert.Equal("m", clone.Name);
             Assert.Equal("m1", clone.EvaluatedValue);
         }

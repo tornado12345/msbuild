@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit tests for ProjectEvaluationFinishedEventArgs</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -42,7 +38,7 @@ namespace Microsoft.Build.UnitTests
             Assert.Equal(deserializedResult, profilerResult);
         }
 
-        private static IEnumerable<object[]> GetProfilerResults()
+        public static IEnumerable<object[]> GetProfilerResults()
         {
             yield return new object[] { new ProfilerResult(new Dictionary<EvaluationLocation, ProfiledLocation>()) };
 

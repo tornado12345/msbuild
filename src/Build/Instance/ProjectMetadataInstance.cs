@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Wraps an evaluated piece of metadata for build purposes.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Diagnostics;
@@ -22,7 +18,7 @@ namespace Microsoft.Build.Execution
     /// IMMUTABLE OBJECT.
     /// </summary>
     [DebuggerDisplay("{_name}={EvaluatedValue}")]
-    public class ProjectMetadataInstance : IKeyed, IValued, IEquatable<ProjectMetadataInstance>, INodePacketTranslatable, IMetadatum, IDeepCloneable<ProjectMetadataInstance>, IImmutable
+    public class ProjectMetadataInstance : IKeyed, IValued, IEquatable<ProjectMetadataInstance>, ITranslatable, IMetadatum, IDeepCloneable<ProjectMetadataInstance>, IImmutable
     {
         /// <summary>
         /// Name of the metadatum
@@ -69,11 +65,11 @@ namespace Microsoft.Build.Execution
 
             if (allowItemSpecModifiers)
             {
-                ErrorUtilities.VerifyThrowArgument(XMakeElements.IllegalItemPropertyNames[name] == null, "OM_ReservedName", name);
+                ErrorUtilities.VerifyThrowArgument(!XMakeElements.ReservedItemNames.Contains(name), "OM_ReservedName", name);
             }
             else
             {
-                ErrorUtilities.VerifyThrowArgument(XMakeElements.IllegalItemPropertyNames[name] == null && !FileUtilities.ItemSpecModifiers.IsItemSpecModifier(name), "OM_ReservedName", name);
+                ErrorUtilities.VerifyThrowArgument(!XMakeElements.ReservedItemNames.Contains(name) && !FileUtilities.ItemSpecModifiers.IsItemSpecModifier(name), "OM_ReservedName", name);
             }
 
             _name = name;
@@ -93,7 +89,7 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Private constructor used for serialization
         /// </summary>
-        private ProjectMetadataInstance(INodePacketTranslator translator)
+        private ProjectMetadataInstance(ITranslator translator)
         {
             translator.Translate(ref _name);
             translator.Translate(ref _escapedValue);
@@ -176,7 +172,7 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Reads or writes the packet to the serializer.
         /// </summary>
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             // Read implementation is directly in the constructor so that fields can be read-only
             ErrorUtilities.VerifyThrow(translator.Mode == TranslationDirection.WriteToStream, "write only");
@@ -228,7 +224,7 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Factory for serialization.
         /// </summary>
-        internal static ProjectMetadataInstance FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ProjectMetadataInstance FactoryForDeserialization(ITranslator translator)
         {
             return new ProjectMetadataInstance(translator);
         }

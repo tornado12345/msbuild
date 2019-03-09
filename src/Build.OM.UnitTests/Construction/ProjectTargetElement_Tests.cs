@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Test the ProjectTargetElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.IO;
@@ -40,7 +36,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         public void ReadNoTarget()
         {
             ProjectRootElement project = ProjectRootElement.Create();
-            Assert.Equal(null, project.Targets.GetEnumerator().Current);
+            Assert.Null(project.Targets.GetEnumerator().Current);
         }
 
         /// <summary>
@@ -59,7 +55,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             ProjectTargetElement target = (ProjectTargetElement)Helpers.GetFirst(project.Children);
 
             Assert.Equal(0, Helpers.Count(target.Children));
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -227,7 +223,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.Name = "t2";
 
             Assert.Equal("t2", target.Name);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -243,7 +239,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.Inputs = "in";
 
             Assert.Equal("in", target.Inputs);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -259,7 +255,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.Outputs = "out";
 
             Assert.Equal("out", target.Outputs);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -275,7 +271,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.DependsOnTargets = "dot";
 
             Assert.Equal("dot", target.DependsOnTargets);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -291,7 +287,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.Condition = "c";
 
             Assert.Equal("c", target.Condition);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -307,7 +303,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.KeepDuplicateOutputs = "true";
 
             Assert.Equal("true", target.KeepDuplicateOutputs);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -324,21 +320,21 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             target.Returns = "@(a)";
 
             Assert.Equal("@(a)", target.Returns);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
 
             Helpers.ClearDirtyFlag(project);
 
             target.Returns = String.Empty;
 
             Assert.Equal(String.Empty, target.Returns);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
 
             Helpers.ClearDirtyFlag(project);
 
             target.Returns = null;
 
             Assert.Null(target.Returns);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>

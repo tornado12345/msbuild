@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit Tests for TaskHostTaskCancelled packet.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Text;
@@ -37,7 +33,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
         {
             TaskHostTaskCancelled cancelled = new TaskHostTaskCancelled();
 
-            ((INodePacketTranslatable)cancelled).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable)cancelled).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostTaskCancelled.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             TaskHostTaskCancelled deserializedCancelled = packet as TaskHostTaskCancelled;

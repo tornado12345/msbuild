@@ -1,10 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// <copyright file="XslTransformation_Tests.cs" company="Microsoft">
-// Copyright (c) 2015 All Right Reserved
-// </copyright>
-// <date>2008-12-28</date>
-// <summary>The unit tests for XslTransformation buildtask.</summary>
 
 using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
@@ -77,7 +72,7 @@ namespace Microsoft.Build.UnitTests
             string[] results = new string[] { "a", "b", "c" };
             for (int i = 0; i < p.Result.Length; i++)
             {
-                Assert.True(p.Result[i].ItemSpec.Equals(results[i]), "Results don't match: " + p.Result[i].ItemSpec);
+                Assert.Equal(p.Result[i].ItemSpec, results[i]);
             }
         }
 
@@ -106,7 +101,7 @@ namespace Microsoft.Build.UnitTests
 
             for (int i = 0; i < p.Result.Length; i++)
             {
-                Assert.True(p.Result[i].ItemSpec.Equals(results[i]), "Results don't match: " + p.Result[i].ItemSpec);
+                Assert.Equal(p.Result[i].ItemSpec, results[i]);
             }
         }
 
@@ -123,7 +118,7 @@ namespace Microsoft.Build.UnitTests
             p.XmlInputPath = new TaskItem(xmlInputPath);
             p.Query = "//s:variable/text()";
             p.Namespaces = "<Namespace Prefix=\"s\" Uri=\"http://nsurl\" />";
-            Assert.True(p.Namespaces.Equals("<Namespace Prefix=\"s\" Uri=\"http://nsurl\" />"));
+            Assert.Equal("<Namespace Prefix=\"s\" Uri=\"http://nsurl\" />", p.Namespaces);
             Assert.True(p.Execute()); // "Test should've passed"
             Assert.Equal(3, p.Result.Length); // "result Length should be 3"
 
@@ -135,7 +130,7 @@ namespace Microsoft.Build.UnitTests
 
             for (int i = 0; i < p.Result.Length; i++)
             {
-                Assert.True(p.Result[i].ItemSpec.Equals(results[i]), "Results don't match: " + p.Result[i].ItemSpec);
+                Assert.Equal(p.Result[i].ItemSpec, results[i]);
             }
         }
 
@@ -157,7 +152,7 @@ namespace Microsoft.Build.UnitTests
             string[] results = new string[] { "a", "b", "c" };
             for (int i = 0; i < p.Result.Length; i++)
             {
-                Assert.True(p.Result[i].ItemSpec.Equals(results[i]), "Results don't match: " + p.Result[i].ItemSpec);
+                Assert.Equal(p.Result[i].ItemSpec, results[i]);
             }
         }
 
@@ -177,7 +172,7 @@ namespace Microsoft.Build.UnitTests
             string[] results = new string[] { "a", "b", "c" };
             for (int i = 0; i < p.Result.Length; i++)
             {
-                Assert.True(p.Result[i].ItemSpec.Equals(results[i]), "Results don't match: " + p.Result[i].ItemSpec);
+                Assert.Equal(p.Result[i].ItemSpec, results[i]);
             }
         }
 
@@ -194,14 +189,14 @@ namespace Microsoft.Build.UnitTests
 
             p.XmlInputPath = new TaskItem(xmlInputPath);
             p.XmlContent = _xmlFileNoNsNoDtd;
-            Assert.True(p.XmlInputPath.ItemSpec.Equals(xmlInputPath));
-            Assert.True(p.XmlContent.Equals(_xmlFileNoNsNoDtd));
+            Assert.Equal(xmlInputPath, p.XmlInputPath.ItemSpec);
+            Assert.Equal(_xmlFileNoNsNoDtd, p.XmlContent);
 
             p.Query = "//variable/@Name";
-            Assert.True(p.Query.Equals("//variable/@Name"));
+            Assert.Equal("//variable/@Name", p.Query);
 
             Assert.False(p.Execute()); // "Test should've failed"
-            Assert.True(engine.Log.Contains("MSB3741")); // "Error message MSB3741 should fire"
+            Assert.Contains("MSB3741", engine.Log); // "Error message MSB3741 should fire"
         }
 
         [Fact]
@@ -218,7 +213,7 @@ namespace Microsoft.Build.UnitTests
             p.Query = "//variable/@Name";
 
             Assert.False(p.Execute()); // "Test should've failed"
-            Assert.True(engine.Log.Contains("MSB3741")); // "Error message MSB3741 should fire"
+            Assert.Contains("MSB3741", engine.Log); // "Error message MSB3741 should fire"
         }
 
         [Fact]
@@ -235,7 +230,7 @@ namespace Microsoft.Build.UnitTests
             p.Query = "//s:variable/@Name";
 
             Assert.False(p.Execute()); // "Test should've failed"
-            Assert.True(engine.Log.Contains("MSB3743")); // "Engine log should contain error code MSB3743"
+            Assert.Contains("MSB3743", engine.Log); // "Engine log should contain error code MSB3743"
         }
 
         [Fact]
@@ -253,7 +248,7 @@ namespace Microsoft.Build.UnitTests
             p.Query = "//s:variable/@Name";
 
             Assert.False(p.Execute()); // "Test should've failed"
-            Assert.True(engine.Log.Contains("MSB3733")); // "Engine log should contain error code MSB3733"
+            Assert.Contains("MSB3733", engine.Log); // "Engine log should contain error code MSB3733"
         }
 
         [Fact]

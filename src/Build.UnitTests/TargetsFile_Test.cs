@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Moved from Orcas Engine</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.IO;
@@ -618,7 +614,7 @@ namespace Microsoft.Build.UnitTests
 
                 Project project = ObjectModelHelpers.CreateInMemoryProject(
                     @"
-                   <Project DefaultTargets=`Build` ToolsVersion=`15.0` xmlns=`msbuildnamespace`>
+                   <Project DefaultTargets=`Build` ToolsVersion=`Current` xmlns=`msbuildnamespace`>
                       <PropertyGroup>
                         <OutputPath>" + outputPath + @"</OutputPath>
                         <AssemblyName>MyAssembly</AssemblyName>

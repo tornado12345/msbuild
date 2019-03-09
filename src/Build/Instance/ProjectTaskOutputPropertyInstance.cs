@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Represents an output property tag on a task for build purposes</summary>
-//-----------------------------------------------------------------------
 
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.Shared;
@@ -17,7 +13,7 @@ namespace Microsoft.Build.Execution
     /// <remarks>
     /// Immutable.
     /// </remarks>
-    public sealed class ProjectTaskOutputPropertyInstance : ProjectTaskInstanceChild, INodePacketTranslatable
+    public sealed class ProjectTaskOutputPropertyInstance : ProjectTaskInstanceChild, ITranslatable
     {
         /// <summary>
         /// Name of the property to put the output in
@@ -135,7 +131,7 @@ namespace Microsoft.Build.Execution
             get { return _taskParameterLocation; }
         }
 
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             if (translator.Mode == TranslationDirection.WriteToStream)
             {

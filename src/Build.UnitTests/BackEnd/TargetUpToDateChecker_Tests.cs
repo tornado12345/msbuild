@@ -501,8 +501,6 @@ namespace Microsoft.Build.UnitTests.BackEnd
             public string Path;
             public DateTime LastWriteTime;
 
-            private FileWriteInfo() { }
-
             public FileWriteInfo(string path, DateTime lastWriteTime)
             {
                 this.Path = path;
@@ -576,7 +574,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 ProjectInstance p = project.CreateProjectInstance();
 
                 // now do the dependency analysis
-                ItemBucket itemBucket = new ItemBucket(null, null, new Lookup(itemsByName, new PropertyDictionary<ProjectPropertyInstance>(), null), 0);
+                ItemBucket itemBucket = new ItemBucket(null, null, new Lookup(itemsByName, new PropertyDictionary<ProjectPropertyInstance>()), 0);
                 TargetUpToDateChecker analyzer = new TargetUpToDateChecker(p, p.Targets["Build"], _mockHost, BuildEventContext.Invalid);
 
                 return analyzer.PerformDependencyAnalysis(itemBucket, out changedTargetInputs, out upToDateTargetInputs);

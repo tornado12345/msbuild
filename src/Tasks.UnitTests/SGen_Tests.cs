@@ -157,7 +157,7 @@ namespace Microsoft.Build.UnitTests
             string targetCommandLine = "/assembly:\"" + sgen.BuildAssemblyPath + Path.DirectorySeparatorChar
                                        + "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null\" /compiler:/platform:x86";
 
-            Assert.True(String.Equals(commandLine, targetCommandLine, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(targetCommandLine, commandLine);
         }
 
         [Fact]
@@ -175,7 +175,7 @@ namespace Microsoft.Build.UnitTests
             string targetCommandLine = "/assembly:\"" + sgen.BuildAssemblyPath + Path.DirectorySeparatorChar
                                        + "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null\" /type:System.String /type:System.Boolean";
 
-            Assert.True(String.Equals(commandLine, targetCommandLine, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(targetCommandLine, commandLine);
         }
 
         [Fact]
@@ -190,7 +190,57 @@ namespace Microsoft.Build.UnitTests
             string targetCommandLine = "/assembly:\"" + sgen.BuildAssemblyPath + Path.DirectorySeparatorChar
                                        + "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null\"";
 
-            Assert.True(String.Equals(commandLine, targetCommandLine, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(targetCommandLine, commandLine);
+        }
+
+        [Fact]
+        public void TestNullReferences()
+        {
+            SGenExtension sgen = new SGenExtension();
+            sgen.BuildAssemblyName = "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+            sgen.BuildAssemblyPath = "C:\\SomeFolder\\MyAsm.dll";
+            sgen.ShouldGenerateSerializer = true;
+            sgen.UseProxyTypes = false;
+            sgen.UseKeep = false;
+            sgen.References = null;
+
+            string commandLine = sgen.CommandLine();
+
+            Assert.True(commandLine.IndexOf("/reference:", StringComparison.OrdinalIgnoreCase) < 0);
+        }
+
+        [Fact]
+        public void TestEmptyReferences()
+        {
+            SGenExtension sgen = new SGenExtension();
+            sgen.BuildAssemblyName = "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+            sgen.BuildAssemblyPath = "C:\\SomeFolder\\MyAsm.dll";
+            sgen.ShouldGenerateSerializer = true;
+            sgen.UseProxyTypes = false;
+            sgen.UseKeep = false;
+            sgen.References = new string[]{ };
+
+            string commandLine = sgen.CommandLine();
+
+            Assert.True(commandLine.IndexOf("/reference:", StringComparison.OrdinalIgnoreCase) < 0);
+        }
+
+        [Fact]
+        public void TestReferencesCommandLine()
+        {
+            SGenExtension sgen = new SGenExtension();
+            sgen.BuildAssemblyName = "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null";
+            sgen.BuildAssemblyPath = "C:\\SomeFolder\\MyAsm.dll";
+            sgen.ShouldGenerateSerializer = true;
+            sgen.UseProxyTypes = false;
+            sgen.UseKeep = false;
+            sgen.References = new string[]{ "C:\\SomeFolder\\reference1.dll", "C:\\SomeFolder\\reference2.dll" };
+
+            string commandLine = sgen.CommandLine();
+            string targetCommandLine = "/assembly:\"" + sgen.BuildAssemblyPath + Path.DirectorySeparatorChar
+                                       + "MyAsm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null\" /reference:\"C:\\SomeFolder\\reference1.dll,C:\\SomeFolder\\reference2.dll\"";
+            
+            Assert.Equal(targetCommandLine, commandLine);
         }
     }
 }

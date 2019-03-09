@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Interface for a results cache.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +12,7 @@ namespace Microsoft.Build.BackEnd
     /// <summary>
     /// This interface represents an object which holds build results.
     /// </summary>
-    internal interface IResultsCache : IBuildComponent
+    internal interface IResultsCache : IBuildComponent, ITranslatable, IEnumerable<BuildResult>
     {
         /// <summary>
         /// Adds a result to the cache

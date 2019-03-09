@@ -81,8 +81,13 @@ namespace Microsoft.Build.BackEnd.SdkResolution
             _resolverStateBySubmission.TryRemove(submissionId, out _);
         }
 
+        public virtual void ClearCaches()
+        {
+            _resolverStateBySubmission.Clear();
+        }
+
         /// <inheritdoc cref="ISdkResolverService.ResolveSdk"/>
-        public virtual SdkResult ResolveSdk(int submissionId, SdkReference sdk, LoggingContext loggingContext, ElementLocation sdkReferenceLocation, string solutionPath, string projectPath)
+        public virtual SdkResult ResolveSdk(int submissionId, SdkReference sdk, LoggingContext loggingContext, ElementLocation sdkReferenceLocation, string solutionPath, string projectPath, bool interactive)
         {
             // Lazy initialize the SDK resolvers
             if (_resolvers == null)
@@ -99,7 +104,7 @@ namespace Microsoft.Build.BackEnd.SdkResolution
 
             foreach (SdkResolver sdkResolver in _resolvers)
             {
-                SdkResolverContext context = new SdkResolverContext(buildEngineLogger, projectPath, solutionPath, ProjectCollection.Version)
+                SdkResolverContext context = new SdkResolverContext(buildEngineLogger, projectPath, solutionPath, ProjectCollection.Version, interactive)
                 {
                     State = GetResolverState(submissionId, sdkResolver)
                 };
@@ -168,7 +173,7 @@ namespace Microsoft.Build.BackEnd.SdkResolution
                 }
             }
 
-            return null;
+            return new SdkResult(sdk, null, null);
         }
 
         /// <summary>

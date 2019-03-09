@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for logging contexts.</summary>
-//-----------------------------------------------------------------------
 
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.BackEnd.Logging;
@@ -25,7 +21,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
         public void CreateValidNodeLoggingContexts()
         {
             NodeLoggingContext context = new NodeLoggingContext(new MockLoggingService(), 1, true);
-            Assert.Equal(true, context.IsInProcNode);
+            Assert.True(context.IsInProcNode);
             Assert.True(context.IsValid);
 
             context.LogBuildFinished(true);
@@ -34,7 +30,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             Assert.Equal(1, context.BuildEventContext.NodeId);
 
             NodeLoggingContext context2 = new NodeLoggingContext(new MockLoggingService(), 2, false);
-            Assert.Equal(false, context2.IsInProcNode);
+            Assert.False(context2.IsInProcNode);
             Assert.True(context2.IsValid);
 
             context2.LogBuildFinished(true);

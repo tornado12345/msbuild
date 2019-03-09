@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Interface representing a configuration cache.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -19,7 +15,7 @@ namespace Microsoft.Build.BackEnd
     /// <summary>
     /// An interfacing representing a build request configuration cache.
     /// </summary>
-    internal interface IConfigCache : IBuildComponent, IEnumerable<BuildRequestConfiguration>
+    internal interface IConfigCache : IBuildComponent, IEnumerable<BuildRequestConfiguration>, ITranslatable
     {
         /// <summary>
         /// Returns the configuration with the specified id.

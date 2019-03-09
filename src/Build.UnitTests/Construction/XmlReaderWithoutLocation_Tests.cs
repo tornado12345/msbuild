@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ElementLocation class</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -175,7 +171,7 @@ namespace Microsoft.Build.UnitTests.Construction
                 ));
             XmlReader noLineInfoReader = new XmlReaderNoIXmlLineInfo(reader);
             Project project = new Project(noLineInfoReader);
-            Assert.Equal(1, project.Targets.Count);
+            Assert.Single(project.Targets);
         }
     }
 }

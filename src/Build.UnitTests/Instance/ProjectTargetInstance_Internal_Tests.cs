@@ -1,7 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -78,7 +76,7 @@ namespace Microsoft.Build.Engine.UnitTests.Instance
         {
             var original = CreateTarget(null, children, errorChildren);
 
-            ((INodePacketTranslatable) original).Translate(TranslationHelpers.GetWriteTranslator());
+            ((ITranslatable) original).Translate(TranslationHelpers.GetWriteTranslator());
             var copy = ProjectTargetInstance.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
 
             Assert.Equal(original, copy, new TargetComparer());

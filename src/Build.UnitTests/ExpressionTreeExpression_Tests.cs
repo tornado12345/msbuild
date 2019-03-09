@@ -7,6 +7,7 @@ using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Exceptions;
 using Microsoft.Build.Execution;
+using Microsoft.Build.Shared.FileSystem;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,7 +22,7 @@ namespace Microsoft.Build.UnitTests
 
         private readonly Expander<ProjectPropertyInstance, ProjectItemInstance> _expander;
 
-        public static readonly IEnumerable<string[]> TrueTests = new []
+        public static readonly IEnumerable<object[]> TrueTests = new []
         {
             "true or (SHOULDNOTEVALTHIS)", // short circuit
             "(true and false) or true",
@@ -159,7 +160,7 @@ namespace Microsoft.Build.UnitTests
             "'1" + new String('0', 500) + "'=='" + "1" + new String('0', 500) + "'" /* too big for double, eval as string */
         }.Select(s => new[] {s});
 
-        public static readonly IEnumerable<string[]> FalseTests = new [] {
+        public static readonly IEnumerable<object[]> FalseTests = new [] {
             "false and SHOULDNOTEVALTHIS", // short circuit
             "$(a)!=no",
             "$(b)==1.1",
@@ -395,11 +396,11 @@ namespace Microsoft.Build.UnitTests
             metadataDictionary["Culture"] = "french";
             StringMetadataTable itemMetadata = new StringMetadataTable(metadataDictionary);
 
-            _expander = new Expander<ProjectPropertyInstance, ProjectItemInstance>(propertyBag, itemBag, itemMetadata);
+            _expander = new Expander<ProjectPropertyInstance, ProjectItemInstance>(propertyBag, itemBag, itemMetadata, FileSystems.Default);
 
             foreach (string file in FilesWithExistenceChecks)
             {
-                using (StreamWriter sw = File.CreateText(file)) {; }
+                using (File.CreateText(file)) { }
             }
         }
 
@@ -435,7 +436,8 @@ namespace Microsoft.Build.UnitTests
                     ExpanderOptions.ExpandAll,
                     null,
                     Directory.GetCurrentDirectory(),
-                    ElementLocation.EmptyLocation
+                    ElementLocation.EmptyLocation,
+                    FileSystems.Default
                     );
 
             Assert.True(tree.Evaluate(state), "expected true from '" + expression + "'");
@@ -461,7 +463,8 @@ namespace Microsoft.Build.UnitTests
                     ExpanderOptions.ExpandAll,
                     null,
                     Directory.GetCurrentDirectory(),
-                    ElementLocation.EmptyLocation
+                    ElementLocation.EmptyLocation,
+                    FileSystems.Default
                     );
 
             Assert.False(tree.Evaluate(state), "expected false from '" + expression + "' and got true");
@@ -494,10 +497,11 @@ namespace Microsoft.Build.UnitTests
                         ExpanderOptions.ExpandAll,
                         null,
                         Directory.GetCurrentDirectory(),
-                        ElementLocation.EmptyLocation
+                        ElementLocation.EmptyLocation,
+                        FileSystems.Default
                         );
 
-                var value = tree.Evaluate(state);
+                tree.Evaluate(state);
             }
             catch (InvalidProjectFileException ex)
             {

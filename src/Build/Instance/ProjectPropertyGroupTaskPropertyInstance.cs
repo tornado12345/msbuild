@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Wraps an unevaluated property under an propertygroup in a target.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -22,7 +18,7 @@ namespace Microsoft.Build.Execution
     /// Immutable.
     /// </summary>
     [DebuggerDisplay("{_name}={Value} Condition={_condition}")]
-    public class ProjectPropertyGroupTaskPropertyInstance : INodePacketTranslatable
+    public class ProjectPropertyGroupTaskPropertyInstance : ITranslatable
     {
         /// <summary>
         /// Name of the property
@@ -137,7 +133,7 @@ namespace Microsoft.Build.Execution
             return new ProjectPropertyGroupTaskPropertyInstance(this);
         }
 
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             translator.Translate(ref _name);
             translator.Translate(ref _value);
@@ -146,10 +142,10 @@ namespace Microsoft.Build.Execution
             translator.Translate(ref _conditionLocation, ElementLocation.FactoryForDeserialization);
         }
 
-        internal static ProjectPropertyGroupTaskPropertyInstance FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ProjectPropertyGroupTaskPropertyInstance FactoryForDeserialization(ITranslator translator)
         {
             var instance = new ProjectPropertyGroupTaskPropertyInstance();
-            ((INodePacketTranslatable) instance).Translate(translator);
+            ((ITranslatable) instance).Translate(translator);
 
             return instance;
         }

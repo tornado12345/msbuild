@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit tests for TaskFinishedEventArgs</summary>
-//-----------------------------------------------------------------------
 
 using System;
 
@@ -17,11 +13,6 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     public class TaskFinishedEventArgs_Tests
     {
-        /// <summary>
-        /// Default event to use in tests.
-        /// </summary>
-        private TaskFinishedEventArgs _baseTaskFinishedEvent = new TaskFinishedEventArgs("Message", "HelpKeyword", "ProjectFile", "TaskFile", "TaskName", true);
-
         /// <summary>
         /// Trivially exercise event args default ctors to boost Frameworks code coverage
         /// </summary>

@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit tests for the task execution host object.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections;
@@ -143,7 +139,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             parameters["ExecuteReturnParam"] = new Tuple<string, ElementLocation>("true", ElementLocation.Create("foo.proj"));
 
             Assert.True(_host.SetTaskParameters(parameters));
-            Assert.Equal(1, _parametersSetOnTask.Count);
+            Assert.Single(_parametersSetOnTask);
             Assert.True(_parametersSetOnTask.ContainsKey("ExecuteReturnParam"));
         }
 
@@ -613,7 +609,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
             bool executeValue = _host.Execute();
 
-            Assert.Equal(true, executeValue);
+            Assert.True(executeValue);
         }
 
         /// <summary>
@@ -629,7 +625,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
             bool executeValue = _host.Execute();
 
-            Assert.Equal(false, executeValue);
+            Assert.False(executeValue);
         }
 
         /// <summary>
@@ -648,7 +644,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
                 Assert.True(_host.SetTaskParameters(parameters));
 
-                bool executeValue = _host.Execute();
+                _host.Execute();
             }
            );
         }
@@ -1044,6 +1040,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
         #endregion
 
         #region ITestTaskHost Members
+        #pragma warning disable xUnit1013
 
         /// <summary>
         /// Records that a parameter was set on the task.
@@ -1125,6 +1122,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             throw new NotImplementedException();
         }
 
+        #pragma warning restore xUnit1013
         #endregion
 
         #region Validation Routines
@@ -1204,7 +1202,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             itemsByName.Add(item2);
             _twoItems = new ITaskItem[] { new TaskItem(item), new TaskItem(item2) };
 
-            _bucket = new ItemBucket(new string[0], new Dictionary<string, string>(), new Lookup(itemsByName, new PropertyDictionary<ProjectPropertyInstance>(), null), 0);
+            _bucket = new ItemBucket(new string[0], new Dictionary<string, string>(), new Lookup(itemsByName, new PropertyDictionary<ProjectPropertyInstance>()), 0);
             _host.FindTask(null);
             _host.InitializeForBatch(talc, _bucket, null);
             _parametersSetOnTask = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
@@ -1219,7 +1217,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             Assert.True(_host.GatherTaskOutputs(outputName, ElementLocation.Create(".", 1, 1), true, "output"));
             Assert.True(_outputsReadFromTask.ContainsKey(outputName));
 
-            Assert.Equal(1, _bucket.Lookup.GetItems("output").Count);
+            Assert.Single(_bucket.Lookup.GetItems("output"));
             Assert.Equal(value, _bucket.Lookup.GetItems("output").First().EvaluatedInclude);
         }
 
@@ -1231,7 +1229,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             Assert.True(_host.GatherTaskOutputs(outputName, ElementLocation.Create(".", 1, 1), true, "output"));
             Assert.True(_outputsReadFromTask.ContainsKey(outputName));
 
-            Assert.Equal(1, _bucket.Lookup.GetItems("output").Count);
+            Assert.Single(_bucket.Lookup.GetItems("output"));
             Assert.Equal(0, TaskItemComparer.Instance.Compare(value, new TaskItem(_bucket.Lookup.GetItems("output").First())));
         }
 
@@ -1325,7 +1323,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             Assert.True(_parametersSetOnTask.ContainsKey(parameterName));
 
             ITaskItem[] actualItems = _parametersSetOnTask[parameterName] as ITaskItem[];
-            Assert.Equal(1, actualItems.Length);
+            Assert.Single(actualItems);
             Assert.Equal(value, actualItems[0].ItemSpec);
         }
 
@@ -1414,14 +1412,6 @@ namespace Microsoft.Build.UnitTests.BackEnd
             Dictionary<string, Tuple<string, ElementLocation>> parameters = new Dictionary<string, Tuple<string, ElementLocation>>(StringComparer.OrdinalIgnoreCase);
             parameters["ExecuteReturnParam"] = new Tuple<string, ElementLocation>(returnParam ? "true" : "false", ElementLocation.Create("foo.proj"));
             return parameters;
-        }
-
-        /// <summary>
-        /// Helper method for tests
-        /// </summary>
-        private IElementLocation GetParameterLocation(string name)
-        {
-            return ElementLocation.Create(".", 1, 1);
         }
 
         /// <summary>

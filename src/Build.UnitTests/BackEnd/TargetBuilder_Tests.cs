@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Unit tests for the TargetBuilder with a mock task builder.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Xml;
@@ -53,6 +49,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
         /// </summary>
         private int _nodeRequestId;
 
+        #pragma warning disable xUnit1013
+
         /// <summary>
         /// Callback used to receive exceptions from loggers.  Unused here.
         /// </summary>
@@ -60,6 +58,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
         public void LoggingException(Exception e)
         {
         }
+
+        #pragma warning restore xUnit1013
 
         /// <summary>
         /// Sets up to run tests.  Creates the host object.
@@ -107,7 +107,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             BuildResult result = builder.BuildTargets(GetProjectLoggingContext(entry), entry, this, entry.Request.Targets.ToArray(), CreateStandardLookup(project), CancellationToken.None).Result;
             Assert.True(result.HasResultsForTarget("Empty"));
             Assert.Equal(TargetResultCode.Success, result["Empty"].ResultCode);
-            Assert.Equal(0, result["Empty"].Items.Length);
+            Assert.Empty(result["Empty"].Items);
         }
 
         /// <summary>
@@ -1174,11 +1174,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
 </Project>
       ";
             StringReader reader = new StringReader(projectContents);
-#if FEATURE_XMLTEXTREADER
             Project project = new Project(new XmlTextReader(reader), null, null);
-#else
-            Project project = new Project(XmlReader.Create(reader), null, null);
-#endif
             bool success = project.Build(_mockLogger);
             Assert.False(success);
         }
@@ -1336,7 +1332,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             int currentTask = 0;
             foreach (ProjectTaskInstance task in mockBuilder.ExecutedTasks)
             {
-                Assert.True(String.Equals(task.Name, tasks[currentTask]));
+                Assert.Equal(task.Name, tasks[currentTask]);
                 currentTask++;
             }
         }
@@ -1356,7 +1352,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
         /// <returns>The lookup</returns>
         private Lookup CreateStandardLookup(ProjectInstance project)
         {
-            Lookup lookup = new Lookup(new ItemDictionary<ProjectItemInstance>(project.Items), new PropertyDictionary<ProjectPropertyInstance>(project.Properties), null);
+            Lookup lookup = new Lookup(new ItemDictionary<ProjectItemInstance>(project.Items), new PropertyDictionary<ProjectPropertyInstance>(project.Properties));
             return lookup;
         }
 

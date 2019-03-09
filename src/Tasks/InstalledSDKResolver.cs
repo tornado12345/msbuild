@@ -1,17 +1,11 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Resolve reference which have SDKName metadata on them</summary>
-//-----------------------------------------------------------------------
 
 using System;
-using System.Reflection;
-using System.Collections;
-using Microsoft.Build.Shared;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Shared;
 
 namespace Microsoft.Build.Tasks
 {
@@ -23,7 +17,7 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         ///  Resolved SDKs
         /// </summary>
-        private Dictionary<string, ITaskItem> _resolvedSDKs;
+        private readonly Dictionary<string, ITaskItem> _resolvedSDKs;
 
         /// <summary>
         /// Construct.
@@ -47,7 +41,7 @@ namespace Microsoft.Build.Tasks
             string[] executableExtensions,
             string hintPath,
             string assemblyFolderKey,
-            ArrayList assembliesConsideredAndRejected,
+            List<ResolutionSearchLocation> assembliesConsideredAndRejected,
             out string foundPath,
             out bool userRequestedSpecificFile
         )
@@ -80,12 +74,11 @@ namespace Microsoft.Build.Tasks
                     };
 
                     // Lets try and resovle from the windowsmetadata directory first
-                    string resolvedPath = null;
 
                     // Go through the search locations and find the assembly
                     foreach (string searchLocation in searchLocations)
                     {
-                        resolvedPath = ResolveFromDirectory(assemblyName, isPrimaryProjectReference, wantSpecificVersion, executableExtensions, searchLocation, assembliesConsideredAndRejected);
+                        string resolvedPath = ResolveFromDirectory(assemblyName, isPrimaryProjectReference, wantSpecificVersion, executableExtensions, searchLocation, assembliesConsideredAndRejected);
 
                         if (resolvedPath != null)
                         {

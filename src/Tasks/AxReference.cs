@@ -43,34 +43,24 @@ namespace Microsoft.Build.Tasks
 
         #region Methods
 
-        /*
-         * Method:  GetWrapperFileName
-         * 
-         * Constructs the wrapper file name from a type library name.
-         */
+        /// <summary>
+        /// Constructs the wrapper file name from a type library name.
+        /// </summary>
         protected override string GetWrapperFileNameInternal(string typeLibName)
         {
             return GetWrapperFileName("AxInterop.", typeLibName, IncludeTypeLibVersionInName, ReferenceInfo.attr.wMajorVerNum, ReferenceInfo.attr.wMinorVerNum);
         }
 
-        /*
-         * Method:  GenerateWrapper
-         * 
-         * Generates a wrapper for this reference.
-         */
+        /// <summary>
+        /// Generates a wrapper for this reference.
+        /// </summary>
         internal bool GenerateWrapper(out ComReferenceWrapperInfo wrapperInfo)
         {
             wrapperInfo = null;
 
             // The tool gets the public key for itself, but we get it here anyway to
             // give nice messages in errors cases.
-            StrongNameKeyPair keyPair = null;
-            byte[] publicKey = null;
-            GetAndValidateStrongNameKey(out keyPair, out publicKey);
-
-            bool generateWrapperSucceeded = true;
-
-            string tlbName = ReferenceInfo.taskItem.GetMetadata(ComReferenceItemMetadataNames.tlbReferenceName);
+            GetAndValidateStrongNameKey(out _, out _);
 
             // Generate wrapper out-of-proc using aximp.exe from the target framework.  MUST
             // HAVE SET SDKTOOLSPATH TO THE TARGET SDK TO WORK
@@ -90,7 +80,7 @@ namespace Microsoft.Build.Tasks
             axImp.KeyContainer = KeyContainer;
             axImp.KeyFile = KeyFile;
             axImp.Silent = Silent;
-            if (ReferenceInfo != null && ReferenceInfo.primaryOfAxImpRef != null && ReferenceInfo.primaryOfAxImpRef.resolvedWrapper != null && ReferenceInfo.primaryOfAxImpRef.resolvedWrapper.path != null)
+            if (ReferenceInfo?.primaryOfAxImpRef?.resolvedWrapper?.path != null)
             {
                 // This path should hit unless there was a prior resolution error or bug in the resolution code.
                 // The reason is that everything (tlbs and pias) gets resolved before AxImp references.
@@ -98,13 +88,12 @@ namespace Microsoft.Build.Tasks
             }
             axImp.OutputAssembly = Path.Combine(OutputDirectory, GetWrapperFileName());
 
-            generateWrapperSucceeded = axImp.Execute();
+            bool generateWrapperSucceeded = axImp.Execute();
 
             string wrapperPath = GetWrapperPath();
 
             // store the wrapper info...
-            wrapperInfo = new ComReferenceWrapperInfo();
-            wrapperInfo.path = wrapperPath;
+            wrapperInfo = new ComReferenceWrapperInfo { path = wrapperPath };
             wrapperInfo.assembly = Assembly.UnsafeLoadFrom(wrapperInfo.path);
 
             // ...and we're done!

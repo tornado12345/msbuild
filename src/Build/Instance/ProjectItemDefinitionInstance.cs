@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Represents a set of item definitions all applying to the same item-type.</summary>
-//-----------------------------------------------------------------------
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -23,7 +19,7 @@ namespace Microsoft.Build.Execution
     /// Immutable.
     /// </summary>
     [DebuggerDisplay("{_itemType} #Metadata={MetadataCount}")]
-    public class ProjectItemDefinitionInstance : IKeyed, IMetadataTable, IItemDefinition<ProjectMetadataInstance>, INodePacketTranslatable
+    public class ProjectItemDefinitionInstance : IKeyed, IMetadataTable, IItemDefinition<ProjectMetadataInstance>, ITranslatable
     {
         /// <summary>
         /// Item type, for example "Compile", that this item definition applies to
@@ -226,16 +222,16 @@ namespace Microsoft.Build.Execution
             return element;
         }
 
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             translator.Translate(ref _itemType);
             translator.TranslateDictionary(ref _metadata, ProjectMetadataInstance.FactoryForDeserialization);
         }
 
-        internal static ProjectItemDefinitionInstance FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ProjectItemDefinitionInstance FactoryForDeserialization(ITranslator translator)
         {
             var instance = new ProjectItemDefinitionInstance();
-            ((INodePacketTranslatable) instance).Translate(translator);
+            ((ITranslatable) instance).Translate(translator);
 
             return instance;
         }

@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for ProjectMetadata</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -32,7 +28,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             ProjectItem item = project.AddItem("i", "i1")[0];
             ProjectMetadata metadatum = item.SetMetadataValue("m", "m1");
 
-            Assert.Equal(true, Object.ReferenceEquals(project, metadatum.Project));
+            Assert.True(Object.ReferenceEquals(project, metadatum.Project));
         }
 
         /// <summary>
@@ -55,12 +51,12 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             ProjectRootElement projectXml = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             Project project = new Project(projectXml);
 
-            Assert.Equal(false, project.IsDirty);
+            Assert.False(project.IsDirty);
 
             Helpers.GetFirst(project.GetItems("i")).SetMetadataValue("m1", "v2");
             Helpers.GetFirst(project.GetItems("i")).SetMetadataValue("m2", "v%214");
 
-            Assert.Equal(true, project.IsDirty);
+            Assert.True(project.IsDirty);
 
             StringWriter writer = new EncodingStringWriter();
             projectXml.Save(writer);
@@ -93,11 +89,11 @@ namespace Microsoft.Build.UnitTests.OM.Definition
 
             item.SetMetadataValue("m", "m1");
 
-            Assert.Equal(false, project.IsDirty);
+            Assert.False(project.IsDirty);
 
             item.GetMetadata("m").UnevaluatedValue = "m1";
 
-            Assert.Equal(false, project.IsDirty);
+            Assert.False(project.IsDirty);
         }
 
         /// <summary>
@@ -437,7 +433,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
             Project project = new Project();
             ProjectMetadata metadata = project.AddItem("i", "i1")[0].SetMetadataValue("m", "m1");
 
-            Assert.Equal(false, metadata.IsImported);
+            Assert.False(metadata.IsImported);
         }
 
         /// <summary>
@@ -460,7 +456,7 @@ namespace Microsoft.Build.UnitTests.OM.Definition
 
                 ProjectMetadata metadata = item.GetMetadata("m");
 
-                Assert.Equal(true, metadata.IsImported);
+                Assert.True(metadata.IsImported);
 
                 metadata.UnevaluatedValue = "m1";
             }

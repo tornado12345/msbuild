@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ProjectUsingTaskBodyElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -32,7 +28,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectUsingTaskBodyElement body = GetBodyXml();
 
-            Assert.True(bool.FalseString.Equals(body.Evaluate, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(body.Evaluate, bool.FalseString, true);
             Assert.Equal("Contents", body.TaskBody);
         }
 
@@ -88,7 +84,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             body.TaskBody = "MoreContents";
             Assert.Equal("MoreContents", body.TaskBody);
-            Assert.Equal(true, body.ContainingProject.HasUnsavedChanges);
+            Assert.True(body.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -102,7 +98,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             body.TaskBody = String.Empty;
             Assert.Equal(String.Empty, body.TaskBody);
-            Assert.Equal(true, body.ContainingProject.HasUnsavedChanges);
+            Assert.True(body.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -126,9 +122,9 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         public void SetEvaluateAttributeToNull()
         {
             ProjectUsingTaskBodyElement body = GetBodyXml();
-            Assert.True(body.ContainingProject.RawXml.Contains("Evaluate"));
+            Assert.Contains("Evaluate", body.ContainingProject.RawXml);
             body.Evaluate = null;
-            Assert.False(body.ContainingProject.RawXml.Contains("Evaluate"));
+            Assert.DoesNotContain("Evaluate", body.ContainingProject.RawXml);
             Assert.Equal(bool.TrueString, body.Evaluate);
         }
 

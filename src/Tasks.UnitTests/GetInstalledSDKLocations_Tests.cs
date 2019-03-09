@@ -2,10 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Test that we can retrieve the list of SDKs and output them to the project file.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -300,12 +296,12 @@ namespace Microsoft.Build.UnitTests.GetInstalledSDKLocation_Tests
                     sdksAndVersions.Add(item.GetMetadata("SDKName"), item.GetMetadata("PlatformVersion"));
                 }
 
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=1.0"], "1.0");
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=2.0"], "1.0");
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=3.0"], "2.0");
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=4.0"], "1.0");
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=5.0"], "1.0");
-                Assert.Equal(sdksAndVersions["MyAssembly, Version=6.0"], "2.0");
+                Assert.Equal("1.0", sdksAndVersions["MyAssembly, Version=1.0"]);
+                Assert.Equal("1.0", sdksAndVersions["MyAssembly, Version=2.0"]);
+                Assert.Equal("2.0", sdksAndVersions["MyAssembly, Version=3.0"]);
+                Assert.Equal("1.0", sdksAndVersions["MyAssembly, Version=4.0"]);
+                Assert.Equal("1.0", sdksAndVersions["MyAssembly, Version=5.0"]);
+                Assert.Equal("2.0", sdksAndVersions["MyAssembly, Version=6.0"]);
 
                 Assert.False(sdksAndVersions.ContainsValue("3.0"));
                 Assert.False(sdksAndVersions.ContainsValue("4.0"));
@@ -347,48 +343,42 @@ namespace Microsoft.Build.UnitTests.GetInstalledSDKLocation_Tests
                 }
 
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=1.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=1.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "v1.0", "ExtensionSDKs", "MyAssembly", "1.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=1.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=2.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=2.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "1.0", "ExtensionSDKs", "MyAssembly", "2.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=2.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=3.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=3.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "2.0", "ExtensionSDKs", "MyAssembly", "3.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=3.0"]);
 
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=4.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=4.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "v1.0", "ExtensionSDKs", "MyAssembly", "4.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=4.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=5.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=5.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "1.0", "ExtensionSDKs", "MyAssembly", "5.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=5.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=6.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=6.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "2.0", "ExtensionSDKs", "MyAssembly", "6.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=6.0"]);
             }
             finally
             {
@@ -427,48 +417,42 @@ namespace Microsoft.Build.UnitTests.GetInstalledSDKLocation_Tests
                 }
 
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=1.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=1.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "v1.0", "ExtensionSDKs", "MyAssembly", "1.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=1.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=2.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=2.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "1.0", "ExtensionSDKs", "MyAssembly", "2.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=2.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=3.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=3.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot, "Windows", "2.0", "ExtensionSDKs", "MyAssembly", "3.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=3.0"]);
 
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=4.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=4.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "v1.0", "ExtensionSDKs", "MyAssembly", "4.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=4.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=5.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=5.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "1.0", "ExtensionSDKs", "MyAssembly", "5.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=5.0"]);
                 Assert.True(extensionSDKs.ContainsKey("MyAssembly, Version=6.0"));
-                Assert.True(
-                    extensionSDKs["MyAssembly, Version=6.0"].Equals(
-                        Path.Combine(
+                Assert.Equal(
+                    Path.Combine(
                             new[] { _fakeSDKStructureRoot2, "Windows", "2.0", "ExtensionSDKs", "MyAssembly", "6.0" })
                         + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase));
+                    extensionSDKs["MyAssembly, Version=6.0"]);
             }
             finally
             {

@@ -3,17 +3,14 @@
 #if FEATURE_WIN32_REGISTRY
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Utilities;
-using Microsoft.Build.Framework;
 using ProcessorArchitecture = System.Reflection.ProcessorArchitecture;
-using System.Diagnostics;
 
 namespace Microsoft.Build.Tasks
 {
@@ -37,17 +34,17 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// Delegate.
         /// </summary>
-        private GetRegistrySubKeyNames _getRegistrySubKeyNames;
+        private readonly GetRegistrySubKeyNames _getRegistrySubKeyNames;
 
         /// <summary>
         /// Delegate
         /// </summary>
-        private GetRegistrySubKeyDefaultValue _getRegistrySubKeyDefaultValue;
+        private readonly GetRegistrySubKeyDefaultValue _getRegistrySubKeyDefaultValue;
 
         /// <summary>
         /// Open the base registry key given a hive and a view
         /// </summary>
-        private OpenBaseKey _openBaseKey;
+        private readonly OpenBaseKey _openBaseKey;
 
         /// <summary>
         /// Whether or not the search path could be cracked.
@@ -92,23 +89,12 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// BuildEngine
         /// </summary>
-        private IBuildEngine4 _buildEngine;
+        private readonly IBuildEngine4 _buildEngine;
 
         /// <summary>
         /// If it is not initialized then just return the null object, that would mean the resolver was not called.
         /// </summary>
-        internal AssemblyFoldersEx AssemblyFoldersExLocations
-        {
-            get
-            {
-                if (_assemblyFoldersCache == null)
-                {
-                    return null;
-                }
-
-                return _assemblyFoldersCache.AssemblyFoldersEx;
-            }
-        }
+        internal AssemblyFoldersEx AssemblyFoldersExLocations => _assemblyFoldersCache?.AssemblyFoldersEx;
 
         /// <summary>
         /// Construct.
@@ -128,7 +114,9 @@ namespace Microsoft.Build.Tasks
         private void LazyInitialize()
         {
             if (_isInitialized)
+            {
                 return;
+            }
 
             _isInitialized = true;
 
@@ -154,12 +142,12 @@ namespace Microsoft.Build.Tasks
                         _targetRuntimeVersion = _targetRuntimeVersion.Insert(0, "v");
                     }
 
-                    if (conditions != null && conditions.Value != null && conditions.Length > 0 && conditions.Value.Length > 0)
+                    if (conditions?.Value != null && conditions.Length > 0 && conditions.Value.Length > 0)
                     {
                         string value = conditions.Value.Trim();
 
                         // Parse the condition statement for OSVersion and Platform
-                        foreach (string c in value.Split(':'))
+                        foreach (string c in value.Split(MSBuildConstants.ColonChar))
                         {
                             if (String.Compare(c, 0, "OSVERSION=", 0, 10, StringComparison.OrdinalIgnoreCase) == 0)
                             {
@@ -184,9 +172,9 @@ namespace Microsoft.Build.Tasks
                     {
                         AssemblyFoldersEx assemblyFolders = new AssemblyFoldersEx(_registryKeyRoot, _targetRuntimeVersion, _registryKeySuffix, _osVersion, _platform, _getRegistrySubKeyNames, _getRegistrySubKeyDefaultValue, this.targetProcessorArchitecture, _openBaseKey);
                         _assemblyFoldersCache = new AssemblyFoldersExCache(assemblyFolders, fileExists);
-                        if (useCache && _buildEngine != null)
+                        if (useCache)
                         {
-                            _buildEngine.RegisterTaskObject(key, _assemblyFoldersCache, RegisteredTaskObjectLifetime.Build, true /* dispose early ok*/);
+                            _buildEngine?.RegisterTaskObject(key, _assemblyFoldersCache, RegisteredTaskObjectLifetime.Build, true /* dispose early ok*/);
                         }
                     }
 
@@ -219,8 +207,7 @@ namespace Microsoft.Build.Tasks
             string[] executableExtensions,
             string hintPath,
             string assemblyFolderKey,
-            ArrayList assembliesConsideredAndRejected,
-
+            List<ResolutionSearchLocation> assembliesConsideredAndRejected,
             out string foundPath,
             out bool userRequestedSpecificFile
         )
@@ -280,7 +267,6 @@ namespace Microsoft.Build.Tasks
                 }
             }
 
-
             return false;
         }
     }
@@ -291,31 +277,26 @@ namespace Microsoft.Build.Tasks
     internal class AssemblyFoldersExCache
     {
         /// <summary>
-        /// Directory list of folders under assemblyfoldersex
-        /// </summary>
-        private AssemblyFoldersEx _assemblyFoldersEx;
-
-        /// <summary>
         /// Set of files in ALL assemblyfoldersEx directories
         /// </summary>
-        private HashSet<string> _filesInDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _filesInDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// File exists delegate we are replacing
         /// </summary>
-        private FileExists _fileExists;
+        private readonly FileExists _fileExists;
 
         /// <summary>
         /// Should we use the original on or use our own
         /// </summary>
-        private bool _useOriginalFileExists = false;
+        private readonly bool _useOriginalFileExists;
 
         /// <summary>
         /// Constructor
         /// </summary>
         internal AssemblyFoldersExCache(AssemblyFoldersEx assemblyFoldersEx, FileExists fileExists)
         {
-            _assemblyFoldersEx = assemblyFoldersEx;
+            AssemblyFoldersEx = assemblyFoldersEx;
             _fileExists = fileExists;
 
             if (Environment.GetEnvironmentVariable("MSBUILDDISABLEASSEMBLYFOLDERSEXCACHE") != null)
@@ -324,9 +305,9 @@ namespace Microsoft.Build.Tasks
             }
             else
             {
-                Object lockobject = new Object();
+                var lockobject = new Object();
 
-                Parallel.ForEach<AssemblyFoldersExInfo>(assemblyFoldersEx, assemblyFolder =>
+                Parallel.ForEach(assemblyFoldersEx, assemblyFolder =>
                 {
                     if (FileUtilities.DirectoryExistsNoThrow(assemblyFolder.DirectoryPath))
                     {
@@ -347,10 +328,7 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// AssemblyfoldersEx object which contains the set of directories in assmblyfoldersex
         /// </summary>
-        internal AssemblyFoldersEx AssemblyFoldersEx
-        {
-            get { return _assemblyFoldersEx; }
-        }
+        internal AssemblyFoldersEx AssemblyFoldersEx { get; }
 
         /// <summary>
         ///  Fast file exists for assemblyfoldersex.
@@ -364,10 +342,7 @@ namespace Microsoft.Build.Tasks
                 bool exists = _filesInDirectories.Contains(path);
                 return exists;
             }
-            else
-            {
-                return _fileExists(path);
-            }
+            return _fileExists(path);
         }
     }
 }

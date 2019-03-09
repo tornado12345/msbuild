@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the ProjectOutputElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.IO;
@@ -28,8 +24,8 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectOutputElement output = GetOutputItem();
 
-            Assert.Equal(false, output.IsOutputProperty);
-            Assert.Equal(true, output.IsOutputItem);
+            Assert.False(output.IsOutputProperty);
+            Assert.True(output.IsOutputItem);
             Assert.Equal("p", output.TaskParameter);
             Assert.Equal(String.Empty, output.PropertyName);
             Assert.Equal("i1", output.ItemType);
@@ -43,8 +39,8 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectOutputElement output = GetOutputProperty();
 
-            Assert.Equal(true, output.IsOutputProperty);
-            Assert.Equal(false, output.IsOutputItem);
+            Assert.True(output.IsOutputProperty);
+            Assert.False(output.IsOutputItem);
             Assert.Equal("p", output.TaskParameter);
             Assert.Equal("p1", output.PropertyName);
             Assert.Equal(String.Empty, output.ItemType);
@@ -69,7 +65,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -92,7 +88,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -115,7 +111,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -138,7 +134,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -163,7 +159,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -186,7 +182,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -209,7 +205,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
                     </Project>
                 ";
 
-                ProjectRootElement project = ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
+                ProjectRootElement.Create(XmlReader.Create(new StringReader(content)));
             }
            );
         }
@@ -224,7 +220,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             output.Condition = "c";
             Assert.Equal("c", output.Condition);
-            Assert.Equal(true, output.ContainingProject.HasUnsavedChanges);
+            Assert.True(output.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -238,7 +234,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             output.PropertyName = "p1b";
             Assert.Equal("p1b", output.PropertyName);
-            Assert.Equal(true, output.ContainingProject.HasUnsavedChanges);
+            Assert.True(output.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -266,7 +262,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             output.ItemType = "p1b";
             Assert.Equal("p1b", output.ItemType);
-            Assert.Equal(true, output.ContainingProject.HasUnsavedChanges);
+            Assert.True(output.ContainingProject.HasUnsavedChanges);
         }
 
         /// <summary>

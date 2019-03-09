@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Assembly info.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Reflection;
@@ -67,11 +63,5 @@ using System.Windows.Markup;
 #endif
 
 [assembly: ComVisible(false)]
-
 [assembly: CLSCompliant(true)]
 
-[assembly: AssemblyTitle("Microsoft.Build.Framework.dll")]
-[assembly: AssemblyDescription("Microsoft.Build.Framework.dll")]
-[assembly: AssemblyCompany("Microsoft Corporation")]
-[assembly: AssemblyProduct("Microsoft® Build Tools®")]
-[assembly: AssemblyCopyright("© Microsoft Corporation. All rights reserved.")]

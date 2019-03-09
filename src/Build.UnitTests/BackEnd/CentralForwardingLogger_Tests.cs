@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Test the central forwarding logger</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using Microsoft.Build.Framework;
@@ -34,12 +30,12 @@ namespace Microsoft.Build.UnitTests.Logging
             // Verify Parameters can be get and set properly
             Assert.True(string.IsNullOrEmpty(centralLogger.Parameters)); // "Expected parameters to be null or empty"
             centralLogger.Parameters = "MyParameters";
-            Assert.Equal(0, string.Compare(centralLogger.Parameters, "MyParameters", StringComparison.OrdinalIgnoreCase)); // "Expected parameters equal MyParameters"
+            Assert.Equal("MyParameters", centralLogger.Parameters); // "Expected parameters equal MyParameters"
 
             // Verify Verbosity can be get and set properly
-            Assert.Equal(centralLogger.Verbosity, LoggerVerbosity.Quiet); // "Expected default to be Quiet"
+            Assert.Equal(LoggerVerbosity.Quiet, centralLogger.Verbosity); // "Expected default to be Quiet"
             centralLogger.Verbosity = LoggerVerbosity.Detailed;
-            Assert.Equal(centralLogger.Verbosity, LoggerVerbosity.Detailed); // "Expected default to be Detailed"
+            Assert.Equal(LoggerVerbosity.Detailed, centralLogger.Verbosity); // "Expected default to be Detailed"
 
             // Verify BuildEventRedirector can be get and set properly
             Assert.Null(centralLogger.BuildEventRedirector); // "Expected BuildEventRedirector to be null"

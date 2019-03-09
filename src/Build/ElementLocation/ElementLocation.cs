@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>The location of an XML node in a file</summary>
-//-----------------------------------------------------------------------
 
 using Microsoft.Build.Shared;
 using Microsoft.Build.Framework;
@@ -23,7 +19,7 @@ namespace Microsoft.Build.Construction
     /// DO NOT make these objects any larger. There are huge numbers of them and they are transmitted between nodes.
     /// </remarks>
     [Serializable]
-    public abstract class ElementLocation : IElementLocation, INodePacketTranslatable, IImmutable
+    public abstract class ElementLocation : IElementLocation, ITranslatable, IImmutable
     {
         /// <summary>
         /// The singleton empty element location.
@@ -141,7 +137,7 @@ namespace Microsoft.Build.Construction
         /// Always send as ints, even if ushorts are being used: otherwise it'd
         /// need a byte to discriminate and the savings would be microscopic.
         /// </summary>
-        void INodePacketTranslatable.Translate(INodePacketTranslator translator)
+        void ITranslatable.Translate(ITranslator translator)
         {
             ErrorUtilities.VerifyThrow(translator.Mode == TranslationDirection.WriteToStream, "write only");
 
@@ -157,7 +153,7 @@ namespace Microsoft.Build.Construction
         /// Factory for serialization.
         /// Custom factory is needed because this class is abstract and uses a factory pattern.
         /// </summary>
-        internal static ElementLocation FactoryForDeserialization(INodePacketTranslator translator)
+        internal static ElementLocation FactoryForDeserialization(ITranslator translator)
         {
             string file = null;
             int line = 0;
@@ -216,7 +212,7 @@ namespace Microsoft.Build.Construction
             string locationString = String.Empty;
             if (line != 0 && column != 0)
             {
-                locationString = ResourceUtilities.FormatResourceString("FileLocation", file, line, column);
+                locationString = ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("FileLocation", file, line, column);
             }
             else if (line != 0)
             {

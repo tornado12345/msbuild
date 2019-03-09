@@ -2,8 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Collections.Generic;
 using System.Reflection;
-using System.Collections;
 using Microsoft.Build.Shared;
 using System.Diagnostics;
 
@@ -17,7 +17,7 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// The candidate assembly files.
         /// </summary>
-        private string[] _candidateAssemblyFiles;
+        private readonly string[] _candidateAssemblyFiles;
 
         /// <summary>
         /// Construct.
@@ -36,6 +36,7 @@ namespace Microsoft.Build.Tasks
         /// Resolve a reference to a specific file name.
         /// </summary>
         /// <param name="assemblyName">The assemblyname of the reference.</param>
+        /// <param name="sdkName"></param>
         /// <param name="rawFileNameCandidate">The reference's 'include' treated as a raw file name.</param>
         /// <param name="isPrimaryProjectReference">Whether or not this reference was directly from the project file (and therefore not a dependency)</param>
         /// <param name="wantSpecificVersion">Whether an exact version match is requested.</param>
@@ -56,8 +57,7 @@ namespace Microsoft.Build.Tasks
             string[] executableExtensions,
             string hintPath,
             string assemblyFolderKey,
-            ArrayList assembliesConsideredAndRejected,
-
+            List<ResolutionSearchLocation> assembliesConsideredAndRejected,
             out string foundPath,
             out bool userRequestedSpecificFile
         )
@@ -80,9 +80,11 @@ namespace Microsoft.Build.Tasks
                         ResolutionSearchLocation considered = null;
                         if (assembliesConsideredAndRejected != null)
                         {
-                            considered = new ResolutionSearchLocation();
-                            considered.FileNameAttempted = candidateAssemblyFile;
-                            considered.SearchPath = searchPathElement;
+                            considered = new ResolutionSearchLocation
+                            {
+                                FileNameAttempted = candidateAssemblyFile,
+                                SearchPath = searchPathElement
+                            };
                         }
 
                         if (FileMatchesAssemblyName(assemblyName, isPrimaryProjectReference, wantSpecificVersion, false, candidateAssemblyFile, considered))
@@ -107,8 +109,6 @@ namespace Microsoft.Build.Tasks
                     }
                 }
             }
-
-
 
             return false;
         }

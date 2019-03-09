@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for the UsingTaskParameterGroupElement_Tests class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -113,7 +109,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             Assert.Throws<InvalidProjectFileException>(() =>
             {
-                UsingTaskParameterGroupElement parameterGroup = GetParameterGroupXml(s_contentDuplicateParameters);
+                GetParameterGroupXml(s_contentDuplicateParameters);
                 Assert.True(false);
             }
            );

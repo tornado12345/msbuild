@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>NodePackets which are used for node communication</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -39,7 +35,7 @@ namespace Microsoft.Build.CommandLine
         /// <summary>
         /// Constructor for deserialization
         /// </summary>
-        private LogMessagePacket(INodePacketTranslator translator)
+        private LogMessagePacket(ITranslator translator)
             : base(translator)
         {
             Translate(translator);
@@ -48,7 +44,7 @@ namespace Microsoft.Build.CommandLine
         /// <summary>
         /// Factory for serialization
         /// </summary>
-        static internal INodePacket FactoryForDeserialization(INodePacketTranslator translator)
+        static internal INodePacket FactoryForDeserialization(ITranslator translator)
         {
             return new LogMessagePacket(translator);
         }

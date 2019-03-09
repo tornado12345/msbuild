@@ -1,9 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-//-----------------------------------------------------------------------
-// </copyright>
-// <summary>Tests for ProjectImportGroupElement class.</summary>
-//-----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
@@ -152,12 +148,13 @@ namespace Microsoft.Build.UnitTests.OM.Construction
         {
             ProjectRootElement project = ProjectRootElement.Create();
 
-            Assert.Equal(null, project.Imports.GetEnumerator().Current);
+            Assert.Null(project.Imports.GetEnumerator().Current);
         }
 
         /// <summary>
         /// An empty import group does nothing, but also shouldn't error
         /// </summary>
+        [Fact]
         public void ReadNoChild()
         {
             string content = @"
@@ -170,7 +167,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             ProjectImportGroupElement importGroup = (ProjectImportGroupElement)Helpers.GetFirst(project.ImportGroups);
 
-            Assert.Equal(null, project.Imports.GetEnumerator().Current);
+            Assert.Null(project.Imports.GetEnumerator().Current);
             Assert.Equal(0, Helpers.Count(importGroup.Imports));
         }
 
@@ -274,7 +271,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             List<ProjectImportElement> imports = Helpers.MakeList(project.Imports);
             List<ProjectImportGroupElement> importGroups = Helpers.MakeList(project.ImportGroups);
 
-            Assert.Equal(1, importGroups.Count);
+            Assert.Single(importGroups);
             Assert.Equal(2, importGroups[0].Count);
             Assert.Equal(2, imports.Count);
             Assert.Equal("i1.proj", imports[0].Project);
@@ -339,7 +336,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
 
             import.Project = "i1b.proj";
             Assert.Equal("i1b.proj", import.Project);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -382,7 +379,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             importGroup.Condition = "c";
 
             Assert.Equal("c", importGroup.Condition);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
 
         /// <summary>
@@ -399,7 +396,7 @@ namespace Microsoft.Build.UnitTests.OM.Construction
             importGroup.Label = "c";
 
             Assert.Equal("c", importGroup.Label);
-            Assert.Equal(true, project.HasUnsavedChanges);
+            Assert.True(project.HasUnsavedChanges);
         }
     }
 }

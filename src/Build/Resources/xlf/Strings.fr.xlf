@@ -8,6 +8,11 @@
         <note>{StrBegin="MSB4001: "}UE: This message is shown when a task has more than one .NET property with the same name -- it's unclear which of
     those properties the task wants to use as a parameter in project files.</note>
       </trans-unit>
+      <trans-unit id="AspNetCompiler.UnsupportedMSBuildVersion">
+        <source>MSB4249: Unable to build website project "{0}". The ASP.NET compiler is only available on the .NET Framework version of MSBuild.</source>
+        <target state="translated">MSB4249: Impossible de générer le projet de site web "{0}". Le compilateur ASP.NET est uniquement disponible sur la version .NET Framework de MSBuild.</target>
+        <note>{StrBegin="MSB4249: "}</note>
+      </trans-unit>
       <trans-unit id="AttributeTypeLoadError">
         <source>MSB4002: There was a failure retrieving the attributes for parameters in the "{0}" task. {1}</source>
         <target state="translated">MSB4002: Échec lors de l'extraction des attributs des paramètres dans la tâche "{0}". {1}</target>
@@ -26,10 +31,97 @@
         <target state="translated">Impossible d'effectuer l'opération car une génération est déjà en cours.</target>
         <note />
       </trans-unit>
+      <trans-unit id="CacheMissesNotAllowedInIsolatedGraphBuilds">
+        <source>MSB4252: Project "{0}" has a reference to "{1}" ({2} target(s)) but the build result for the reference is not in the engine cache. In isolated builds this could mean one of the following:
+    - the reference was not explicitly specified as a ProjectReference item in "{0}"
+    - the reference was not included in the provided input caches
+    - the reference was called with a target which is not specified in the ProjectReferenceTargets item in "{0}"
+    </source>
+        <target state="translated">MSB4252: Le projet "{0}" a une référence à "{1}" ({2} cible(s)) mais le résultat de la build pour la référence ne se trouve pas dans le cache du moteur. Dans les builds isolées, cela peut avoir l'une des significations suivantes :
+    - la référence n'a pas été explicitement spécifiée en tant qu'élément ProjectReference dans "{0}"
+    - la référence n'a pas été incluse dans les caches d'entrée fournis
+    - la référence a été appelée avec une cible qui n'est pas spécifiée dans l'élément ProjectReferenceTargets dans "{0}"
+    </target>
+        <note>
+      {StrBegin="MSB4252:"}
+      LOCALIZATION: Do not localize the following words: ProjectReference.
+    </note>
+      </trans-unit>
+      <trans-unit id="CannotExpandItemMetadata">
+        <source>MSB4248: Cannot expand metadata in expression "{0}". {1}</source>
+        <target state="translated">MSB4248: Impossible d'étendre les métadonnées dans l'expression "{0}". {1}</target>
+        <note>{StrBegin="MSB4023: "}UE: This message is shown when metadata cannot be expanded in an expression for some reason e.g. trying to apply
+    %(RootDir) to an item-spec that's not a valid path would result in this error.
+    LOCALIZATION: "{1}" is a localized message explaining the problem.</note>
+      </trans-unit>
+      <trans-unit id="CircularDependencyInProjectGraph">
+        <source>MSB4251: There is a circular dependency involving the following projects: {0}</source>
+        <target state="translated">MSB4251: Il existe une dépendance circulaire impliquant les projets suivants : {0}</target>
+        <note>
+      {StrBegin="MSB4251:"} This message is shown when a graph build detects a target referenced in a circular manner -- a project cannot
+      request a target to build itself (perhaps via a chain of other targets)
+    </note>
+      </trans-unit>
+      <trans-unit id="EmptyOutputCacheFile">
+        <source>MSB4257: The specified output result cache file is empty.</source>
+        <target state="translated">MSB4257: Le fichier cache des résultats de sortie spécifié est vide.</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ErrorReadingCacheFile">
+        <source>MSB4256: Reading input result cache files from path "{0}" encountered an error: {1}</source>
+        <target state="translated">MSB4256: La lecture des fichiers cache des résultats d'entrée à partir du chemin "{0}" a rencontré une erreur : {1}</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ErrorWritingCacheFile">
+        <source>MSB4258: Writing output result cache file in path "{0}" encountered an error: {1}</source>
+        <target state="translated">MSB4258: L'écriture du fichier cache des résultats de sortie dans le chemin "{0}" a rencontré une erreur : {1}</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="InputCacheFilesDoNotExist">
+        <source>MSB4255: The following input result cache files do not exist: "{0}"</source>
+        <target state="translated">MSB4255: Les fichiers cache des résultats d'entrée suivants n'existent pas : "{0}"</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="MetaprojectGenerated">
+        <source>Metaproject "{0}" generated.</source>
+        <target state="translated">Le métaprojet "{0}" a été généré.</target>
+        <note />
+      </trans-unit>
       <trans-unit id="NoBuildInProgress">
         <source>The operation cannot be completed because BeginBuild has not yet been called.</source>
         <target state="translated">Impossible d'effectuer l'opération car la méthode BeginBuild n'a pas encore été appelée.</target>
         <note />
+      </trans-unit>
+      <trans-unit id="NullReferenceFromProjectInstanceFactory">
+        <source>MSB4253: A null reference was returned from a user-provided ProjectInstanceFactoryFunc callback. This is not allowed.</source>
+        <target state="translated">MSB4253: Une référence null a été retournée à partir d'un rappel ProjectInstanceFactoryFunc fourni par l'utilisateur. Ceci n'est pas autorisé.</target>
+        <note>
+      {StrBegin="MSB4253: "}
+      LOCALIZATION:  Do not localize the following words: ProjectInstanceFactoryFunc.
+    </note>
+      </trans-unit>
+      <trans-unit id="ProjectGraphDoesNotSupportProjectReferenceWithToolset">
+        <source>MSB4250: ProjectGraph does not support ProjectReference items with the ToolsVersion metadata set. Found ProjectReference "{0}" with ToolsVersion in file "{1}"</source>
+        <target state="translated">MSB4250: ProjectGraph ne prend pas en charge les éléments ProjectReference avec l'ensemble de métadonnées ToolsVersion. ProjectReference "{0}" trouvé avec ToolsVersion dans le fichier "{1}"</target>
+        <note>
+      {StrBegin="MSB4250: "}
+      LOCALIZATION:  Do not localize the following words: ProjectGraph, ProjectReference, ToolsVersion.
+    </note>
+      </trans-unit>
+      <trans-unit id="UndeclaredMSBuildTasksNotAllowedInIsolatedGraphBuilds">
+        <source>MSB4254: The MSBuild task is building project(s) {0} which are not specified in the ProjectReference item. In isolated builds this probably means that the references are not explicitly specified as a ProjectReference item in "{1}"</source>
+        <target state="translated">MSB4254: La tâche MSBuild génère un ou des projets {0} qui ne sont pas spécifiés dans l'élément ProjectReference. Dans les builds isolées, cela signifie probablement que les références ne sont pas explicitement spécifiées en tant qu'élément ProjectReference dans "{1}"</target>
+        <note>
+      {StrBegin="MSB4254:"}
+      LOCALIZATION: Do not localize the following words: ProjectReference, MSBuild, task.
+    </note>
+      </trans-unit>
+      <trans-unit id="UsingInputCaches">
+        <source>Using input build results caches: {0}</source>
+        <target state="translated">Utilisation des caches de résultats de la build d'entrée : {0}</target>
+        <note>
+      LOCALIZATION: {0} is a list of semicolon separated file paths
+    </note>
       </trans-unit>
       <trans-unit id="WaitingForEndOfBuild">
         <source>The operation cannot be completed because EndBuild has already been called but existing submissions have not yet completed.</source>
@@ -173,9 +265,9 @@
         <note>{StrBegin="MSB4162: "}</note>
       </trans-unit>
       <trans-unit id="ChildExitedPrematurely">
-        <source>MSB4166: Child node "{0}" exited prematurely. Shutting down. Diagnostic information may be found in files in "{1}" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.</source>
-        <target state="translated">MSB4166: Fin prématurée du nœud enfant "{0}". Arrêt. Les informations de diagnostic se trouvent dans des fichiers situés dans "{1}", qui se nomment MSBuild_*.failure.txt. Vous pouvez changer l'emplacement en affectant un autre répertoire à la variable d'environnement MSBUILDDEBUGPATH.</target>
-        <note>{StrBegin="MSB4166: "}</note>
+        <source>MSB4166: Child node "{0}" exited prematurely. Shutting down. Diagnostic information may be found in files in "{1}" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.{2}</source>
+        <target state="translated">MSB4166: Fin prématurée du nœud enfant "{0}" . Arrêt. Des informations de diagnostic se trouvent dans des fichiers nommés MSBuild_*.failure.txt dans "{1}". Pour changer d'emplacement, affectez un répertoire différent à la variable d'environnement MSBUILDDEBUGPATH.{2}</target>
+        <note>{StrBegin="MSB4166: "} {2} is exception text if any</note>
       </trans-unit>
       <trans-unit id="ChooseMustContainWhen">
         <source>MSB4085: A &lt;Choose&gt; must contain at least one &lt;When&gt;.</source>
@@ -221,7 +313,7 @@
       </trans-unit>
       <trans-unit id="ConflictingValuesOfMSBuildToolsPath">
         <source>MSB4142: MSBuildToolsPath is not the same as MSBuildBinPath for the ToolsVersion "{0}" defined at "{1}". If both are present they must have the same value.</source>
-        <target state="translated">MSB4142: MSBuildToolsPath n'est pas identique à MSBuildBinPath pour le ToolsVersion "{0}" défini sur "{1}". Si les deux sont présents, ils doivent avoir la même valeur.</target>
+        <target state="translated">MSB4142: MSBuildToolsPath n'est pas identique à MSBuildBinPath pour le ToolsVersion "{0}" défini à "{1}". Si les deux sont présents, ils doivent avoir la même valeur.</target>
         <note>{StrBegin="MSB4142: "}</note>
       </trans-unit>
       <trans-unit id="DefaultTasksFileFailure">
@@ -569,8 +661,8 @@
     </note>
       </trans-unit>
       <trans-unit id="InvalidFunctionStaticMethodSyntax">
-        <source>MSB4186: Invalid static method invocation syntax: "{0}". {1} Static method invocation should be of the form: $([FullTypeName]::Method()), e.g. $([System.IO.Path]::Combine(`a`, `b`)). </source>
-        <target state="translated">MSB4186: syntaxe d'appel de méthode statique non valide : "{0}". {1}. L'appel de méthode statique doit avoir le format : $([FullTypeName]::Method()), par exemple $([System.IO.Path]::Combine(`a`, `b`)). </target>
+        <source>MSB4186: Invalid static method invocation syntax: "{0}". {1} Static method invocation should be of the form: $([FullTypeName]::Method()), e.g. $([System.IO.Path]::Combine(`a`, `b`)). Check that all parameters are defined, are of the correct type, and are specified in the right order.</source>
+        <target state="translated">MSB4186: syntaxe d'appel de méthode statique non valide : "{0}". {1}. L'appel de méthode statique doit avoir le format : $([FullTypeName]::Method()), par exemple $([System.IO.Path]::Combine(`a`, `b`)). Vérifiez que tous les paramètres sont définis, sont du type approprié et sont spécifiés dans le bon ordre.</target>
         <note>{StrBegin="MSB4186: "}
       UE: This message is shown when the user attempts to call a static method on a type, but has used the incorrect syntax
       LOCALIZATION: "{0}" is the function expression which is in error. "{1}" is a message from an FX exception that describes why the expression is bad.
@@ -806,7 +898,7 @@
       </trans-unit>
       <trans-unit id="ProjectMustBeInMSBuildXmlNamespace">
         <source>MSB4041: The default XML namespace of the project must be the MSBuild XML namespace or no namespace. If the project is authored in the MSBuild 2003 format, please add xmlns="{0}" to the &lt;Project&gt; element. If the project has been authored in the old 1.0 or 1.2 format, please convert it to MSBuild 2003 format.</source>
-        <target state="translated">MSB4041: l'espace de noms XML par défaut du projet doit être l'espace de noms XML MSBuild ou aucun espace de noms. Si le projet a été créé au format MSBuild 2003, ajoutez xmlns="{0}" à l'élément &lt;Project&gt;. S'il a été créé dans des formats antérieurs comme 1.0 ou 1.2, convertissez-le au format MSBuild 2003.</target>
+        <target state="translated">MSB4041: l'espace de noms XML par défaut du projet doit être l'espace de noms XML MSBuild ou aucun espace de noms. Si le projet est créé au format MSBuild 2003, ajoutez xmlns="{0}" à l'élément &lt;Project&gt;. Si le projet a été créé avec l'ancien format 1.0 ou 1.2, convertissez-le au format MSBuild 2003.</target>
         <note>{StrBegin="MSB4041: "}UE: This is a Beta 1 message only.
       LOCALIZATION: &lt;Project&gt;, "MSBuild" and "xmlns" should not be localized.</note>
       </trans-unit>
@@ -1535,8 +1627,15 @@
       </trans-unit>
       <trans-unit id="PropertyOutputOverridden">
         <source>The property "{0}" with value "{1}" is being overridden by another batch. The property is now: "{2}"</source>
-        <target state="translated">La propriété "{0}" ayant la valeur "{1}" est remplacée par un autre lot. À présent, la propriété est : "{2}"</target>
+        <target state="translated">La propriété "{0}" ayant la valeur "{1}" est substituée par un autre lot. À présent, la propriété est : "{2}"</target>
         <note />
+      </trans-unit>
+      <trans-unit id="WritingToOutputCache">
+        <source>Writing build results caches to: {0}</source>
+        <target state="translated">Écriture des caches de résultats de la build dans : {0}</target>
+        <note>
+      LOCALIZATION: {0} is a file path
+    </note>
       </trans-unit>
       <trans-unit id="logfilePathNullOrEmpty">
         <source>The log file path cannot be null or empty.</source>
@@ -1642,9 +1741,8 @@ Id                  : Temps exclusif   Durée totale   Chemin (Cibles)
 ============================== Node Utilization (IDs represent configurations) ====================================================
 Timestamp:            {0} Duration   Cumulative
 -----------------------------------------------------------------------------------------------------------------------------------</source>
-        <target state="translated">
-============================== Utilisation du nœud (les ID représentent les configurations) ====================================================
-Horodateur :            {0} Durée   Cumulée
+        <target state="translated">============================== Utilisation du nœud (les ID représentent les configurations) ====================================================
+Horodateur :            {0} Durée cumulée
 -----------------------------------------------------------------------------------------------------------------------------------</target>
         <note>Spacing is important.  Preserve the number of characters between the start of each word.</note>
       </trans-unit>
@@ -1943,12 +2041,12 @@ Utilisation :          {0} Utilisation moyenne : {1:###.0}</target>
       </trans-unit>
       <trans-unit id="InvalidSdkFormat">
         <source>MSB4229: The value "{0}" is not valid for an Sdk specification. The attribute should be a semicolon-delimited list of Sdk-name/minimum-version pairs, separated by a forward slash.</source>
-        <target state="translated">MSB4229: la valeur "{0}" est non valide pour la spécification d'un kit SDK. L'attribut doit être une liste de paires nom/version minimale du kit SDK, délimitées par une barre oblique.</target>
+        <target state="translated">MSB4229: La valeur "{0}" n'est pas valide pour une spécification de SDK. L'attribut doit être une liste séparée par des points-virgules de paires nom_SDK/version_minimum, séparées par une barre oblique.</target>
         <note>{StrBegin="MSB4229: "}</note>
       </trans-unit>
       <trans-unit id="TaskInstantiationFailureNotSupported">
         <source>MSB4802: The "{0}" task could not be instantiated from "{1}". This version of MSBuild does not support {2}.</source>
-        <target state="translated">MSB4802: impossible d'instancier la tâche "{0}" à partir de "{1}". Cette version de MSBuild ne prend pas en charge {2}.</target>
+        <target state="translated">MSB4802: La tâche "{0}" n'a pas pu être instanciée à partir de "{1}". Cette version de MSBuild ne prend pas en charge {2}.</target>
         <note>{StrBegin="MSB4802: "}</note>
       </trans-unit>
       <trans-unit id="InvalidGetPathOfFileAboveParameter">
@@ -1983,7 +2081,7 @@ Utilisation :          {0} Utilisation moyenne : {1:###.0}</target>
       </trans-unit>
       <trans-unit id="InvalidBinaryLoggerParameters">
         <source>MSB4234: Invalid binary logger parameter(s): "{0}". Expected: ProjectImports={{None,Embed,ZipFile}} and/or [LogFile=]filePath.binlog (the log file name or path, must have the ".binlog" extension).</source>
-        <target state="translated">MSB4234: paramètres de l'enregistreur d'événements binaire non valides : "{0}". Attendu : ProjectImports={{None,Embed,ZipFile}} et/ou [LogFile=]filePath.binlog (chemin ou nom du fichier journal avec l'extension ".binlog").</target>
+        <target state="translated">MSB4234: Paramètre(s) de l’enregistrement d’événements binaire non valide(s) : "{0}". Attendu(s) : ProjectImports={{None,Embed,ZipFile}} et/ou [LogFile=]filePath.binlog (le chemin ou le nom du fichier journal doit avoir l’extension ".binlog").</target>
         <note />
       </trans-unit>
       <trans-unit id="IncludeRemoveOrUpdate">
@@ -2068,7 +2166,7 @@ Utilisation :          {0} Utilisation moyenne : {1:###.0}</target>
       </trans-unit>
       <trans-unit id="CouldNotRunNuGetSdkResolver">
         <source>MSB4243: The NuGet-based SDK resolver failed to run because NuGet assemblies could not be located.  Check your installation of MSBuild or set the environment variable "{0}" to the folder that contains the required NuGet assemblies. {1}</source>
-        <target state="translated">MSB4243: le programme de résolution du kit SDK basé sur NuGet n'a pas pu s'exécuter, car les assemblys NuGet sont introuvables.  Vérifiez votre installation de MSBuild, ou affectez à la variable d'environnement "{0}" le dossier qui contient les assemblys NuGet nécessaires. {1}</target>
+        <target state="translated">MSB4243: Impossible d'exécuter la résolution de SDK NuGet parce que les assemblys NuGet n'ont pas pu être localisés. Vérifiez votre installation de MSBuild ou définissez la variable d'environnement "{0}" dans le dossier qui contient les assemblys NuGet obligatoires. {1}</target>
         <note>{StrBegin="MSB4243: "}</note>
       </trans-unit>
       <trans-unit id="ProjectImportSkippedInvalidFile">
@@ -2098,14 +2196,14 @@ Utilisation :          {0} Utilisation moyenne : {1:###.0}</target>
       </trans-unit>
       <trans-unit id="ReferencingMultipleVersionsOfTheSameSdk">
         <source>MSB4240: Multiple versions of the same SDK "{0}" cannot be specified. The previously resolved SDK version "{1}" from location "{2}" will be used and the version "{3}" will be ignored.</source>
-        <target state="translated">MSB4240: impossible de spécifier plusieurs versions du même kit SDK "{0}". La version du kit SDK "{1}" résolue à partir de l'emplacement "{2}" va être utilisée. La version "{3}" va être ignorée.</target>
+        <target state="translated">MSB4240: Impossible de spécifier plusieurs versions du même SDK "{0}". La version du SDK "{1}" résolue précédemment à partir de l'emplacement "{2}" va être utilisée, et la version "{3}" va être ignorée.</target>
         <note>{StrBegin="MSB4240: "}
       LOCALIZATION:  Do not localize the word SDK.
     </note>
       </trans-unit>
       <trans-unit id="SdkResultVersionDifferentThanReference">
         <source>MSB4241: The SDK reference "{0}" version "{1}" was resolved to version "{2}" instead.  You could be using a different version than expected if you do not update the referenced version to match.</source>
-        <target state="translated">MSB4241: la référence du kit SDK "{0}" version "{1}" a été résolue en version "{2}" à la place.  Vous pouvez utiliser une autre version que celle prévue, si vous ne mettez pas à jour la version référencée correspondante.</target>
+        <target state="translated">MSB4241: La référence du SDK "{0}" version "{1}" a été résolue avec la version "{2}" à la place. Vous risquez d'utiliser une version différente de celle attendue si vous ne mettez pas à jour la version référencée correspondante.</target>
         <note>{StrBegin="MSB4241: "}
       LOCALIZATION:  Do not localize the word SDK.
     </note>
@@ -2119,17 +2217,17 @@ Utilisation :          {0} Utilisation moyenne : {1:###.0}</target>
       </trans-unit>
       <trans-unit id="SdkResolverManifestInvalid">
         <source>MSB4245: SDK Resolver manifest file is invalid. This may indicate a corrupt or invalid installation of MSBuild. Manifest file path '{0}'. Message: {1}</source>
-        <target state="new">MSB4245: SDK Resolver manifest file is invalid. This may indicate a corrupt or invalid installation of MSBuild. Manifest file path '{0}'. Message: {1}</target>
+        <target state="translated">MSB4245: Le fichier manifeste du programme de résolution de SDK n'est pas valide, ce qui peut indiquer que l'installation de MSBuild est endommagée ou non valide. Chemin du fichier manifeste : '{0}'. Message : {1}</target>
         <note>{StrBegin="MSB4245: "}</note>
       </trans-unit>
       <trans-unit id="SdkResolverNoDllOrManifest">
         <source>MSB4246: SDK Resolver folder exists but without an SDK Resolver DLL or manifest file. This may indicate a corrupt or invalid installation of MSBuild. SDK resolver path: {0}</source>
-        <target state="new">MSB4246: SDK Resolver folder exists but without an SDK Resolver DLL or manifest file. This may indicate a corrupt or invalid installation of MSBuild. SDK resolver path: {0}</target>
+        <target state="translated">MSB4246: Le dossier du programme de résolution de SDK existe, mais il n'y a aucun fichier DLL ou manifeste pour ce programme. L'installation de MSBuild est peut-être endommagée ou non valide. Chemin du programme de résolution de SDK : {0}</target>
         <note>{StrBegin="MSB4246: "}</note>
       </trans-unit>
       <trans-unit id="SdkResolverDllInManifestMissing">
         <source>MSB4247: Could not load SDK Resolver. A manifest file exists, but the path to the SDK Resolver DLL file could not be found. Manifest file path '{0}'. SDK resolver path: {1}</source>
-        <target state="new">MSB4247: Could not load SDK Resolver. A manifest file exists, but the path to the SDK Resolver DLL file could not be found. Manifest file path '{0}'. SDK resolver path: {1}</target>
+        <target state="translated">MSB4247: Impossible de charger le programme de résolution de SDK. Un fichier manifeste existe, mais le chemin au fichier DLL du programme de résolution de SDK est introuvable. Chemin du fichier manifeste : '{0}'. Chemin du programme de résolution de SDK : {1}</target>
         <note>{StrBegin="MSB4247: "}</note>
       </trans-unit>
     </body>
