@@ -2,11 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections.Generic;
-using System.Collections;
-using System.Text;
-
-using Microsoft.Build.Framework;
 using Microsoft.Build.BuildEngine.Shared;
 
 namespace Microsoft.Build.BuildEngine
@@ -82,7 +77,7 @@ namespace Microsoft.Build.BuildEngine
 
         internal override void Execute(Engine parentEngine)
         {
-            // Figure out if the exception occured on a parent or child engine
+            // Figure out if the exception occurred on a parent or child engine
             // On the parent rethrow nicely and make sure the finallies run
             // On the child try to communicate with the parent - if success, exit
             // if failure rethrow and hope Watson will pick the exception up

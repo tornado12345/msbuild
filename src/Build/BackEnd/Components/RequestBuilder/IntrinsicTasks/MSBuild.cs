@@ -7,7 +7,6 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Build.Framework;
-using Microsoft.Build.Internal;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Shared.FileSystem;
 
@@ -236,7 +235,7 @@ namespace Microsoft.Build.BackEnd
             }
 
             // We have been asked to unescape all escaped characters before processing
-            if (TargetAndPropertyListSeparators != null && TargetAndPropertyListSeparators.Length > 0)
+            if (TargetAndPropertyListSeparators?.Length > 0)
             {
                 ExpandAllTargetsAndProperties();
             }
@@ -484,7 +483,7 @@ namespace Microsoft.Build.BackEnd
             // of the RunEachTargetSeparately parameter, we each just call the engine to run all 
             // the targets together, or we call the engine separately for each target.
             var targetLists = new List<string[]>();
-            if ((runEachTargetSeparately) && (targets != null) && (targets.Length > 0))
+            if (runEachTargetSeparately && targets?.Length > 0)
             {
                 // Separate target invocations for each individual target.
                 foreach (string targetName in targets)
@@ -542,12 +541,16 @@ namespace Microsoft.Build.BackEnd
 
                     // If the user specified a different set of global properties for this project, then
                     // parse the string containing the properties
-                    if (!String.IsNullOrEmpty(projects[i].GetMetadata("Properties")))
+                    if (!String.IsNullOrEmpty(projects[i].GetMetadata(ItemMetadataNames.PropertiesMetadataName)))
                     {
                         if (!PropertyParser.GetTableWithEscaping
-                             (log, ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("General.OverridingProperties", projectNames[i]), "Properties", projects[i].GetMetadata("Properties").Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries),
-                              out Dictionary<string, string> preProjectPropertiesTable)
-                           )
+                            (
+                                log,
+                                ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("General.OverridingProperties", projectNames[i]),
+                                ItemMetadataNames.PropertiesMetadataName,
+                                projects[i].GetMetadata(ItemMetadataNames.PropertiesMetadataName).Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries),
+                                out Dictionary<string, string> preProjectPropertiesTable)
+                            )
                         {
                             return false;
                         }
@@ -562,7 +565,7 @@ namespace Microsoft.Build.BackEnd
 
                     // If the user wanted to undefine specific global properties for this project, parse
                     // that string and remove them now.
-                    string projectUndefineProperties = projects[i].GetMetadata("UndefineProperties");
+                    string projectUndefineProperties = projects[i].GetMetadata(ItemMetadataNames.UndefinePropertiesMetadataName);
                     if (!String.IsNullOrEmpty(projectUndefineProperties))
                     {
                         string[] propertiesToUndefine = projectUndefineProperties.Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries);
@@ -584,11 +587,15 @@ namespace Microsoft.Build.BackEnd
 
                     // If the user specified a different set of global properties for this project, then
                     // parse the string containing the properties
-                    if (!String.IsNullOrEmpty(projects[i].GetMetadata("AdditionalProperties")))
+                    if (!String.IsNullOrEmpty(projects[i].GetMetadata(ItemMetadataNames.AdditionalPropertiesMetadataName)))
                     {
                         if (!PropertyParser.GetTableWithEscaping
-                             (log, ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("General.AdditionalProperties", projectNames[i]), "AdditionalProperties", projects[i].GetMetadata("AdditionalProperties").Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries),
-                              out Dictionary<string, string> additionalProjectPropertiesTable)
+                            (
+                                log,
+                                ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("General.AdditionalProperties", projectNames[i]),
+                                ItemMetadataNames.AdditionalPropertiesMetadataName,
+                                projects[i].GetMetadata(ItemMetadataNames.AdditionalPropertiesMetadataName).Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries),
+                                out Dictionary<string, string> additionalProjectPropertiesTable)
                            )
                         {
                             return false;

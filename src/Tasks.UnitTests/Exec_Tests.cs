@@ -5,13 +5,16 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using Microsoft.Build.UnitTests;
+using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Shared;
 using Shouldly;
 using Xunit;
+using Xunit.Abstractions;
+using System.Collections.Generic;
+using Microsoft.Build.Evaluation;
 
 namespace Microsoft.Build.UnitTests
 {
@@ -20,9 +23,16 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     sealed public class Exec_Tests
     {
+        private readonly ITestOutputHelper _output;
+
+        public Exec_Tests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
         private Exec PrepareExec(string command)
         {
-            IBuildEngine2 mockEngine = new MockEngine(true);
+            IBuildEngine2 mockEngine = new MockEngine(_output);
             Exec exec = new Exec();
             exec.BuildEngine = mockEngine;
             exec.Command = command;
@@ -31,7 +41,7 @@ namespace Microsoft.Build.UnitTests
 
         private ExecWrapper PrepareExecWrapper(string command)
         {
-            IBuildEngine2 mockEngine = new MockEngine(true);
+            IBuildEngine2 mockEngine = new MockEngine(_output);
             ExecWrapper exec = new ExecWrapper();
             exec.BuildEngine = mockEngine;
             exec.Command = command;
@@ -107,6 +117,38 @@ namespace Microsoft.Build.UnitTests
 
             // ToolTask does not log an error on timeout.
             Assert.Equal(0, ((MockEngine)exec.BuildEngine).Errors);
+        }
+
+        [Fact]
+        public void TimeoutFailsEvenWhenExitCodeIsIgnored()
+        {
+
+            Exec exec = PrepareExec(NativeMethodsShared.IsWindows ? ":foo \n goto foo" : "while true; do sleep 1; done");
+            exec.Timeout = 5;
+            exec.IgnoreExitCode = true;
+            bool result = exec.Execute();
+
+            result.ShouldBeFalse();
+            MockEngine mockEngine = (MockEngine)exec.BuildEngine;
+            mockEngine.AssertLogContains("MSB5002");
+            mockEngine.Warnings.ShouldBe(1);
+
+            // ToolTask does not log an error on timeout.
+            mockEngine.Errors.ShouldBe(0);
+
+            if (NativeMethodsShared.IsMono)
+            {
+                // The standard check for SIGTERM fails intermittently on macOS Mono
+                // https://github.com/dotnet/msbuild/issues/5506
+                // To avoid test flakiness, allow 259 even though I can't justify it.
+                exec.ExitCode.ShouldBeOneOf(143, 259);
+            }
+            else
+            {
+                // On non-Windows the exit code of a killed process is generally 128 + SIGTERM = 143
+                // though this isn't 100% guaranteed, see https://unix.stackexchange.com/a/99134
+                exec.ExitCode.ShouldBe(NativeMethodsShared.IsWindows ? -1 : 143);
+            }
         }
 
         [Fact]
@@ -367,11 +409,7 @@ namespace Microsoft.Build.UnitTests
         /// <summary>
         /// Tests that Exec still executes properly when there's a non-ANSI character in the command
         /// </summary>
-#if RUNTIME_TYPE_NETCORE
-        [Fact(Skip = "https://github.com/Microsoft/msbuild/issues/623")]
-#else
         [Fact]
-#endif
         public void ExecTaskUnicodeCharacterInCommand()
         {
             RunExec(true, new UTF8Encoding(false).EncodingName);
@@ -389,11 +427,7 @@ namespace Microsoft.Build.UnitTests
         /// <summary>
         /// Exec task will use UTF8 when UTF8 Always is specified (with non-ANSI characters in the Command)
         /// </summary>
-#if RUNTIME_TYPE_NETCORE
-        [Fact(Skip = "https://github.com/Microsoft/msbuild/issues/623")]
-#else
         [Fact]
-#endif
         public void ExecTaskUtf8AlwaysWithNonAnsi()
         {
             RunExec(true, new UTF8Encoding(false).EncodingName, "Always");
@@ -412,24 +446,24 @@ namespace Microsoft.Build.UnitTests
         /// Exec task will NOT use UTF8 when UTF8 Never is specified and non-ANSI characters are in the Command
         /// <remarks>Exec task will fail as the cmd processor will not be able to run the command.</remarks>
         /// </summary>
-#if RUNTIME_TYPE_NETCORE
-        [Fact(Skip = "https://github.com/Microsoft/msbuild/issues/623")]
-#else
-        [Fact]
-#endif
-        [Trait("Category", "mono-osx-failing")]
-        public void ExecTaskUtf8NeverWithNonAnsi()
+        [Theory]
+        [InlineData("Never")]
+        [InlineData("System")]
+        [PlatformSpecific(TestPlatforms.Windows)]
+        public void ExecTaskUtf8NeverWithNonAnsi(string useUtf8)
         {
-            RunExec(true, EncodingUtilities.CurrentSystemOemEncoding.EncodingName, "Never", false);
+            RunExec(true, EncodingUtilities.CurrentSystemOemEncoding.EncodingName, useUtf8, false);
         }
 
         /// <summary>
         /// Exec task will NOT use UTF8 when UTF8 Never is specified and only ANSI characters are in the Command
         /// </summary>
-        [Fact]
-        public void ExecTaskUtf8NeverWithAnsi()
+        [Theory]
+        [InlineData("Never")]
+        [InlineData("System")]
+        public void ExecTaskUtf8NeverWithAnsi(string useUtf8)
         {
-            RunExec(false, EncodingUtilities.CurrentSystemOemEncoding.EncodingName, "Never");
+            RunExec(false, EncodingUtilities.CurrentSystemOemEncoding.EncodingName, useUtf8);
         }
 
         [Theory]
@@ -825,12 +859,8 @@ namespace Microsoft.Build.UnitTests
         /// Test the CanEncode method with and without ANSI characters to determine if they can be encoded 
         /// in the current system encoding.
         /// </summary>
-#if RUNTIME_TYPE_NETCORE
-        [Fact(Skip = "https://github.com/Microsoft/msbuild/issues/623")]
-#else
         [Fact]
-        [Trait("Category", "mono-osx-failing")]
-#endif
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void CanEncodeTest()
         {
             var defaultEncoding = EncodingUtilities.CurrentSystemOemEncoding;
@@ -838,8 +868,59 @@ namespace Microsoft.Build.UnitTests
             string nonAnsiCharacters = "\u521B\u5EFA";
             string pathWithAnsiCharacters = @"c:\windows\system32\cmd.exe";
 
-            Assert.False(Exec.CanEncodeString(defaultEncoding.CodePage, nonAnsiCharacters));
-            Assert.True(Exec.CanEncodeString(defaultEncoding.CodePage, pathWithAnsiCharacters));
+            Assert.False(EncodingUtilities.CanEncodeString(defaultEncoding.CodePage, nonAnsiCharacters));
+            Assert.True(EncodingUtilities.CanEncodeString(defaultEncoding.CodePage, pathWithAnsiCharacters));
+        }
+
+        [Fact]
+        public void EndToEndMultilineExec()
+        {
+            using (var env = TestEnvironment.Create(_output))
+            {
+                var testProject = env.CreateTestProjectWithFiles(@"<Project>
+ <Target Name=""MultilineExec"">
+  <Exec Command=""echo line 1
+echo line 2
+echo line 3"" />
+   </Target>
+</Project>");
+
+                using (var buildManager = new BuildManager())
+                {
+                    MockLogger logger = new MockLogger(_output, profileEvaluation: false, printEventsToStdout: false);
+                    var parameters = new BuildParameters()
+                    {
+                        Loggers = new[] { logger },
+                    };
+
+                    var collection = new ProjectCollection(
+                        new Dictionary<string, string>(),
+                        new[] { logger },
+                        remoteLoggers: null,
+                        ToolsetDefinitionLocations.Default,
+                        maxNodeCount: 1,
+                        onlyLogCriticalEvents: false,
+                        loadProjectsReadOnly: true);
+
+                    var project = collection.LoadProject(testProject.ProjectFile).CreateProjectInstance();
+
+                    var request = new BuildRequestData(
+                        project,
+                        targetsToBuild: new[] { "MultilineExec" },
+                        hostServices: null);
+
+                    var result = buildManager.Build(parameters, request);
+
+                    logger.AssertLogContains("line 2");
+                    logger.AssertLogContains("line 3");
+
+                    // To be correct, these need to be on separate lines, not
+                    // all together on one.
+                    logger.AssertLogDoesntContain("1 echo line");
+
+                    result.OverallResult.ShouldBe(BuildResultCode.Success);
+                }
+            }
         }
     }
 

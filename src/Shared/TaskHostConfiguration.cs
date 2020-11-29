@@ -5,12 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
-using System.Threading;
-using System.Text;
 
 using Microsoft.Build.Shared;
-using System.Reflection;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -87,6 +83,9 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         private Dictionary<string, TaskParameter> _taskParameters;
 
+        private Dictionary<string, string> _globalParameters;
+
+#if FEATURE_APPDOMAIN
         /// <summary>
         /// Constructor
         /// </summary>
@@ -103,6 +102,25 @@ namespace Microsoft.Build.BackEnd
         /// <param name="taskName">Name of the task.</param>
         /// <param name="taskLocation">Location of the assembly the task is to be loaded from.</param>
         /// <param name="taskParameters">Parameters to apply to the task.</param>
+        /// <param name="globalParameters">global properties for the current project.</param>
+#else
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="nodeId">The ID of the node being configured.</param>
+        /// <param name="startupDirectory">The startup directory for the task being executed.</param>
+        /// <param name="buildProcessEnvironment">The set of environment variables to apply to the task execution process.</param>
+        /// <param name="culture">The culture of the thread that will execute the task.</param>
+        /// <param name="uiCulture">The UI culture of the thread that will execute the task.</param>
+        /// <param name="lineNumberOfTask">The line number of the location from which this task was invoked.</param>
+        /// <param name="columnNumberOfTask">The column number of the location from which this task was invoked.</param>
+        /// <param name="projectFileOfTask">The project file from which this task was invoked.</param>
+        /// <param name="continueOnError">Flag to continue with the build after a the task failed</param>
+        /// <param name="taskName">Name of the task.</param>
+        /// <param name="taskLocation">Location of the assembly the task is to be loaded from.</param>
+        /// <param name="taskParameters">Parameters to apply to the task.</param>
+        /// <param name="globalParameters">global properties for the current project.</param>
+#endif
         public TaskHostConfiguration
             (
                 int nodeId,
@@ -119,11 +137,12 @@ namespace Microsoft.Build.BackEnd
                 bool continueOnError,
                 string taskName,
                 string taskLocation,
-                IDictionary<string, object> taskParameters
+                IDictionary<string, object> taskParameters,
+                Dictionary<string, string> globalParameters
             )
         {
-            ErrorUtilities.VerifyThrowInternalLength(taskName, "taskName");
-            ErrorUtilities.VerifyThrowInternalLength(taskLocation, "taskLocation");
+            ErrorUtilities.VerifyThrowInternalLength(taskName, nameof(taskName));
+            ErrorUtilities.VerifyThrowInternalLength(taskLocation, nameof(taskLocation));
 
             _nodeId = nodeId;
             _startupDirectory = startupDirectory;
@@ -159,6 +178,8 @@ namespace Microsoft.Build.BackEnd
                     _taskParameters[parameter.Key] = new TaskParameter(parameter.Value);
                 }
             }
+
+            _globalParameters = globalParameters ?? new Dictionary<string, string>();
         }
 
         /// <summary>
@@ -302,6 +323,16 @@ namespace Microsoft.Build.BackEnd
         }
 
         /// <summary>
+        /// Gets the global properties for the current project.
+        /// </summary>
+        public Dictionary<string, string> GlobalProperties
+        {
+            [DebuggerStepThrough]
+            get
+            { return _globalParameters; }
+        }
+
+        /// <summary>
         /// The NodePacketType of this NodePacket
         /// </summary>
         public NodePacketType Type
@@ -332,6 +363,7 @@ namespace Microsoft.Build.BackEnd
             translator.Translate(ref _taskLocation);
             translator.TranslateDictionary(ref _taskParameters, StringComparer.OrdinalIgnoreCase, TaskParameter.FactoryForDeserialization);
             translator.Translate(ref _continueOnError);
+            translator.TranslateDictionary(ref _globalParameters, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

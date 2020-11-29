@@ -4,22 +4,24 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Build.Framework;
-using Microsoft.Build.Shared;
-
-using Microsoft.Build.Execution;
-using Microsoft.Build.Exceptions;
-using Microsoft.Build.Evaluation;
-using Microsoft.Build.Construction;
-using Microsoft.Build.BackEnd.Logging;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 #if FEATURE_APPDOMAIN
 using System.Runtime.Remoting;
 #endif
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Microsoft.Build.BackEnd.Logging;
+using Microsoft.Build.Construction;
+using Microsoft.Build.Evaluation;
+using Microsoft.Build.Exceptions;
+using Microsoft.Build.Execution;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Shared;
+using Microsoft.Build.Utilities;
 
 using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
 
@@ -144,7 +146,7 @@ namespace Microsoft.Build.BackEnd
             // If this is false, check the environment variable to see if it's there:
             if (!LogTaskInputs)
             {
-                LogTaskInputs = (Environment.GetEnvironmentVariable("MSBUILDLOGTASKINPUTS") == "1");
+                LogTaskInputs = Traits.Instance.EscapeHatches.LogTaskInputs;
             }
         }
 
@@ -161,7 +163,7 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         ~TaskExecutionHost()
         {
-            // Debug.Fail("Unexpected finalization.  Dispose should already have been called.");
+            Debug.Fail("Unexpected finalization.  Dispose should already have been called.");
             Dispose(false);
         }
 
@@ -255,12 +257,12 @@ namespace Microsoft.Build.BackEnd
 
             if (_taskFactoryWrapper.TaskFactoryLoadedType.HasSTAThreadAttribute())
             {
-                requirements = requirements | TaskRequirements.RequireSTAThread;
+                requirements |= TaskRequirements.RequireSTAThread;
             }
 
             if (_taskFactoryWrapper.TaskFactoryLoadedType.HasLoadInSeparateAppDomainAttribute())
             {
-                requirements = requirements | TaskRequirements.RequireSeparateAppDomain;
+                requirements |= TaskRequirements.RequireSeparateAppDomain;
 
                 // we're going to be remoting across the appdomain boundary, so
                 // create the list that we'll use to disconnect the taskitems once we're done
@@ -292,7 +294,7 @@ namespace Microsoft.Build.BackEnd
             // here. Instead, NDP will try to Load (not LoadFrom!) the task assembly into our AppDomain, and since
             // we originally used LoadFrom, it will fail miserably not knowing where to find it.
             // We need to temporarily subscribe to the AppDomain.AssemblyResolve event to fix it.
-            if (null == _resolver)
+            if (_resolver == null)
             {
                 _resolver = new TaskEngineAssemblyResolver();
                 _resolver.Initialize(_taskFactoryWrapper.TaskFactoryLoadedType.Assembly.AssemblyFile);
@@ -319,7 +321,7 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         /// <param name="parameters">The name/value pairs for the parameters.</param>
         /// <returns>True if the parameters were set correctly, false otherwise.</returns>
-        bool ITaskExecutionHost.SetTaskParameters(IDictionary<string, Tuple<string, ElementLocation>> parameters)
+        bool ITaskExecutionHost.SetTaskParameters(IDictionary<string, (string, ElementLocation)> parameters)
         {
             ErrorUtilities.VerifyThrowArgumentNull(parameters, nameof(parameters));
 
@@ -331,7 +333,7 @@ namespace Microsoft.Build.BackEnd
             IDictionary<string, string> requiredParameters = GetNamesOfPropertiesWithRequiredAttribute();
 
             // look through all the attributes of the task element
-            foreach (KeyValuePair<string, Tuple<string, ElementLocation>> parameter in parameters)
+            foreach (KeyValuePair<string, (string, ElementLocation)> parameter in parameters)
             {
                 bool taskParameterSet = false;  // Did we actually call the setter on this task parameter?
                 bool success;
@@ -425,15 +427,17 @@ namespace Microsoft.Build.BackEnd
                 // grab the outputs from the task's designated output parameter (which is a .NET property)
                 Type type = parameter.PropertyType;
 
+                EnsureParameterInitialized(parameter, _batchBucket.Lookup);
+
                 if (TaskParameterTypeVerifier.IsAssignableToITask(type))
                 {
                     ITaskItem[] outputs = GetItemOutputs(parameter);
-                    GatherTaskItemOutputs(outputTargetIsItem, outputTargetName, outputs, parameterLocation);
+                    GatherTaskItemOutputs(outputTargetIsItem, outputTargetName, outputs, parameterLocation, parameter);
                 }
                 else if (TaskParameterTypeVerifier.IsValueTypeOutputParameter(type))
                 {
                     string[] outputs = GetValueOutputs(parameter);
-                    GatherArrayStringAndValueOutputs(outputTargetIsItem, outputTargetName, outputs, parameterLocation);
+                    GatherArrayStringAndValueOutputs(outputTargetIsItem, outputTargetName, outputs, parameterLocation, parameter);
                 }
                 else
                 {
@@ -861,19 +865,19 @@ namespace Microsoft.Build.BackEnd
             if (!_intrinsicTasks.TryGetValue(_taskName, out TaskFactoryWrapper returnClass))
             {
                 returnClass = _projectInstance.TaskRegistry.GetRegisteredTask(_taskName, null, taskIdentityParameters, true /* exact match */, _targetLoggingContext, _taskLocation);
-                if (null == returnClass)
+                if (returnClass == null)
                 {
                     returnClass = _projectInstance.TaskRegistry.GetRegisteredTask(_taskName, null, taskIdentityParameters, false /* fuzzy match */, _targetLoggingContext, _taskLocation);
 
-                    if (null == returnClass)
+                    if (returnClass == null)
                     {
                         returnClass = _projectInstance.TaskRegistry.GetRegisteredTask(_taskName, null, null, true /* exact match */, _targetLoggingContext, _taskLocation);
 
-                        if (null == returnClass)
+                        if (returnClass == null)
                         {
                             returnClass = _projectInstance.TaskRegistry.GetRegisteredTask(_taskName, null, null, false /* fuzzy match */, _targetLoggingContext, _taskLocation);
 
-                            if (null == returnClass)
+                            if (returnClass == null)
                             {
                                 _targetLoggingContext.LogError
                                     (
@@ -1039,6 +1043,8 @@ namespace Microsoft.Build.BackEnd
                 if (parameter != null)
                 {
                     Type parameterType = parameter.PropertyType;
+
+                    EnsureParameterInitialized(parameter, _batchBucket.Lookup);
 
                     // try to set the parameter
                     if (TaskParameterTypeVerifier.IsValidScalarInputParameter(parameterType))
@@ -1220,6 +1226,29 @@ namespace Microsoft.Build.BackEnd
             return success;
         }
 
+        private void EnsureParameterInitialized(TaskPropertyInfo parameter, Lookup lookup)
+        {
+            if (parameter.Initialized)
+            {
+                return;
+            }
+
+            parameter.Initialized = true;
+
+            string taskAndParameterName = _taskName + "_" + parameter.Name;
+            string key = "DisableLogTaskParameter_" + taskAndParameterName;
+            string metadataKey = "DisableLogTaskParameterItemMetadata_" + taskAndParameterName;
+
+            if (string.Equals(lookup.GetProperty(key)?.EvaluatedValue, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                parameter.Log = false;
+            }
+            else if (string.Equals(lookup.GetProperty(metadataKey)?.EvaluatedValue, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                parameter.LogItemMetadata = false;
+            }
+        }
+
         /// <summary>
         /// Given an instantiated task, this helper method sets the specified vector parameter. Vector parameters can be composed
         /// of multiple item vectors. The semicolon is the only separator allowed, and white space around the semicolon is
@@ -1281,10 +1310,16 @@ namespace Microsoft.Build.BackEnd
         /// </remarks>
         private bool InternalSetTaskParameter(TaskPropertyInfo parameter, IList parameterValue)
         {
-            if (LogTaskInputs && !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents && parameterValue.Count > 0)
+            if (LogTaskInputs &&
+                !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents &&
+                parameterValue.Count > 0 &&
+                parameter.Log)
             {
-                string parameterText = ResourceUtilities.GetResourceString("TaskParameterPrefix");
-                parameterText = ItemGroupLoggingHelper.GetParameterText(parameterText, parameter.Name, parameterValue);
+                string parameterText = ItemGroupLoggingHelper.GetParameterText(
+                    ItemGroupLoggingHelper.TaskParameterPrefix,
+                    parameter.Name,
+                    parameterValue,
+                    parameter.LogItemMetadata);
                 _taskLoggingContext.LogCommentFromText(MessageImportance.Low, parameterText);
             }
 
@@ -1310,7 +1345,7 @@ namespace Microsoft.Build.BackEnd
                 {
                     _taskLoggingContext.LogCommentFromText(
                         MessageImportance.Low,
-                        ResourceUtilities.GetResourceString("TaskParameterPrefix") + parameter.Name + "=" + ItemGroupLoggingHelper.GetStringFromParameterValue(parameterValue));
+                        ItemGroupLoggingHelper.TaskParameterPrefix + parameter.Name + "=" + ItemGroupLoggingHelper.GetStringFromParameterValue(parameterValue));
                 }
             }
 
@@ -1366,7 +1401,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Gets task item outputs
         /// </summary>
-        private void GatherTaskItemOutputs(bool outputTargetIsItem, string outputTargetName, ITaskItem[] outputs, ElementLocation parameterLocation)
+        private void GatherTaskItemOutputs(bool outputTargetIsItem, string outputTargetName, ITaskItem[] outputs, ElementLocation parameterLocation, TaskPropertyInfo parameter)
         {
             // if the task has generated outputs (if it didn't, don't do anything)
             if (outputs != null)
@@ -1421,12 +1456,13 @@ namespace Microsoft.Build.BackEnd
                         }
                     }
 
-                    if (LogTaskInputs && !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents && outputs.Length > 0)
+                    if (LogTaskInputs && !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents && outputs.Length > 0 && parameter.Log)
                     {
                         string parameterText = ItemGroupLoggingHelper.GetParameterText(
-                            ResourceUtilities.GetResourceString("OutputItemParameterMessagePrefix"),
+                            ItemGroupLoggingHelper.OutputItemParameterMessagePrefix,
                             outputTargetName,
-                            outputs);
+                            outputs,
+                            parameter.LogItemMetadata);
 
                         _taskLoggingContext.LogCommentFromText(MessageImportance.Low, parameterText);
                     }
@@ -1444,7 +1480,7 @@ namespace Microsoft.Build.BackEnd
                         // if individual items in the array are null, ignore them
                         if (output != null)
                         {
-                            joinedOutputs = joinedOutputs ?? new StringBuilder();
+                            joinedOutputs ??= new StringBuilder();
 
                             if (joinedOutputs.Length > 0)
                             {
@@ -1479,7 +1515,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Gather task outputs in array form
         /// </summary>
-        private void GatherArrayStringAndValueOutputs(bool outputTargetIsItem, string outputTargetName, string[] outputs, ElementLocation parameterLocation)
+        private void GatherArrayStringAndValueOutputs(bool outputTargetIsItem, string outputTargetName, string[] outputs, ElementLocation parameterLocation, TaskPropertyInfo parameter)
         {
             // if the task has generated outputs (if it didn't, don't do anything)            
             if (outputs != null)
@@ -1497,9 +1533,13 @@ namespace Microsoft.Build.BackEnd
                         }
                     }
 
-                    if (LogTaskInputs && !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents && outputs.Length > 0)
+                    if (LogTaskInputs && !_taskLoggingContext.LoggingService.OnlyLogCriticalEvents && outputs.Length > 0 && parameter.Log)
                     {
-                        string parameterText = ItemGroupLoggingHelper.GetParameterText(ResourceUtilities.GetResourceString("OutputItemParameterMessagePrefix"), outputTargetName, outputs);
+                        string parameterText = ItemGroupLoggingHelper.GetParameterText(
+                            ItemGroupLoggingHelper.OutputItemParameterMessagePrefix,
+                            outputTargetName,
+                            outputs,
+                            parameter.LogItemMetadata);
                         _taskLoggingContext.LogCommentFromText(MessageImportance.Low, parameterText);
                     }
                 }
@@ -1516,7 +1556,7 @@ namespace Microsoft.Build.BackEnd
                         // if individual outputs in the array are null, ignore them
                         if (output != null)
                         {
-                            joinedOutputs = joinedOutputs ?? new StringBuilder();
+                            joinedOutputs ??= new StringBuilder();
 
                             if (joinedOutputs.Length > 0)
                             {

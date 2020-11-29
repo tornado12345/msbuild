@@ -3,7 +3,6 @@
 
 using System;
 using System.Reflection;
-using System.Text;
 using System.IO;
 
 using Microsoft.Build.Framework;
@@ -175,7 +174,7 @@ namespace Microsoft.Build.BuildEngine
                 if (innerException is LoggerException)
                 {
                     // Logger failed politely during construction. In order to preserve
-                    // the stack trace at which the error occured we wrap the original
+                    // the stack trace at which the error occurred we wrap the original
                     // exception instead of throwing.
                     LoggerException l = ((LoggerException)innerException);
                     throw new LoggerException(l.Message, innerException, l.ErrorCode, l.HelpKeyword);
@@ -206,9 +205,9 @@ namespace Microsoft.Build.BuildEngine
         /// <returns>true, if specified type is a logger</returns>
         private static bool IsForwardingLoggerClass(Type type, object unused)
         {
-            return (type.IsClass &&
+            return type.IsClass &&
                 !type.IsAbstract &&
-                (type.GetInterface("IForwardingLogger") != null));
+                (type.GetInterface("IForwardingLogger") != null);
         }
 
         /// <summary>
@@ -218,9 +217,9 @@ namespace Microsoft.Build.BuildEngine
         /// <returns>true, if specified type is a logger</returns>
         private static bool IsLoggerClass(Type type, object unused)
         {
-            return (type.IsClass &&
+            return type.IsClass &&
                 !type.IsAbstract &&
-                (type.GetInterface("ILogger") != null));
+                (type.GetInterface("ILogger") != null);
         }
 
         /// <summary>
@@ -332,7 +331,6 @@ namespace Microsoft.Build.BuildEngine
             }
             else
             {
-
                 string assemblyName = null;
                 string assemblyFile = null;
 

@@ -14,7 +14,7 @@
     <IsPackable>true</IsPackable>
     <PackageDescription>This package contains the $(MSBuildProjectName) assembly which is used to implement custom MSBuild tasks.</PackageDescription>
     <IncludeSatelliteOutputInPack>false</IncludeSatelliteOutputInPack>
-    <ApplyPartialNgenOptimization>true</ApplyPartialNgenOptimization>
+    <ApplyNgenOptimization Condition="'$(TargetFramework)' == '$(FullFrameworkTFM)'">partial</ApplyNgenOptimization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETStandard'">
+    <PackageReference Include="System.Security.Permissions" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
 
@@ -63,9 +64,6 @@
     <Compile Include="..\Shared\CanonicalError.cs">
       <Link>Shared\CanonicalError.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\Constants.cs">
-      <Link>Shared\Constants.cs</Link>
-    </Compile>
     <Compile Include="..\Shared\ExtensionFoldersRegistryKey.cs">
       <Link>Shared\ExtensionFoldersRegistryKey.cs</Link>
     </Compile>
@@ -89,9 +87,6 @@
     </Compile>
     <Compile Include="..\Shared\ExceptionHandling.cs">
       <Link>Shared\ExceptionHandling.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\EscapingStringExtensions\EscapingStringExtensions.cs">
-      <Link>Shared\EscapingStringExtensions\EscapingStringExtensions.cs</Link>
     </Compile>
     <Compile Include="..\Shared\FileUtilities.cs">
       <Link>Shared\FileUtilities.cs</Link>
@@ -128,6 +123,15 @@
     </Compile>
     <Compile Include="..\Shared\InprocTrackingNativeMethods.cs">
       <Link>Shared\InprocTrackingNativeMethods.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\IInternable.cs">
+      <Link>Shared\IInternable.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\WeakStringCache.cs">
+      <Link>Shared\WeakStringCache.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\WeakStringCache.Concurrent.cs">
+      <Link>Shared\WeakStringCache.Concurrent.cs</Link>
     </Compile>
     <Compile Include="..\Shared\OpportunisticIntern.cs">
       <Link>Shared\OpportunisticIntern.cs</Link>

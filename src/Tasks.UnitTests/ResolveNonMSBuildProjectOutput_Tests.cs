@@ -3,19 +3,25 @@
 
 using System;
 using System.Collections;
-using System.Text;
-using System.Linq;
-using System.Xml;
+using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Tasks;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Build.UnitTests
 {
     sealed public class ResolveNonMSBuildProjectOutput_Tests
     {
         private const string attributeProject = "Project";
+
+        private readonly ITestOutputHelper _output;
+
+        public ResolveNonMSBuildProjectOutput_Tests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
 
         static internal ITaskItem CreateReferenceItem(string itemSpec, string projectGuid, string package, string name)
         {
@@ -37,7 +43,7 @@ namespace Microsoft.Build.UnitTests
             ITaskItem reference = CreateReferenceItem(itemSpec, projectGuid, package, name);
 
             ResolveNonMSBuildProjectOutput rvpo = new ResolveNonMSBuildProjectOutput();
-            string missingAttr = null;
+            string missingAttr;
             bool result = rvpo.VerifyReferenceAttributes(reference, out missingAttr);
 
             string message = string.Format("Reference \"{0}\" [project \"{1}\", package \"{2}\", name \"{3}\"], " +
@@ -46,7 +52,7 @@ namespace Microsoft.Build.UnitTests
                 expectedMissingAttribute, missingAttr);
 
             Assert.Equal(result, expectedResult);
-            if (result == false)
+            if (!result)
             {
                 Assert.Equal(missingAttr, expectedMissingAttribute);
             }
@@ -98,7 +104,7 @@ namespace Microsoft.Build.UnitTests
                 itemSpec, projectGuid, package, name, xmlString, expectedResult, result, expectedPath, resolvedPath);
 
             Assert.Equal(result, expectedResult);
-            if (result == true)
+            if (result)
             {
                 Assert.Equal(resolvedPath.ItemSpec, expectedPath);
             }
@@ -119,32 +125,32 @@ namespace Microsoft.Build.UnitTests
 
             // non matching project in string
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
             TestResolveHelper("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1",
                 projectOutputs, false, null);
 
             // matching project in string
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\correct.dll");
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "correct.dll"));
             TestResolveHelper("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1",
-                projectOutputs, true, @"obj\correct.dll");
+                projectOutputs, true, Path.Combine("obj", "correct.dll"));
 
             // multiple non matching projects in string
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
             TestResolveHelper("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1",
                 projectOutputs, false, null);
 
             // multiple non matching projects in string, one matching
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\correct.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "correct.dll"));
             TestResolveHelper("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1",
-                projectOutputs, true, @"obj\correct.dll");
+                projectOutputs, true, Path.Combine("obj", "correct.dll"));
         }
 
         private void TestUnresolvedReferencesHelper(ArrayList projectRefs, Hashtable pregenOutputs,
@@ -170,7 +176,7 @@ namespace Microsoft.Build.UnitTests
 
             string xmlString = CreatePregeneratedPathDoc(pregenOutputs);
 
-            MockEngine engine = new MockEngine();
+            MockEngine engine = new MockEngine(_output);
             ResolveNonMSBuildProjectOutput rvpo = new ResolveNonMSBuildProjectOutput();
             rvpo.GetAssemblyName = pretendGetAssemblyName;
             rvpo.BuildEngine = engine;
@@ -199,9 +205,7 @@ namespace Microsoft.Build.UnitTests
             Hashtable unresolvedOutputs = null;
             Hashtable resolvedOutputs = null;
             Hashtable projectOutputs = null;
-            ArrayList projectRefs = null;
-
-            projectRefs = new ArrayList();
+            ArrayList projectRefs = new ArrayList();
             projectRefs.Add(CreateReferenceItem("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-000000000000}",
                 "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1"));
             projectRefs.Add(CreateReferenceItem("MCDep2.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}",
@@ -209,16 +213,16 @@ namespace Microsoft.Build.UnitTests
 
             // 1. multiple project refs, none resolvable
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", @"obj\managed.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\unmanaged.dll");
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", Path.Combine("obj", "managed.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "unmanaged.dll"));
 
-            TestUnresolvedReferencesHelper(projectRefs, projectOutputs, path => (path == @"obj\managed.dll"), out unresolvedOutputs, out resolvedOutputs);
+            TestUnresolvedReferencesHelper(projectRefs, projectOutputs, path => (path == Path.Combine("obj", "managed.dll")), out unresolvedOutputs, out resolvedOutputs);
 
             Assert.NotNull(resolvedOutputs);
-            Assert.True(resolvedOutputs.Contains(@"obj\managed.dll"));
-            Assert.True(resolvedOutputs.Contains(@"obj\unmanaged.dll"));
-            Assert.Equal("true", ((ITaskItem)resolvedOutputs[@"obj\managed.dll"]).GetMetadata("ManagedAssembly"));
-            Assert.NotEqual("true", ((ITaskItem)resolvedOutputs[@"obj\unmanaged.dll"]).GetMetadata("ManagedAssembly"));
+            Assert.True(resolvedOutputs.Contains(Path.Combine("obj", "managed.dll")));
+            Assert.True(resolvedOutputs.Contains(Path.Combine("obj", "unmanaged.dll")));
+            Assert.Equal("true", ((ITaskItem)resolvedOutputs[Path.Combine("obj", "managed.dll")]).GetMetadata("ManagedAssembly"));
+            Assert.NotEqual("true", ((ITaskItem)resolvedOutputs[Path.Combine("obj", "unmanaged.dll")]).GetMetadata("ManagedAssembly"));
         }
 
         /// <summary>
@@ -228,23 +232,20 @@ namespace Microsoft.Build.UnitTests
         [Trait("Category", "mono-osx-failing")]
         public void TestUnresolvedReferences()
         {
-            Hashtable unresolvedOutputs = null;
-            Hashtable resolvedOutputs = null;
-            Hashtable projectOutputs = null;
-            ArrayList projectRefs = null;
-
-            projectRefs = new ArrayList();
+            ArrayList projectRefs = new ArrayList();
             projectRefs.Add(CreateReferenceItem("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-000000000000}",
                 "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1"));
             projectRefs.Add(CreateReferenceItem("MCDep2.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}",
                 "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep2"));
 
             // 1. multiple project refs, none resolvable
-            projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
+            Hashtable projectOutputs = new Hashtable();
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
 
+            Hashtable unresolvedOutputs;
+            Hashtable resolvedOutputs;
             TestUnresolvedReferencesHelper(projectRefs, projectOutputs, out unresolvedOutputs, out resolvedOutputs);
 
             Assert.Empty(resolvedOutputs); // "No resolved refs expected for case 1"
@@ -254,38 +255,38 @@ namespace Microsoft.Build.UnitTests
 
             // 2. multiple project refs, one resolvable
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\correct.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "correct.dll"));
 
             TestUnresolvedReferencesHelper(projectRefs, projectOutputs, out unresolvedOutputs, out resolvedOutputs);
 
             Assert.Single(resolvedOutputs); // "One resolved ref expected for case 2"
-            Assert.True(resolvedOutputs.ContainsKey(@"obj\correct.dll"));
+            Assert.True(resolvedOutputs.ContainsKey(Path.Combine("obj", "correct.dll")));
             Assert.Single(unresolvedOutputs); // "One unresolved ref expected for case 2"
             Assert.Equal(unresolvedOutputs["MCDep1.vcproj"], projectRefs[0]);
 
             // 3. multiple project refs, all resolvable
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\correct.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", @"obj\correct2.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "correct.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", Path.Combine("obj", "correct2.dll"));
 
             TestUnresolvedReferencesHelper(projectRefs, projectOutputs, out unresolvedOutputs, out resolvedOutputs);
 
             Assert.Equal(2, resolvedOutputs.Count); // "Two resolved refs expected for case 3"
-            Assert.True(resolvedOutputs.ContainsKey(@"obj\correct.dll"));
-            Assert.True(resolvedOutputs.ContainsKey(@"obj\correct2.dll"));
+            Assert.True(resolvedOutputs.ContainsKey(Path.Combine("obj", "correct.dll")));
+            Assert.True(resolvedOutputs.ContainsKey(Path.Combine("obj", "correct2.dll")));
             Assert.Empty(unresolvedOutputs); // "No unresolved refs expected for case 3"
 
             // 4. multiple project refs, all failed to resolve
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
             projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"");
             projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", @"");
 
@@ -296,23 +297,23 @@ namespace Microsoft.Build.UnitTests
 
             // 5. multiple project refs, one resolvable, one failed to resolve
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
-            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", @"obj\correct.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
+            projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}", Path.Combine("obj", "correct.dll"));
             projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", @"");
 
             TestUnresolvedReferencesHelper(projectRefs, projectOutputs, out unresolvedOutputs, out resolvedOutputs);
 
             Assert.Single(resolvedOutputs); // "One resolved ref expected for case 5"
-            Assert.True(resolvedOutputs.ContainsKey(@"obj\correct.dll"));
+            Assert.True(resolvedOutputs.ContainsKey(Path.Combine("obj", "correct.dll")));
             Assert.Empty(unresolvedOutputs); // "No unresolved refs expected for case 5"
 
             // 6. multiple project refs, one unresolvable, one failed to resolve
             projectOutputs = new Hashtable();
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", @"obj\wrong.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", @"obj\wrong2.dll");
-            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", @"obj\wrong3.dll");
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111111}", Path.Combine("obj", "wrong.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111112}", Path.Combine("obj", "wrong2.dll"));
+            projectOutputs.Add("{11111111-1111-1111-1111-111111111113}", Path.Combine("obj", "wrong3.dll"));
             projectOutputs.Add("{2F6BBCC3-7111-4116-A68B-000000000000}", @"");
 
             TestUnresolvedReferencesHelper(projectRefs, projectOutputs, out unresolvedOutputs, out resolvedOutputs);
@@ -332,14 +333,14 @@ namespace Microsoft.Build.UnitTests
             taskItems[0] = new TaskItem("projectReference");
             taskItems[0].SetMetadata(attributeProject, "{invalid guid}");
 
-            MockEngine engine = new MockEngine();
+            MockEngine engine = new MockEngine(_output);
             rvpo.BuildEngine = engine;
             Assert.True(rvpo.VerifyProjectReferenceItems(taskItems, false /* treat problems as warnings */));
             Assert.Equal(1, engine.Warnings);
             Assert.Equal(0, engine.Errors);
             engine.AssertLogContains("MSB3107");
 
-            engine = new MockEngine();
+            engine = new MockEngine(_output);
             rvpo.BuildEngine = engine;
             Assert.False(rvpo.VerifyProjectReferenceItems(taskItems, true /* treat problems as errors */));
             Assert.Equal(0, engine.Warnings);

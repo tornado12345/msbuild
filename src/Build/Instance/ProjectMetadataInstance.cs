@@ -6,8 +6,6 @@ using System.Diagnostics;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Evaluation;
-using Microsoft.Build.Framework;
-using Microsoft.Build.Construction;
 using Microsoft.Build.BackEnd;
 
 namespace Microsoft.Build.Execution
@@ -61,7 +59,7 @@ namespace Microsoft.Build.Execution
         /// </remarks>
         internal ProjectMetadataInstance(string name, string escapedValue, bool allowItemSpecModifiers)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(name, "name");
+            ErrorUtilities.VerifyThrowArgumentLength(name, nameof(name));
 
             if (allowItemSpecModifiers)
             {
@@ -204,8 +202,8 @@ namespace Microsoft.Build.Execution
                 return false;
             }
 
-            return (_escapedValue == other._escapedValue &&
-                    String.Equals(_name, other._name, StringComparison.OrdinalIgnoreCase));
+            return _escapedValue == other._escapedValue &&
+                    String.Equals(_name, other._name, StringComparison.OrdinalIgnoreCase);
         }
 
         #endregion

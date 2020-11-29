@@ -3,26 +3,20 @@
 
 using System;
 using System.Xml;
-using System.Text;
-using System.Collections;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.IO;
 using System.Threading;
-using Microsoft.Build.Collections;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Exceptions;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.BackEnd;
-using Microsoft.Build.Shared;
 using Microsoft.Build.Unittest;
 using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
 using Xunit;
 
 namespace Microsoft.Build.UnitTests.BackEnd
 {
-    using ILoggingService = Microsoft.Build.BackEnd.Logging.ILoggingService;
     using NodeLoggingContext = Microsoft.Build.BackEnd.Logging.NodeLoggingContext;
 
     public class BuildRequestEngine_Tests : IDisposable
@@ -169,18 +163,12 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
             public void RaiseRequestComplete(BuildRequestEntry entry)
             {
-                if (null != OnBuildRequestCompleted)
-                {
-                    OnBuildRequestCompleted(entry);
-                }
+                OnBuildRequestCompleted?.Invoke(entry);
             }
 
             public void RaiseRequestBlocked(BuildRequestEntry entry, int blockingId, string blockingTarget)
             {
-                if (null != OnBuildRequestBlocked)
-                {
-                    OnBuildRequestBlocked(entry, blockingId, blockingTarget, null);
-                }
+                OnBuildRequestBlocked?.Invoke(entry, blockingId, blockingTarget, null);
             }
 
             public void ContinueRequest()

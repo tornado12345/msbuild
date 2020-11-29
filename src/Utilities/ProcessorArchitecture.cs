@@ -39,6 +39,12 @@ namespace Microsoft.Build.Utilities
         public const string ARM = nameof(ARM);
 
         /// <summary>
+        /// Represents the ARM64 processor architecture.
+        /// </summary>
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "ARM64", Justification = "This is the correct casing for ProcessorArchitecture")]
+        public const string ARM64 = nameof(ARM64);
+
+        /// <summary>
         /// Lazy-initted property for getting the architecture of the currently running process
         /// </summary>
         public static string CurrentProcessArchitecture => GetCurrentProcessArchitecture();
@@ -49,32 +55,16 @@ namespace Microsoft.Build.Utilities
         /// <returns>null if unknown architecture or error, one of the known architectures otherwise</returns>
         private static string GetCurrentProcessArchitecture()
         {
-            string architecture;
-
-            switch (NativeMethodsShared.ProcessorArchitecture)
+            string architecture = NativeMethodsShared.ProcessorArchitecture switch
             {
-                case NativeMethodsShared.ProcessorArchitectures.X86:
-                    architecture = X86;
-                    break;
-
-                case NativeMethodsShared.ProcessorArchitectures.X64:
-                    architecture = AMD64;
-                    break;
-
-                case NativeMethodsShared.ProcessorArchitectures.IA64:
-                    architecture = IA64;
-                    break;
-
-                case NativeMethodsShared.ProcessorArchitectures.ARM:
-                    architecture = ARM;
-                    break;
-
+                NativeMethodsShared.ProcessorArchitectures.X86 => X86,
+                NativeMethodsShared.ProcessorArchitectures.X64 => AMD64,
+                NativeMethodsShared.ProcessorArchitectures.IA64 => IA64,
+                NativeMethodsShared.ProcessorArchitectures.ARM => ARM,
+                NativeMethodsShared.ProcessorArchitectures.ARM64 => ARM64,
                 // unknown architecture? return null
-                default:
-                    architecture = null;
-                    break;
-            }
-
+                _ => null,
+            };
             return architecture;
         }
     }

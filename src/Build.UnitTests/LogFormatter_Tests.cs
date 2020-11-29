@@ -2,11 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Reflection;
-using System.Collections;
-using Microsoft.Build.Framework;
 using Microsoft.Build.BackEnd.Logging;
-using System.Text.RegularExpressions;
 using System.Globalization;
 using Xunit;
 
@@ -16,7 +12,7 @@ namespace Microsoft.Build.UnitTests
     {
         /*
         * Method:  TimeSpanMediumDuration
-        * 
+        *
         * Tests the mainline: a medium length duration
         * Note the ToString overload used in FormatTimeSpan is culture insensitive.
         */
@@ -31,7 +27,7 @@ namespace Microsoft.Build.UnitTests
 
         /*
         * Method:  TimeSpanZeroDuration
-        * 
+        *
         * Format a TimeSpan where the duration is zero.
         * Note the ToString overload used in FormatTimeSpan is culture insensitive.
         */
@@ -61,8 +57,3 @@ namespace Microsoft.Build.UnitTests
         }
     }
 }
-
-
-
-
-

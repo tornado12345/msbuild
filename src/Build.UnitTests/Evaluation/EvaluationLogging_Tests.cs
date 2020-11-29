@@ -3,10 +3,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using Microsoft.Build.Engine.UnitTests;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Framework;
 using Shouldly;
@@ -81,7 +79,7 @@ namespace Microsoft.Build.UnitTests.Evaluation
                 var projectFile = env.CreateFile().Path;
                 File.WriteAllText(projectFile, projectContents);
 
-                firstEvaluationLogger = firstEvaluationLogger ?? new MockLogger();
+                firstEvaluationLogger ??= new MockLogger();
                 collection.RegisterLogger(firstEvaluationLogger);
 
                 var project = new Project(projectFile, null, null, collection);
@@ -125,28 +123,11 @@ namespace Microsoft.Build.UnitTests.Evaluation
             AssertLoggingEvents(
                 (project, firstEvaluationLogger) =>
                 {
-                    var allBuildEvents = firstEvaluationLogger.AllBuildEvents;
+                    var allBuildEvents = firstEvaluationLogger.AllBuildEvents.Where(be => be is ProjectEvaluationStartedEventArgs || be is ProjectEvaluationFinishedEventArgs).ToList();
 
-                    allBuildEvents.Count.ShouldBeGreaterThan(2);
-
-                    for (var i = 0; i < allBuildEvents.Count; i++)
-                    {
-                        var buildEvent = allBuildEvents[i];
-
-                        if (i == 0)
-                        {
-                            buildEvent.Message.ShouldStartWith("Evaluation started");
-                        }
-                        else if (i == allBuildEvents.Count - 1)
-                        {
-                            buildEvent.Message.ShouldStartWith("Evaluation finished");
-                        }
-                        else
-                        {
-                            buildEvent.Message.ShouldNotStartWith("Evaluation started");
-                            buildEvent.Message.ShouldNotStartWith("Evaluation finished");
-                        }
-                    }
+                    allBuildEvents.Count.ShouldBe(2);
+                    allBuildEvents[0].GetType().ShouldBe(typeof(ProjectEvaluationStartedEventArgs));
+                    allBuildEvents[1].GetType().ShouldBe(typeof(ProjectEvaluationFinishedEventArgs));
                 });
         }
 

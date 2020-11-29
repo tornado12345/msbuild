@@ -1,9 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
-using Microsoft.Build.UnitTests;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Shared;
 using System;
@@ -13,7 +11,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.IO;
 using System.Text.RegularExpressions;
-using System.Text;
 using System.Xml.Xsl;
 using System.Xml;
 using Xunit;
@@ -66,12 +63,12 @@ namespace Microsoft.Build.UnitTests
         /// The contents of xsl document for tests.
         /// </summary>
         private readonly string _xslDocument = "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\" xmlns:msxsl=\"urn:schemas-microsoft-com:xslt\" exclude-result-prefixes=\"msxsl\"><xsl:output method=\"xml\" indent=\"yes\"/><xsl:template match=\"@* | node()\"><surround><xsl:copy><xsl:apply-templates select=\"@* | node()\"/></xsl:copy></surround></xsl:template></xsl:stylesheet>";
-
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// The contents of another xsl document for tests
         /// </summary>
         private readonly string _xslDocument2 = "<?xml version = \"1.0\" ?><xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\"><xsl:template match = \"myInclude\"><xsl:apply-templates select = \"document(@path)\"/></xsl:template><xsl:template match = \"@*|node()\"><xsl:copy><xsl:apply-templates select = \"@*|node()\"/></xsl:copy></xsl:template></xsl:stylesheet>";
-
+#endif
         /// <summary>
         /// The contents of xslparameters for tests.
         /// </summary>
@@ -99,14 +96,11 @@ namespace Microsoft.Build.UnitTests
         public void XmlXslParameters()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
             List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
             List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out xmlInputs, out xslInputs, out engine);
 
             // Test when Xml and Xsl parameters are correct
             for (int xmi = 0; xmi < xmlInputs.Count; xmi++)
@@ -509,6 +503,7 @@ namespace Microsoft.Build.UnitTests
             CleanUp(dir);
         }
 
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Compiled Dll with type information.
         /// </summary>
@@ -516,14 +511,10 @@ namespace Microsoft.Build.UnitTests
         public void CompiledDllWithType()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
             TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out xslCompiledPath, out outputPaths, out _, out _, out engine);
 
             // Test Compiled DLLs
 
@@ -533,7 +524,7 @@ namespace Microsoft.Build.UnitTests
                 t.BuildEngine = engine;
                 t.OutputPaths = outputPaths;
                 t.XmlContent = _xmlDocument;
-                xslCompiledPath.ItemSpec = xslCompiledPath.ItemSpec + ";xslt";
+                xslCompiledPath.ItemSpec += ";xslt";
                 t.XslCompiledDllPath = xslCompiledPath;
                 Assert.Equal(xslCompiledPath.ItemSpec, t.XslCompiledDllPath.ItemSpec);
                 Assert.True(t.Execute()); // "XsltComiledDll1 execution should've passed"
@@ -551,14 +542,10 @@ namespace Microsoft.Build.UnitTests
         public void CompiledDllWithoutType()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
             TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out xslCompiledPath, out outputPaths, out _, out _, out engine);
 
             // without type specified.
             {
@@ -574,6 +561,7 @@ namespace Microsoft.Build.UnitTests
 
             CleanUp(dir);
         }
+#endif
 
         /// <summary>
         /// Load Xslt with incorrect character as CNAME (load exception).
@@ -582,14 +570,9 @@ namespace Microsoft.Build.UnitTests
         public void BadXsltFile()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             // load bad xslt
             {
@@ -653,19 +636,16 @@ namespace Microsoft.Build.UnitTests
             string dir;
             TaskItem[] xmlPaths;
             TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out xmlPaths, out xslPath, out _, out outputPaths, out _, out _, out engine);
 
             // load missing xml
             {
                 XslTransformation t = new XslTransformation();
                 t.BuildEngine = engine;
                 t.OutputPaths = outputPaths;
-                xmlPaths[0].ItemSpec = xmlPaths[0].ItemSpec + "bad";
+                xmlPaths[0].ItemSpec += "bad";
                 t.XmlInputPaths = xmlPaths;
                 t.XslInputPath = xslPath;
                 Console.WriteLine(engine.Log);
@@ -685,12 +665,9 @@ namespace Microsoft.Build.UnitTests
             string dir;
             TaskItem[] xmlPaths;
             TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out xmlPaths, out xslPath, out _, out outputPaths, out _, out _, out engine);
 
             // load missing xsl
             {
@@ -698,7 +675,7 @@ namespace Microsoft.Build.UnitTests
                 t.BuildEngine = engine;
                 t.OutputPaths = outputPaths;
                 t.XmlInputPaths = xmlPaths;
-                xslPath.ItemSpec = xslPath.ItemSpec + "bad";
+                xslPath.ItemSpec += "bad";
                 t.XslInputPath = xslPath;
                 Assert.False(t.Execute()); // "This test should've failed (bad xslt)."
                 Console.WriteLine(engine.Log);
@@ -708,6 +685,7 @@ namespace Microsoft.Build.UnitTests
             CleanUp(dir);
         }
 
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Missing XsltCompiledDll file.
         /// </summary>
@@ -715,14 +693,10 @@ namespace Microsoft.Build.UnitTests
         public void MissingCompiledDllFile()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
             TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out xslCompiledPath, out outputPaths, out _, out _, out engine);
 
             // missing xsltCompiledDll
             {
@@ -730,7 +704,7 @@ namespace Microsoft.Build.UnitTests
                 t.BuildEngine = engine;
                 t.OutputPaths = outputPaths;
                 t.XmlContent = _xmlDocument;
-                xslCompiledPath.ItemSpec = xslCompiledPath.ItemSpec + "bad;xslt";
+                xslCompiledPath.ItemSpec += "bad;xslt";
                 t.XslCompiledDllPath = xslCompiledPath;
                 Assert.False(t.Execute()); // "XsltComiledDllBad execution should've failed"
                 Console.WriteLine(engine.Log);
@@ -739,7 +713,7 @@ namespace Microsoft.Build.UnitTests
 
             CleanUp(dir);
         }
-
+#endif
         /// <summary>
         /// Bad XML on "Parameter" parameter.
         /// </summary>
@@ -747,14 +721,9 @@ namespace Microsoft.Build.UnitTests
         public void BadXmlAsParameter()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             // load bad xml on parameters
             {
@@ -785,14 +754,9 @@ namespace Microsoft.Build.UnitTests
         public void OutputFileCannotBeWritten()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             // load bad output
             {
@@ -823,14 +787,9 @@ namespace Microsoft.Build.UnitTests
         public void XsltDocumentThrowsError()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             // load error xslDocument
             {
@@ -853,6 +812,7 @@ namespace Microsoft.Build.UnitTests
             CleanUp(dir);
         }
 
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Passing a dll that has two types to XsltCompiledDll parameter without specifying a type.
         /// </summary>
@@ -860,18 +820,15 @@ namespace Microsoft.Build.UnitTests
         public void CompiledDllWithTwoTypes()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             // doubletype
             string doubleTypePath = Path.Combine(dir, "double.dll");
+
             CompileDoubleType(doubleTypePath);
+
             {
                 XslTransformation t = new XslTransformation();
                 t.BuildEngine = engine;
@@ -893,7 +850,7 @@ namespace Microsoft.Build.UnitTests
 
             CleanUp(dir);
         }
-
+#endif
         /// <summary>
         /// Matching XmlInputPaths and OutputPaths
         /// </summary>
@@ -903,12 +860,9 @@ namespace Microsoft.Build.UnitTests
             string dir;
             TaskItem[] xmlPaths;
             TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out xmlPaths, out xslPath, out _, out outputPaths, out _, out _, out engine);
 
             var otherXmlPath = new TaskItem(Path.Combine(dir, Guid.NewGuid().ToString()));
             using (StreamWriter sw = new StreamWriter(otherXmlPath.ItemSpec, false))
@@ -956,12 +910,9 @@ namespace Microsoft.Build.UnitTests
             string dir;
             TaskItem[] xmlPaths;
             TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out xmlPaths, out xslPath, out _, out outputPaths, out _, out _, out engine);
 
             // xmlPaths have one XmlPath, lets duplicate it **4 times **
             TaskItem[] xmlMultiPaths = new TaskItem[] { xmlPaths[0], xmlPaths[0], xmlPaths[0], xmlPaths[0] };
@@ -1004,6 +955,7 @@ namespace Microsoft.Build.UnitTests
             CleanUp(dir);
         }
 
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Validate that the XslTransformation task allows use of the document function
         /// </summary>
@@ -1011,14 +963,9 @@ namespace Microsoft.Build.UnitTests
         public void XslDocumentFunctionWorks()
         {
             string dir;
-            TaskItem[] xmlPaths;
-            TaskItem xslPath;
-            TaskItem xslCompiledPath;
             TaskItem[] outputPaths;
-            List<KeyValuePair<XslTransformation.XmlInput.XmlModes, object>> xmlInputs;
-            List<KeyValuePair<XslTransformation.XsltInput.XslModes, object>> xslInputs;
             MockEngine engine;
-            Prepare(out dir, out xmlPaths, out xslPath, out xslCompiledPath, out outputPaths, out xmlInputs, out xslInputs, out engine);
+            Prepare(out dir, out _, out _, out _, out outputPaths, out _, out _, out engine);
 
             var otherXslPath = new TaskItem(Path.Combine(dir, Guid.NewGuid().ToString() + ".xslt"));
             using (StreamWriter sw = new StreamWriter(otherXslPath.ItemSpec, false))
@@ -1062,6 +1009,7 @@ namespace Microsoft.Build.UnitTests
 
             CleanUp(dir);
         }
+#endif
 
         /// <summary>
         /// Prepares the test environment, creates necessary files.
@@ -1104,8 +1052,9 @@ namespace Microsoft.Build.UnitTests
 
             xslInputs.Add(new KeyValuePair<XslTransformation.XsltInput.XslModes, object>(XslTransformation.XsltInput.XslModes.Xslt, _xslDocument));
             xslInputs.Add(new KeyValuePair<XslTransformation.XsltInput.XslModes, object>(XslTransformation.XsltInput.XslModes.XsltFile, xslPath));
-
+#if FEATURE_COMPILED_XSL
             Compile(xslPath.ItemSpec, xslCompiledPath.ItemSpec);
+#endif
 
             engine = new MockEngine();
             List<bool> results = new List<bool>();
@@ -1130,6 +1079,7 @@ namespace Microsoft.Build.UnitTests
 
 #pragma warning disable 0618 // XmlReaderSettings.ProhibitDtd is obsolete
 
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Compiles given stylesheets into an assembly.
         /// </summary>
@@ -1173,16 +1123,12 @@ namespace Microsoft.Build.UnitTests
 
             // Create TypeBuilder and compile the stylesheet into it
             TypeBuilder typeBldr = modBldr.DefineType(CompiledQueryName, TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
-
-            CompilerErrorCollection errors = null;
             try
             {
-                using (XmlReader reader = XmlReader.Create(sourceUri, readerSettings))
-                {
-                    errors = XslCompiledTransform.CompileToType(
-                        reader, xsltSettings, xmlResolver, false, typeBldr, scriptAsmPath
-                    );
-                }
+                using XmlReader reader = XmlReader.Create(sourceUri, readerSettings);
+                CompilerErrorCollection errors = XslCompiledTransform.CompileToType(reader, xsltSettings,
+                                                                                    xmlResolver, false, typeBldr,
+                                                                                    scriptAsmPath);
             }
             catch (Exception e)
             {
@@ -1191,9 +1137,10 @@ namespace Microsoft.Build.UnitTests
 
             asmBldr.Save(Path.GetFileName(outputFile), PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
         }
+#endif
 
 #pragma warning restore 0618
-
+#if FEATURE_COMPILED_XSL
         /// <summary>
         /// Creates a dll that has 2 types in it.
         /// </summary>
@@ -1227,6 +1174,8 @@ namespace Microsoft.Build.UnitTests
 
             asmBldr.Save(Path.GetFileName(outputFile), PortableExecutableKinds.ILOnly, ImageFileMachine.I386);
         }
+
+#endif
         #endregion
     }
 #endif

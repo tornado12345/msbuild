@@ -13,7 +13,6 @@ namespace Microsoft.Build.Evaluation
     using BuildEventContext = Microsoft.Build.Framework.BuildEventContext;
     using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
     using ElementLocation = Microsoft.Build.Construction.ElementLocation;
-    using Microsoft.Build.Execution;
     using Microsoft.Build.Shared;
     using Microsoft.Build.Shared.FileSystem;
 
@@ -180,7 +179,7 @@ namespace Microsoft.Build.Evaluation
             ILoggingService loggingServices,
             BuildEventContext buildEventContext,
             IFileSystem fileSystem,
-            ProjectRootElementCache projectRootElementCache = null)
+            ProjectRootElementCacheBase projectRootElementCache = null)
             where P : class, IProperty
             where I : class, IItem
         {
@@ -217,15 +216,15 @@ namespace Microsoft.Build.Evaluation
             ILoggingService loggingServices,
             BuildEventContext buildEventContext,
             IFileSystem fileSystem,
-            ProjectRootElementCache projectRootElementCache = null
+            ProjectRootElementCacheBase projectRootElementCache = null
         )
             where P : class, IProperty
             where I : class, IItem
         {
-            ErrorUtilities.VerifyThrowArgumentNull(condition, "condition");
-            ErrorUtilities.VerifyThrowArgumentNull(expander, "expander");
-            ErrorUtilities.VerifyThrowArgumentLength(evaluationDirectory, "evaluationDirectory");
-            ErrorUtilities.VerifyThrowArgumentNull(buildEventContext, "buildEventContext");
+            ErrorUtilities.VerifyThrowArgumentNull(condition, nameof(condition));
+            ErrorUtilities.VerifyThrowArgumentNull(expander, nameof(expander));
+            ErrorUtilities.VerifyThrowArgumentLength(evaluationDirectory, nameof(evaluationDirectory));
+            ErrorUtilities.VerifyThrowArgumentNull(buildEventContext, nameof(buildEventContext));
 
             // An empty condition is equivalent to a "true" condition.
             if (condition.Length == 0)
@@ -234,7 +233,7 @@ namespace Microsoft.Build.Evaluation
             }
 
             // If the condition wasn't empty, there must be a location for it
-            ErrorUtilities.VerifyThrowArgumentNull(elementLocation, "elementLocation");
+            ErrorUtilities.VerifyThrowArgumentNull(elementLocation, nameof(elementLocation));
 
             // Get the expression tree cache for the current parsing options.
             var cachedExpressionTreesForCurrentOptions = s_cachedExpressionTrees.GetOrAdd(
@@ -367,7 +366,7 @@ namespace Microsoft.Build.Evaluation
             /// <summary>
             ///     PRE cache
             /// </summary>
-            ProjectRootElementCache LoadedProjectsCache { get; }
+            ProjectRootElementCacheBase LoadedProjectsCache { get; }
 
             IFileSystem FileSystem { get; }
         }
@@ -406,7 +405,7 @@ namespace Microsoft.Build.Evaluation
             /// <summary>
             /// PRE collection. 
             /// </summary>
-            public ProjectRootElementCache LoadedProjectsCache { get; }
+            public ProjectRootElementCacheBase LoadedProjectsCache { get; }
 
             internal ConditionEvaluationState
                 (
@@ -417,13 +416,13 @@ namespace Microsoft.Build.Evaluation
                 string evaluationDirectory,
                 ElementLocation elementLocation,
                 IFileSystem fileSystem,
-                ProjectRootElementCache projectRootElementCache = null
+                ProjectRootElementCacheBase projectRootElementCache = null
                 )
             {
-                ErrorUtilities.VerifyThrowArgumentNull(condition, "condition");
-                ErrorUtilities.VerifyThrowArgumentNull(expander, "expander");
-                ErrorUtilities.VerifyThrowArgumentNull(evaluationDirectory, "evaluationDirectory");
-                ErrorUtilities.VerifyThrowArgumentNull(elementLocation, "elementLocation");
+                ErrorUtilities.VerifyThrowArgumentNull(condition, nameof(condition));
+                ErrorUtilities.VerifyThrowArgumentNull(expander, nameof(expander));
+                ErrorUtilities.VerifyThrowArgumentNull(evaluationDirectory, nameof(evaluationDirectory));
+                ErrorUtilities.VerifyThrowArgumentNull(elementLocation, nameof(elementLocation));
 
                 Condition = condition;
                 _expander = expander;

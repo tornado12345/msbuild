@@ -23,6 +23,11 @@ namespace Microsoft.Build.Tasks
             try
             {
                 var readerSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore };
+
+                // it's important to normalize the path as it may contain two slashes
+                // see https://github.com/microsoft/msbuild/issues/4335 for details.
+                appConfigFile = FileUtilities.NormalizePath(appConfigFile);
+
                 reader = XmlReader.Create(appConfigFile, readerSettings);
                 Read(reader);
             }
@@ -89,7 +94,7 @@ namespace Microsoft.Build.Tasks
         /// <returns></returns>
         internal static bool StringEquals(string a, string b)
         {
-            return String.Compare(a, b, StringComparison.OrdinalIgnoreCase) == 0;
+            return String.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

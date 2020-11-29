@@ -72,7 +72,7 @@ namespace Microsoft.Build.Tasks
 
             AssemblyRegistrationCache cacheFile = null;
 
-            if ((AssemblyListFile != null) && (AssemblyListFile.ItemSpec.Length > 0))
+            if ((AssemblyListFile?.ItemSpec.Length > 0))
             {
                 cacheFile = (AssemblyRegistrationCache)StateFileBase.DeserializeCache(AssemblyListFile.ItemSpec, Log, typeof(AssemblyRegistrationCache)) ??
                             new AssemblyRegistrationCache();
@@ -89,7 +89,7 @@ namespace Microsoft.Build.Tasks
                         string tlbPath;
 
                         // if the type lib path is not supplied, generate default one
-                        if ((TypeLibFiles[i] != null) && (TypeLibFiles[i].ItemSpec.Length > 0))
+                        if ((TypeLibFiles[i]?.ItemSpec.Length > 0))
                         {
                             tlbPath = TypeLibFiles[i].ItemSpec;
                         }
@@ -115,7 +115,7 @@ namespace Microsoft.Build.Tasks
                         Log.LogErrorWithCodeFromResources("General.InvalidAssemblyName", Assemblies[i], ex.Message);
                         taskReturnValue = false;
                     }
-#if _DEBUG
+#if DEBUG
                     catch (Exception e)
                     {
                         Debug.Assert(false, "Unexpected exception in AssemblyRegistration.Execute. " + 

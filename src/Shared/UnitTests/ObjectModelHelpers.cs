@@ -3,32 +3,27 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Xml;
 
 using Microsoft.Build.Construction;
-using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
+using Microsoft.Build.FileSystem;
 using Microsoft.Build.Framework;
-using Microsoft.Build.Experimental.Graph;
+using Microsoft.Build.Graph;
 using Microsoft.Build.Logging;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Shared.FileSystem;
-using Microsoft.Build.UnitTests;
 using Shouldly;
 using Xunit;
 using Xunit.Abstractions;
-
-// Microsoft.Build.Tasks has MSBuildConstants compiled into it under a different namespace otherwise
-// there are collisions with the one compiled into Microsoft.Build.Framework
-#if MICROSOFT_BUILD_TASKS_UNITTESTS
-using MSBuildConstants = Microsoft.Build.Tasks.MSBuildConstants;
-#endif
 
 namespace Microsoft.Build.UnitTests
 {
@@ -77,7 +72,6 @@ namespace Microsoft.Build.UnitTests
                 return s_msbuildAssemblyVersion;
             }
         }
-
 
         /// <summary>
         /// Helper method to tell us whether a particular metadata name is an MSBuild well-known metadata
@@ -251,7 +245,10 @@ namespace Microsoft.Build.UnitTests
                 expectedItems.ShouldNotBeEmpty();
             }
 
-            for (var i = 0; i < expectedItems.Length; i++)
+            // iterate to the minimum length; if the lengths don't match but there's a prefix match the count assertion below will trigger
+            int minimumLength = Math.Min(expectedItems.Length, items.Count);
+
+            for (var i = 0; i < minimumLength; i++)
             {
                 if (!normalizeSlashes)
                 {
@@ -266,7 +263,8 @@ namespace Microsoft.Build.UnitTests
                 AssertItemHasMetadata(expectedDirectMetadataPerItem[i], items[i]);
             }
 
-            items.Count.ShouldBe(expectedItems.Length);
+            items.Count.ShouldBe(expectedItems.Length,
+                () => $"got items \"{string.Join(", ", items)}\", expected \"{string.Join(", ", expectedItems)}\"");
 
             expectedItems.Length.ShouldBe(expectedDirectMetadataPerItem.Length);
         }
@@ -358,7 +356,7 @@ namespace Microsoft.Build.UnitTests
                         // If the items are expected to be in the same order, then the expected item
                         // should always be found at index zero, because we remove items from the expected
                         // list as we find them.
-                        if ((expectedItemIndex != 0) && (orderOfItemsShouldMatch))
+                        if ((expectedItemIndex != 0) && orderOfItemsShouldMatch)
                         {
                             outOfOrder = true;
                         }
@@ -428,11 +426,13 @@ namespace Microsoft.Build.UnitTests
 
         internal static void AssertItemHasMetadata(Dictionary<string, string> expected, TestItem item)
         {
-            Assert.Equal(expected.Keys.Count, item.DirectMetadataCount);
+            expected ??= new Dictionary<string, string>();
+
+            item.DirectMetadataCount.ShouldBe(expected.Keys.Count, () => $"Expected {expected.Keys.Count} metadata, ({string.Join(", ", expected.Keys)}), got {item.DirectMetadataCount}");
 
             foreach (var key in expected.Keys)
             {
-                Assert.Equal(expected[key], item.GetMetadataValue(key));
+                item.GetMetadataValue(key).ShouldBe(expected[key]);
             }
         }
 
@@ -444,12 +444,10 @@ namespace Microsoft.Build.UnitTests
             if (expected == null)
             {
                 Assert.Null(actual); // "Expected a null array"
-            }
-            else
-            {
-                Assert.NotNull(actual); // "Result should be non-null."
+                return;
             }
 
+            Assert.NotNull(actual); // "Result should be non-null."
             Assert.Equal(expected.Length, actual.Length); // "Expected array length of <" + expected.Length + "> but was <" + actual.Length + ">.");
 
             // Now that we've verified they're both non-null and of the same length, compare each item in the array.
@@ -705,10 +703,11 @@ namespace Microsoft.Build.UnitTests
         /// <returns></returns>
         internal static MockLogger BuildProjectExpectSuccess
             (
-            string projectContents
+            string projectContents,
+            ITestOutputHelper testOutputHelper = null
             )
         {
-            MockLogger logger = new MockLogger();
+            MockLogger logger = new MockLogger(testOutputHelper);
             BuildProjectExpectSuccess(projectContents, logger);
             return logger;
         }
@@ -720,8 +719,7 @@ namespace Microsoft.Build.UnitTests
             )
         {
             Project project = CreateInMemoryProject(projectContents, logger: null); // logger is null so we take care of loggers ourselves
-            bool success = project.Build(loggers);
-            Assert.True(success);
+            project.Build(loggers).ShouldBeTrue();
         }
 
         /// <summary>
@@ -750,7 +748,7 @@ namespace Microsoft.Build.UnitTests
             Project project = CreateInMemoryProject(projectContents, logger);
 
             bool success = project.Build(logger);
-            Assert.False(success); // "Build succeeded, but shouldn't have.  See Standard Out tab for details"
+            Assert.False(success); // "Build succeeded, but shouldn't have.  See test output (Attachments in Azure Pipelines) for details"
         }
 
         /// <summary>
@@ -780,7 +778,6 @@ namespace Microsoft.Build.UnitTests
             Console.WriteLine();
             Assert.Equal(newExpectedProjectContents, newActualProjectContents); // "Project XML does not match expected XML.  See 'Standard Out' tab for details."
         }
-
 
         private static string s_tempProjectDir;
 
@@ -910,48 +907,27 @@ namespace Microsoft.Build.UnitTests
         /// </summary>
         /// <param name="projectFileRelativePath"></param>
         /// <returns></returns>
-        internal static MockLogger BuildTempProjectFileExpectSuccess(string projectFileRelativePath)
+        internal static void BuildTempProjectFileExpectSuccess(string projectFileRelativePath, MockLogger logger)
         {
-            return BuildTempProjectFileWithTargetsExpectSuccess(projectFileRelativePath, null, null);
+            BuildTempProjectFileWithTargetsExpectSuccess(projectFileRelativePath, null, null, logger);
         }
 
         /// <summary>
         /// Builds a project file from disk, and asserts if the build does not succeed.
         /// </summary>
-        internal static MockLogger BuildTempProjectFileWithTargetsExpectSuccess(string projectFileRelativePath, string[] targets, IDictionary<string, string> additionalProperties)
+        internal static void BuildTempProjectFileWithTargetsExpectSuccess(string projectFileRelativePath, string[] targets, IDictionary<string, string> additionalProperties, MockLogger logger)
         {
-            MockLogger logger = new MockLogger();
-            bool success = BuildTempProjectFileWithTargets(projectFileRelativePath, targets, additionalProperties, logger);
-
-            Assert.True(success); // "Build failed.  See Standard Out tab for details"
-
-            return logger;
+            BuildTempProjectFileWithTargets(projectFileRelativePath, targets, additionalProperties, logger)
+                .ShouldBeTrue("Build failed.  See test output (Attachments in Azure Pipelines) for details");
         }
 
         /// <summary>
         /// Builds a project file from disk, and asserts if the build succeeds.
         /// </summary>
-        internal static MockLogger BuildTempProjectFileExpectFailure(string projectFileRelativePath)
+        internal static void BuildTempProjectFileExpectFailure(string projectFileRelativePath, MockLogger logger)
         {
-            MockLogger logger = new MockLogger();
-            bool success = BuildTempProjectFileWithTargets(projectFileRelativePath, null, null, logger);
-
-            Assert.False(success); // "Build unexpectedly succeeded.  See Standard Out tab for details"
-
-            return logger;
-        }
-
-        /// <summary>
-        /// Builds a project file from disk, and asserts if the build succeeds.
-        /// </summary>
-        internal static MockLogger BuildTempProjectFileWithTargetsExpectFailure(string projectFileRelativePath, string[] targets, IDictionary<string, string> additionalProperties)
-        {
-            MockLogger logger = new MockLogger();
-            bool success = BuildTempProjectFileWithTargets(projectFileRelativePath, targets, additionalProperties, logger);
-
-            Assert.False(success); // "Build unexpectedly succeeded.  See Standard Out tab for details"
-
-            return logger;
+            BuildTempProjectFileWithTargets(projectFileRelativePath, null, null, logger)
+                .ShouldBeFalse("Build unexpectedly succeeded.  See test output (Attachments in Azure Pipelines) for details");
         }
 
         /// <summary>
@@ -1069,11 +1045,11 @@ namespace Microsoft.Build.UnitTests
         /// <summary>
         /// Get items of item type "i" with using the item xml fragment passed in
         /// </summary>
-        internal static IList<ProjectItem> GetItemsFromFragment(string fragment, bool allItems = false)
+        internal static IList<ProjectItem> GetItemsFromFragment(string fragment, bool allItems = false, bool ignoreCondition = false)
         {
             string content = FormatProjectContentsWithItemGroupFragment(fragment);
 
-            IList<ProjectItem> items = GetItems(content, allItems);
+            IList<ProjectItem> items = GetItems(content, allItems, ignoreCondition);
             return items;
         }
 
@@ -1085,11 +1061,14 @@ namespace Microsoft.Build.UnitTests
         /// <summary>
         /// Get the items of type "i" in the project provided
         /// </summary>
-        internal static IList<ProjectItem> GetItems(string content, bool allItems = false)
+        internal static IList<ProjectItem> GetItems(string content, bool allItems = false, bool ignoreCondition = false)
         {
             var projectXml = ProjectRootElement.Create(XmlReader.Create(new StringReader(CleanupFileContents(content))));
             Project project = new Project(projectXml);
-            IList<ProjectItem> item = Helpers.MakeList(allItems ? project.Items : project.GetItems("i"));
+            IList<ProjectItem> item = Helpers.MakeList(
+                ignoreCondition ?
+                (allItems ? project.ItemsIgnoringCondition : project.GetItemsIgnoringCondition("i")) :
+                (allItems ? project.Items : project.GetItems("i")));
 
             return item;
         }
@@ -1112,6 +1091,13 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     internal static partial class Helpers
     {
+        internal static string Format(this string s, params object[] formatItems)
+        {
+            ErrorUtilities.VerifyThrowArgumentNull(s, nameof(s));
+
+            return string.Format(s, formatItems);
+        }
+
         internal static string GetOSPlatformAsString()
         {
             var currentPlatformString = string.Empty;
@@ -1269,6 +1255,26 @@ namespace Microsoft.Build.UnitTests
                 });
         }
 
+        internal static void ShouldBeSameIgnoringOrder<K, V>(this IDictionary<K, V> a, IReadOnlyDictionary<K, V> b)
+        {
+            a.ShouldBeSubsetOf(b);
+            b.ShouldBeSubsetOf(a);
+            a.Count.ShouldBe(b.Count);
+        }
+
+        internal static void ShouldBeSameIgnoringOrder<K>(this IEnumerable<K> a, IEnumerable<K> b)
+        {
+            a.ShouldBeSubsetOf(b);
+            b.ShouldBeSubsetOf(a);
+            a.Count().ShouldBe(b.Count());
+        }
+
+        internal static void ShouldBeSetEquivalentTo<K>(this IEnumerable<K> a, IEnumerable<K> b)
+        {
+            a.ShouldBeSubsetOf(b);
+            b.ShouldBeSubsetOf(a);
+        }
+
         /// <summary>
         /// Verify that the two enumerables are value identical
         /// </summary>
@@ -1294,11 +1300,9 @@ namespace Microsoft.Build.UnitTests
         /// Build a project with the provided content in memory.
         /// Assert that it succeeded, and return the mock logger with the output.
         /// </summary>
-        internal static MockLogger BuildProjectWithNewOMExpectSuccess(string content)
+        internal static MockLogger BuildProjectWithNewOMExpectSuccess(string content, Dictionary<string, string> globalProperties = null, MockLogger logger = null)
         {
-            MockLogger logger;
-            bool result;
-            BuildProjectWithNewOM(content, out logger, out result, false);
+            BuildProjectWithNewOM(content, ref logger, out bool result, false, globalProperties);
             Assert.True(result);
 
             return logger;
@@ -1307,14 +1311,16 @@ namespace Microsoft.Build.UnitTests
         /// <summary>
         /// Build a project in memory using the new OM
         /// </summary>
-        private static void BuildProjectWithNewOM(string content, out MockLogger logger, out bool result, bool allowTaskCrash)
+        private static void BuildProjectWithNewOM(string content, ref MockLogger logger, out bool result, bool allowTaskCrash, Dictionary<string, string> globalProperties = null)
         {
             // Replace the crazy quotes with real ones
             content = ObjectModelHelpers.CleanupFileContents(content);
 
-            Project project = new Project(XmlReader.Create(new StringReader(content)));
-            logger = new MockLogger();
-            logger.AllowTaskCrashes = allowTaskCrash;
+            Project project = new Project(XmlReader.Create(new StringReader(content)), globalProperties, toolsVersion: null);
+            logger ??= new MockLogger
+            {
+                AllowTaskCrashes = allowTaskCrash
+            };
             List<ILogger> loggers = new List<ILogger>();
             loggers.Add(logger);
             result = project.Build(loggers);
@@ -1348,7 +1354,7 @@ namespace Microsoft.Build.UnitTests
         {
             using (var buildManager = new BuildManager())
             {
-                parameters = parameters ?? new BuildParameters();
+                parameters ??= new BuildParameters();
 
                 if (logger != null)
                 {
@@ -1376,11 +1382,10 @@ namespace Microsoft.Build.UnitTests
         /// Build a project with the provided content in memory.
         /// Assert that it fails, and return the mock logger with the output.
         /// </summary>
-        internal static MockLogger BuildProjectWithNewOMExpectFailure(string content, bool allowTaskCrash)
+        internal static MockLogger BuildProjectWithNewOMExpectFailure(string content, bool allowTaskCrash, MockLogger logger = null)
         {
-            MockLogger logger;
             bool result;
-            BuildProjectWithNewOM(content, out logger, out result, allowTaskCrash);
+            BuildProjectWithNewOM(content, ref logger, out result, allowTaskCrash);
             Assert.False(result);
             return logger;
         }
@@ -1558,7 +1563,7 @@ namespace Microsoft.Build.UnitTests
             
             foreach (var defaultTarget in (defaultTargets ?? string.Empty).Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries))
             {
-                sb.Append($"<Target Name='{defaultTarget}'/>");
+                sb.Append("<Target Name='").Append(defaultTarget).Append("'/>");
             }
 
             sb.Append(extraContent ?? string.Empty);
@@ -1570,11 +1575,42 @@ namespace Microsoft.Build.UnitTests
 
         internal static ProjectGraph CreateProjectGraph(
             TestEnvironment env,
-            // direct dependencies that the kvp.key node has on the nodes represented by kvp.value
-            Dictionary<int, int[]> dependencyEdges,
-            CreateProjectFileDelegate createProjectFile = null)
+            IDictionary<int, int[]> dependencyEdges,
+            IDictionary<int, string> extraContentPerProjectNumber,
+            string extraContentForAllNodes = null)
         {
-            createProjectFile = createProjectFile ?? CreateProjectFile;
+            return CreateProjectGraph(
+                env: env,
+                dependencyEdges: dependencyEdges,
+                globalProperties: null,
+                createProjectFile: (environment, projectNumber, references, projectReferenceTargets, defaultTargets, extraContent) =>
+                {
+                    extraContent = extraContentPerProjectNumber != null && extraContentPerProjectNumber.TryGetValue(projectNumber, out var content)
+                        ? content
+                        : string.Empty;
+
+                    extraContent += extraContentForAllNodes ?? string.Empty;
+
+                    return CreateProjectFile(
+                        environment,
+                        projectNumber,
+                        references,
+                        projectReferenceTargets,
+                        defaultTargets,
+                        extraContent.Cleanup());
+                });
+        }
+
+        internal static ProjectGraph CreateProjectGraph(
+            TestEnvironment env,
+            // direct dependencies that the kvp.key node has on the nodes represented by kvp.value
+            IDictionary<int, int[]> dependencyEdges,
+            IDictionary<string, string> globalProperties = null,
+            CreateProjectFileDelegate createProjectFile = null,
+            IEnumerable<int> entryPoints = null,
+            ProjectCollection projectCollection = null)
+        {
+            createProjectFile ??= CreateProjectFile;
 
             var nodes = new Dictionary<int, (bool IsRoot, string ProjectPath)>();
 
@@ -1608,15 +1644,22 @@ namespace Microsoft.Build.UnitTests
                 }
             }
 
+            var entryProjectFiles = entryPoints != null
+                            ? nodes.Where(n => entryPoints.Contains(n.Key)).Select(n => n.Value.ProjectPath)
+                            : nodes.Where(n => n.Value.IsRoot).Select(n => n.Value.ProjectPath);
+
             return new ProjectGraph(
-                nodes.Where(nodeEntry => nodeEntry.Value.IsRoot)
-                    .Select(nodeEntry => nodeEntry.Value.ProjectPath));
+                entryProjectFiles,
+                globalProperties ?? new Dictionary<string, string>(),
+                projectCollection ?? env.CreateProjectCollection()
+                    .Collection
+                );
 
             bool IsRoot(int node)
             {
                 foreach (var nodeDependencies in dependencyEdges)
                 {
-                    if (nodeDependencies.Value != null && nodeDependencies.Value.Contains(node))
+                    if (nodeDependencies.Value?.Contains(node) == true)
                     {
                         return false;
                     }
@@ -1802,8 +1845,6 @@ namespace Microsoft.Build.UnitTests
                     : "sleep {0}";
         }
 
-
-
         /// <summary>
         /// Break the provided string into an array, on newlines
         /// </summary>
@@ -1848,6 +1889,185 @@ namespace Microsoft.Build.UnitTests
             public int GetHashCode(ElementLocation obj)
             {
                 return obj.Line.GetHashCode() ^ obj.Column.GetHashCode() ^ obj.File.GetHashCode();
+            }
+        }
+
+        internal class BuildManagerSession : IDisposable
+        {
+            private readonly TestEnvironment _env;
+            private readonly BuildManager _buildManager;
+
+            public MockLogger Logger { get; set; }
+
+            public BuildManagerSession(
+                TestEnvironment env,
+                BuildParameters buildParametersPrototype = null,
+                bool enableNodeReuse = false,
+                bool shutdownInProcNode = true,
+                IEnumerable<BuildManager.DeferredBuildMessage> deferredMessages = null)
+            {
+                _env = env;
+
+                Logger = new MockLogger(_env.Output);
+                var loggers = new[] {Logger};
+
+                var actualBuildParameters = buildParametersPrototype?.Clone() ?? new BuildParameters();
+
+                actualBuildParameters.Loggers = actualBuildParameters.Loggers == null
+                    ? loggers
+                    : actualBuildParameters.Loggers.Concat(loggers).ToArray();
+
+                actualBuildParameters.ShutdownInProcNodeOnBuildFinish = shutdownInProcNode;
+                actualBuildParameters.EnableNodeReuse = enableNodeReuse;
+
+                _buildManager = new BuildManager();
+                _buildManager.BeginBuild(actualBuildParameters, deferredMessages);
+            }
+
+            public BuildResult BuildProjectFile(string projectFile, string[] entryTargets = null)
+            {
+                var buildResult = _buildManager.BuildRequest(
+                    new BuildRequestData(projectFile,
+                        new Dictionary<string, string>(),
+                        MSBuildConstants.CurrentToolsVersion,
+                        entryTargets ?? new string[0],
+                        null));
+
+                return buildResult;
+            }
+
+            public void Dispose()
+            {
+                _buildManager.EndBuild();
+                _buildManager.Dispose();
+            }
+        }
+
+        internal class LoggingFileSystem : MSBuildFileSystemBase
+        {
+            private readonly IFileSystem _wrappingFileSystem;
+            private int _fileSystemCalls;
+
+            public int FileSystemCalls => _fileSystemCalls;
+
+            public ConcurrentDictionary<string, int> ExistenceChecks { get; } = new ConcurrentDictionary<string, int>();
+
+            public LoggingFileSystem(IFileSystem wrappingFileSystem = null)
+            {
+                _wrappingFileSystem = wrappingFileSystem ?? FileSystems.Default;
+            }
+
+            public override TextReader ReadFile(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.ReadFile(path);
+            }
+
+            public override Stream GetFileStream(string path, FileMode mode, FileAccess access, FileShare share)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.GetFileStream(path, mode, access, share);
+            }
+
+            public override string ReadFileAllText(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.ReadFileAllText(path);
+            }
+
+            public override byte[] ReadFileAllBytes(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.ReadFileAllBytes(path);
+            }
+
+            public override IEnumerable<string> EnumerateFiles(
+                string path,
+                string searchPattern = "*",
+                SearchOption searchOption = SearchOption.TopDirectoryOnly
+            )
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.EnumerateFiles(path, searchPattern, searchOption);
+            }
+
+            public override IEnumerable<string> EnumerateDirectories(
+                string path,
+                string searchPattern = "*",
+                SearchOption searchOption = SearchOption.TopDirectoryOnly
+            )
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.EnumerateDirectories(path, searchPattern, searchOption);
+            }
+
+            public override IEnumerable<string> EnumerateFileSystemEntries(
+                string path,
+                string searchPattern = "*",
+                SearchOption searchOption = SearchOption.TopDirectoryOnly
+            )
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.EnumerateFileSystemEntries(path, searchPattern, searchOption);
+            }
+
+            public override FileAttributes GetAttributes(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.GetAttributes(path);
+            }
+
+            public override DateTime GetLastWriteTimeUtc(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+
+                return _wrappingFileSystem.GetLastWriteTimeUtc(path);
+            }
+
+            public override bool DirectoryExists(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+                IncrementExistenceChecks(path);
+
+                return _wrappingFileSystem.DirectoryExists(path);
+            }
+
+            public override bool FileExists(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+                IncrementExistenceChecks(path);
+
+                return _wrappingFileSystem.FileExists(path);
+            }
+
+            private int _directoryEntryExistsCalls;
+            public int DirectoryEntryExistsCalls => _directoryEntryExistsCalls;
+
+            public override bool FileOrDirectoryExists(string path)
+            {
+                IncrementCalls(ref _fileSystemCalls);
+                IncrementCalls(ref _directoryEntryExistsCalls);
+                IncrementExistenceChecks(path);
+
+                return _wrappingFileSystem.DirectoryEntryExists(path);
+            }
+
+            private void IncrementCalls(ref int incremented)
+            {
+                Interlocked.Increment(ref incremented);
+            }
+
+            private void IncrementExistenceChecks(string path)
+            {
+                ExistenceChecks.AddOrUpdate(path, p => 1, (p, c) => c + 1);
             }
         }
     }

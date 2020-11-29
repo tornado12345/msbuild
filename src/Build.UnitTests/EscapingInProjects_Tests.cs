@@ -7,8 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-using Microsoft.Build.UnitTests;
-
 using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
@@ -22,6 +20,7 @@ using FileUtilities = Microsoft.Build.Shared.FileUtilities;
 using InvalidProjectFileException = Microsoft.Build.Exceptions.InvalidProjectFileException;
 using ResourceUtilities = Microsoft.Build.Shared.ResourceUtilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 {
@@ -57,10 +56,17 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
     public class SimpleScenarios : IDisposable
     {
+        private readonly ITestOutputHelper _output;
+
+        public SimpleScenarios(ITestOutputHelper testOutputHelper)
+        {
+            _output = testOutputHelper;
+        }
+
         /// <summary>
-        /// Since we create a project with the same name in many of these tests, and two projects with 
+        /// Since we create a project with the same name in many of these tests, and two projects with
         /// the same name cannot be loaded in a ProjectCollection at the same time, we should unload the
-        /// GlobalProjectCollection (into which all of these projects are placed by default) after each test.  
+        /// GlobalProjectCollection (into which all of these projects are placed by default) after each test.
         /// </summary>
         public void Dispose()
         {
@@ -83,7 +89,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                         <Message Text=`Property value is '$(MyPropertyWithSemicolons)'` />
                     </Target>
                 </Project>
-                ");
+                ", logger: new MockLogger(_output));
 
             logger.AssertLogContains("Property value is 'abc ; def ; ghi'");
         }
@@ -107,7 +113,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                         <Message Text=`Property value is '$(MyPropertyWithSemicolons)'` />
                     </Target>
                 </Project>
-                ");
+                ", logger: new MockLogger(_output));
 
             logger.AssertLogContains("Property value is 'abc ; def ; ghi'");
         }
@@ -137,7 +143,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
                 </Project>
 
-                ", new Uri(Assembly.GetExecutingAssembly().EscapedCodeBase).LocalPath));
+                ", new Uri(Assembly.GetExecutingAssembly().EscapedCodeBase).LocalPath),
+                logger: new MockLogger(_output));
 
             logger.AssertLogContains("Received TaskItemParam: 123 abc ; def ; ghi 789");
         }
@@ -166,7 +173,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
                 </Project>
 
-                ", new Uri(Assembly.GetExecutingAssembly().EscapedCodeBase).LocalPath));
+                ", new Uri(Assembly.GetExecutingAssembly().EscapedCodeBase).LocalPath),
+                logger: new MockLogger(_output));
 
             logger.AssertLogContains("Received TaskItemParam: 123 abc ; def ; ghi 789");
         }
@@ -212,7 +220,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
         /// <summary>
         /// If I try to add a new item to a project, and my new item's Include has a property that
-        /// contains an unescaped semicolon in it, then we shouldn't try to match it up against any existing 
+        /// contains an unescaped semicolon in it, then we shouldn't try to match it up against any existing
         /// wildcards.
         /// </summary>
         [Fact]
@@ -266,13 +274,13 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               BEFORE
             // ************************************
-            string projectOriginalContents = @" 
+            string projectOriginalContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <ItemGroup>
                         <MyWildcard Include=`*.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -280,7 +288,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               AFTER
             // ************************************
-            string projectNewExpectedContents = @" 
+            string projectNewExpectedContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <ItemGroup>
@@ -288,7 +296,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                         <MyWildcard Include=`foo;bar.weirdo` />
                         <MyWildcard Include=`c.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -319,13 +327,13 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               BEFORE
             // ************************************
-            string projectOriginalContents = @" 
+            string projectOriginalContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <ItemGroup>
                         <MyWildcard Include=`*.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -333,13 +341,13 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               AFTER
             // ************************************
-            string projectNewExpectedContents = @" 
+            string projectNewExpectedContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <ItemGroup>
                         <MyWildcard Include=`*.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -367,7 +375,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
         /// <summary>
         /// If I try to modify an item in a project, and my new item's Include has a property that
-        /// contains an unescaped semicolon in it, then we shouldn't try to match it up against any existing 
+        /// contains an unescaped semicolon in it, then we shouldn't try to match it up against any existing
         /// wildcards.
         /// </summary>
         [Fact]
@@ -376,7 +384,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               BEFORE
             // ************************************
-            string projectOriginalContents = @" 
+            string projectOriginalContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <PropertyGroup>
@@ -386,7 +394,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                     <ItemGroup>
                         <MyWildcard Include=`*.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -394,7 +402,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // ************************************
             //               AFTER
             // ************************************
-            string projectNewExpectedContents = @" 
+            string projectNewExpectedContents = @"
                 <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`http://schemas.microsoft.com/developer/msbuild/2003`>
 
                     <PropertyGroup>
@@ -406,7 +414,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                         <MyWildcard Include=`$(FilenameWithSemicolon).weirdo` />
                         <MyWildcard Include=`c.weirdo` />
                     </ItemGroup>
-                
+
                 </Project>
                 ";
 
@@ -543,7 +551,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
                 </Project>
 
-                ", inputFile, outputFile));
+                ", inputFile, outputFile),
+                logger: new MockLogger(_output));
 
                 logger.AssertLogContains("Resources = aaa%3bbbb.resx;ccc%3bddd.resx");
             }
@@ -574,7 +583,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                     </Target>
                 </Project>
 
-                ");
+                ", logger: new MockLogger(_output));
 
             logger.AssertLogContains("Transformed item list: 'X;X%3bX.txt    Y;Y%3bY.txt    Z;Z%3bZ.txt'");
         }
@@ -603,14 +612,14 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                     </Target>
                 </Project>
 
-                ");
+                ", logger: new MockLogger(_output));
 
             logger.AssertLogContains("Transformed item list: 'X;X%3bX.txt    Y;Y%3bY.txt    Z;Z%3bZ.txt'");
         }
 #endif
 
         /// <summary>
-        /// Tests that when we add an item and are in a directory with characters in need of escaping, and the 
+        /// Tests that when we add an item and are in a directory with characters in need of escaping, and the
         /// item's FullPath metadata is retrieved, that a properly un-escaped version of the path is returned
         /// </summary>
         [Fact]
@@ -644,7 +653,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
 
         /// <summary>
-        /// Test that we can pass in global properties containing escaped characters and they 
+        /// Test that we can pass in global properties containing escaped characters and they
         /// won't be unescaped.
         /// </summary>
         [Fact]
@@ -662,13 +671,13 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             project.SetGlobalProperty("MyGlobalProperty", "foo%253bbar");
 
             bool success = project.Build(logger);
-            Assert.True(success); // "Build failed.  See Standard Out tab for details"
+            Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
 
             logger.AssertLogContains("MyGlobalProperty = 'foo%3bbar'");
         }
 
         /// <summary>
-        /// If %2A (escaped '*') or %3F (escaped '?') is in an item's Include, it should be treated 
+        /// If %2A (escaped '*') or %3F (escaped '?') is in an item's Include, it should be treated
         /// literally, not as a wildcard
         /// </summary>
         [Fact]
@@ -692,7 +701,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 ");
 
                 bool success = project.Build(logger);
-                Assert.True(success); // "Build failed.  See Standard Out tab for details"
+                Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
                 logger.AssertLogContains("[*]");
             }
             finally
@@ -703,7 +712,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
 #if FEATURE_TASKHOST
         /// <summary>
-        /// If %2A (escaped '*') or %3F (escaped '?') is in an item's Include, it should be treated 
+        /// If %2A (escaped '*') or %3F (escaped '?') is in an item's Include, it should be treated
         /// literally, not as a wildcard
         /// </summary>
         [Fact]
@@ -730,7 +739,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 ");
 
                 bool success = project.Build(logger);
-                Assert.True(success); // "Build failed.  See Standard Out tab for details"
+                Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
                 logger.AssertLogContains("[*]");
             }
             finally
@@ -789,7 +798,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             MockLogger logger = new MockLogger();
 
             bool success = project.Build(logger);
-            Assert.True(success); // "Build failed.  See Standard Out tab for details"
+            Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
             logger.AssertLogContains("[OVERRIDE]");
         }
 
@@ -835,8 +844,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
         /// <summary>
         /// Say you have a scenario where a user is allowed to specify an arbitrary set of files (or
         /// any sort of items) and expects to be able to get them back out as they were sent in.  In addition,
-        /// the user can specify a macro (property) that can resolve to yet another arbitrary set of items.  
-        /// We want to make sure that we do the right thing (assuming that the user escaped the information 
+        /// the user can specify a macro (property) that can resolve to yet another arbitrary set of items.
+        /// We want to make sure that we do the right thing (assuming that the user escaped the information
         /// correctly coming in) and don't mess up their set of items
         /// </summary>
         [Fact]
@@ -867,8 +876,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
         /// <summary>
         /// Say you have a scenario where a user is allowed to specify an arbitrary set of files (or
         /// any sort of items) and expects to be able to get them back out as they were sent in.  In addition,
-        /// the user can specify a macro (property) that can resolve to yet another arbitrary set of items.  
-        /// We want to make sure that we do the right thing (assuming that the user escaped the information 
+        /// the user can specify a macro (property) that can resolve to yet another arbitrary set of items.
+        /// We want to make sure that we do the right thing (assuming that the user escaped the information
         /// correctly coming in) and don't mess up their set of items
         /// </summary>
         [Fact]
@@ -901,6 +910,13 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 #if FEATURE_COMPILE_IN_TESTS
     public class FullProjectsUsingMicrosoftCommonTargets
     {
+        private readonly ITestOutputHelper _testOutput;
+
+        public FullProjectsUsingMicrosoftCommonTargets(ITestOutputHelper output)
+        {
+            _testOutput = output;
+        }
+
         private const string SolutionFileContentsWithUnusualCharacters = @"Microsoft Visual Studio Solution File, Format Version 11.00
                 Project(`{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}`) = `Cons.ole;!@(foo)'^(Application1`, `Console;!@(foo)'^(Application1\Cons.ole;!@(foo)'^(Application1.csproj`, `{770F2381-8C39-49E9-8C96-0538FA4349A7}`
                 EndProject
@@ -978,7 +994,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // Build the default targets using the Configuration "a;b'c".
             project.SetGlobalProperty("Configuration", EscapingUtilities.Escape("a;b'c"));
             bool success = project.Build(logger);
-            Assert.True(success); // "Build failed.  See Standard Out tab for details"
+            Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
 
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\a;b'c\ClassLibrary16.dll");
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"bin\a;b'c\ClassLibrary16.dll");
@@ -1043,7 +1059,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 // Build the default targets using the Configuration "a;b'c".
                 project.SetGlobalProperty("Configuration", EscapingUtilities.Escape("a;b'c"));
                 bool success = project.Build(logger);
-                Assert.True(success); // "Build failed.  See Standard Out tab for details"
+                Assert.True(success); // "Build failed.  See test output (Attachments in Azure Pipelines) for details"
 
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\a;b'c\ClassLibrary16.dll");
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"bin\a;b'c\ClassLibrary16.dll");
@@ -1100,7 +1116,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-            MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+            MockLogger log = new MockLogger(_testOutput);
+            ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class;Library16.dll", @"Did not find expected file obj\debug\Class;Library16.dll");
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class;Library16.pdb", @"Did not find expected file obj\debug\Class;Library16.pdb");
@@ -1159,7 +1176,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-                MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+                MockLogger log = new MockLogger(_testOutput);
+                ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class;Library16.dll", @"Did not find expected file obj\debug\Class;Library16.dll");
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class;Library16.pdb", @"Did not find expected file obj\debug\Class;Library16.pdb");
@@ -1218,7 +1236,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-            MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+            MockLogger log = new MockLogger(_testOutput);
+            ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class$(prop)Library16.dll", @"Did not find expected file obj\debug\Class$(prop)Library16.dll");
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class$(prop)Library16.pdb", @"Did not find expected file obj\debug\Class$(prop)Library16.pdb");
@@ -1277,7 +1296,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-                MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+                MockLogger log = new MockLogger(_testOutput);
+                ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class$(prop)Library16.dll", @"Did not find expected file obj\debug\Class$(prop)Library16.dll");
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\Class$(prop)Library16.pdb", @"Did not find expected file obj\debug\Class$(prop)Library16.pdb");
@@ -1336,7 +1356,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-            MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+            MockLogger log = new MockLogger(_testOutput);
+            ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\ClassLibrary16.dll", @"Did not find expected file obj\debug\ClassLibrary16.dll");
             ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\ClassLibrary16.pdb", @"Did not find expected file obj\debug\ClassLibrary16.pdb");
@@ -1395,7 +1416,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 }
             ");
 
-                MockLogger log = ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj");
+                MockLogger log = new MockLogger(_testOutput);
+                ObjectModelHelpers.BuildTempProjectFileExpectSuccess("foo.csproj", log);
 
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\ClassLibrary16.dll", @"Did not find expected file obj\debug\ClassLibrary16.dll");
                 ObjectModelHelpers.AssertFileExistsInTempProjectDirectory(@"obj\debug\ClassLibrary16.pdb", @"Did not find expected file obj\debug\ClassLibrary16.pdb");
@@ -1571,7 +1593,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
             // Cons.ole;!@(foo)'^(Application1
             string targetForFirstProject = "Cons_ole_!__foo__^_Application1";
 
-            ObjectModelHelpers.BuildTempProjectFileWithTargetsExpectSuccess(@"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1.sln", new string[] { targetForFirstProject }, null);
+            MockLogger log = new MockLogger(_testOutput);
+            ObjectModelHelpers.BuildTempProjectFileWithTargetsExpectSuccess(@"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1.sln", new string[] { targetForFirstProject }, null, log);
 
             Assert.True(File.Exists(Path.Combine(ObjectModelHelpers.TempProjectDir, @"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1\bin\debug\Console;!@(foo)'^(Application1.exe"))); //                     @"Did not find expected file Console;!@(foo)'^(Application1.exe"
         }
@@ -1742,7 +1765,8 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
                 // Cons.ole;!@(foo)'^(Application1
                 string targetForFirstProject = "Cons_ole_!__foo__^_Application1";
 
-                ObjectModelHelpers.BuildTempProjectFileWithTargetsExpectSuccess(@"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1.sln", new string[] { targetForFirstProject }, null);
+                MockLogger log = new MockLogger(_testOutput);
+                ObjectModelHelpers.BuildTempProjectFileWithTargetsExpectSuccess(@"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1.sln", new string[] { targetForFirstProject }, null, log);
 
                 Assert.True(File.Exists(Path.Combine(ObjectModelHelpers.TempProjectDir, @"SLN;!@(foo)'^1\Console;!@(foo)'^(Application1\bin\debug\Console;!@(foo)'^(Application1.exe"))); //                         @"Did not find expected file Console;!@(foo)'^(Application1.exe"
             }
@@ -1775,7 +1799,7 @@ namespace Microsoft.Build.UnitTests.EscapingInProjects_Tests
 
         /// <summary>
         /// Given a project and an item type, gets the items of that type, and renames an item
-        /// with the old evaluated include to have the new evaluated include instead.  
+        /// with the old evaluated include to have the new evaluated include instead.
         /// </summary>
         /// <param name="project"></param>
         /// <param name="itemType"></param>

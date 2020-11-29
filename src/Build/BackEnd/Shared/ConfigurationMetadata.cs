@@ -3,7 +3,7 @@
 
 using System;
 using System.Collections.Generic;
-
+using System.Diagnostics;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
@@ -14,6 +14,7 @@ namespace Microsoft.Build.BackEnd
     /// <summary>
     /// A struct representing the uniquely-identifying portion of a BuildRequestConfiguration.  Used for lookups.
     /// </summary>
+    [DebuggerDisplay(@"{DebugString()}")]
     internal class ConfigurationMetadata : IEquatable<ConfigurationMetadata>, ITranslatable
     {
         /// <summary>
@@ -36,7 +37,7 @@ namespace Microsoft.Build.BackEnd
             _globalProperties = new PropertyDictionary<ProjectPropertyInstance>(project.GlobalProperties.Count);
             foreach (KeyValuePair<string, string> entry in project.GlobalProperties)
             {
-                GlobalProperties[entry.Key] = ProjectPropertyInstance.Create(entry.Key, entry.Value);
+                _globalProperties[entry.Key] = ProjectPropertyInstance.Create(entry.Key, entry.Value);
             }
 
             _toolsVersion = project.ToolsVersion;
@@ -118,7 +119,7 @@ namespace Microsoft.Build.BackEnd
         /// <returns>True if they contain the same data, false otherwise</returns>
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(obj, null))
+            if (obj is null)
             {
                 return false;
             }
@@ -140,7 +141,7 @@ namespace Microsoft.Build.BackEnd
         /// <returns>True if equal, false otherwise.</returns>
         public bool Equals(ConfigurationMetadata other)
         {
-            if (ReferenceEquals(other, null))
+            if (other is null)
             {
                 return false;
             }
@@ -165,6 +166,14 @@ namespace Microsoft.Build.BackEnd
             return ProjectFullPath.Equals(other.ProjectFullPath, StringComparison.OrdinalIgnoreCase) &&
                    ToolsVersion.Equals(other.ToolsVersion, StringComparison.OrdinalIgnoreCase) &&
                    GlobalProperties.Equals(other.GlobalProperties);
+        }
+
+        private string DebugString()
+        {
+            var truncatedProjectFile = FileUtilities.TruncatePathToTrailingSegments(ProjectFullPath, 2);
+
+            return
+                $"{truncatedProjectFile}, #GlobalProps={GlobalProperties.Count}";
         }
     }
 }

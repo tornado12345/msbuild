@@ -4,11 +4,10 @@
 using System.Diagnostics;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Construction;
-using Microsoft.Build.Execution;
+using Microsoft.Build.ObjectModelRemoting;
 using Microsoft.Build.Shared;
 using System.Collections.Generic;
 using System;
-using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.Build.Shared.FileSystem;
@@ -103,6 +102,15 @@ namespace Microsoft.Build.Evaluation
         private string _fullPath;
 
         /// <summary>
+        /// External projects support
+        /// </summary>
+        internal ProjectItem(ProjectItemElement xml, Project project)
+        {
+            this._project = project;
+            this._xml = xml;
+        }
+
+        /// <summary>
         /// Called by the Evaluator during project evaluation.
         /// Direct metadata may be null, indicating no metadata. It is assumed to have already been cloned.
         /// Inherited item definition metadata may be null. It is assumed that its list has already been cloned.
@@ -117,12 +125,12 @@ namespace Microsoft.Build.Evaluation
                              List<ProjectItemDefinition> inheritedItemDefinitionsCloned
                             )
         {
-            ErrorUtilities.VerifyThrowInternalNull(project, "project");
-            ErrorUtilities.VerifyThrowArgumentNull(xml, "xml");
+            ErrorUtilities.VerifyThrowInternalNull(project, nameof(project));
+            ErrorUtilities.VerifyThrowArgumentNull(xml, nameof(xml));
 
             // Orcas accidentally allowed empty includes if they resulted from expansion: we preserve that bug
-            ErrorUtilities.VerifyThrowArgumentNull(evaluatedIncludeEscaped, "evaluatedIncludeEscaped");
-            ErrorUtilities.VerifyThrowArgumentNull(evaluatedIncludeBeforeWildcardExpansionEscaped, "evaluatedIncludeBeforeWildcardExpansionEscaped");
+            ErrorUtilities.VerifyThrowArgumentNull(evaluatedIncludeEscaped, nameof(evaluatedIncludeEscaped));
+            ErrorUtilities.VerifyThrowArgumentNull(evaluatedIncludeBeforeWildcardExpansionEscaped, nameof(evaluatedIncludeBeforeWildcardExpansionEscaped));
 
             _xml = xml;
             _project = project;
@@ -131,6 +139,8 @@ namespace Microsoft.Build.Evaluation
             _directMetadata = directMetadataCloned;
             _inheritedItemDefinitions = inheritedItemDefinitionsCloned;
         }
+
+        internal virtual ProjectItemLink Link => null;
 
         /// <summary>
         /// Backing XML item.
@@ -152,7 +162,17 @@ namespace Microsoft.Build.Evaluation
             [DebuggerStepThrough]
             get
             { return _xml.ItemType; }
-            set { ChangeItemType(value); }
+            set
+            {
+                if (Link != null)
+                {
+                    Link.ChangeItemType(value);
+                }
+                else
+                {
+                    ChangeItemType(value);
+                }
+            }
         }
 
         /// <summary>
@@ -173,7 +193,7 @@ namespace Microsoft.Build.Evaluation
         {
             [DebuggerStepThrough]
             get
-            { return EscapingUtilities.UnescapeAll(_evaluatedIncludeEscaped); }
+            { return Link != null ? Link.EvaluatedInclude : EscapingUtilities.UnescapeAll(_evaluatedIncludeEscaped); }
         }
 
         /// <summary>
@@ -230,7 +250,7 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public IEnumerable<ProjectMetadata> DirectMetadata
         {
-            get { return (IEnumerable<ProjectMetadata>)_directMetadata ?? (IEnumerable<ProjectMetadata>)ReadOnlyEmptyCollection<ProjectMetadata>.Instance; }
+            get { return Link != null ? Link.DirectMetadata : (IEnumerable<ProjectMetadata>)_directMetadata ?? (IEnumerable<ProjectMetadata>)ReadOnlyEmptyCollection<ProjectMetadata>.Instance; }
         }
 
         /// <summary>
@@ -242,7 +262,7 @@ namespace Microsoft.Build.Evaluation
         {
             [DebuggerStepThrough]
             get
-            { return _directMetadata != null ? _directMetadata.Count : 0; }
+            { return Link != null ? Link.DirectMetadata.Count  : _directMetadata != null ? _directMetadata.Count : 0; }
         }
 
         /// <summary>
@@ -257,7 +277,7 @@ namespace Microsoft.Build.Evaluation
         {
             [DebuggerStepThrough]
             get
-            { return MetadataCollection; }
+            { return Link != null ? Link.MetadataCollection : MetadataCollection; }
         }
 
         /// <summary>
@@ -269,7 +289,7 @@ namespace Microsoft.Build.Evaluation
         {
             [DebuggerStepThrough]
             get
-            { return MetadataCollection.Count + FileUtilities.ItemSpecModifiers.All.Length; }
+            { return Metadata.Count + FileUtilities.ItemSpecModifiers.All.Length; }
         }
 
         /// <summary>
@@ -299,7 +319,7 @@ namespace Microsoft.Build.Evaluation
                 RetrievableEntryHashSet<ProjectMetadata> allMetadata = new RetrievableEntryHashSet<ProjectMetadata>(MSBuildNameIgnoreCaseComparer.Default);
 
                 // Lowest priority: regular item definitions
-                ProjectItemDefinition itemDefinition = null;
+                ProjectItemDefinition itemDefinition;
                 if (_project.ItemDefinitions.TryGetValue(ItemType, out itemDefinition))
                 {
                     foreach (ProjectMetadata metadataFromDefinition in itemDefinition.Metadata)
@@ -322,7 +342,7 @@ namespace Microsoft.Build.Evaluation
                 }
 
                 // Finally any direct metadata win.
-                if (null != _directMetadata)
+                if (_directMetadata != null)
                 {
                     foreach (ProjectMetadata metadatum in _directMetadata)
                     {
@@ -373,7 +393,12 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public ProjectMetadata GetMetadata(string name)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(name, "name");
+            if (Link != null)
+            {
+                return Link.GetMetadata(name);
+            }
+
+            ErrorUtilities.VerifyThrowArgumentLength(name, nameof(name));
 
             ProjectMetadata result = null;
 
@@ -399,7 +424,7 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public string GetMetadataValue(string name)
         {
-            return EscapingUtilities.UnescapeAll(((IItem)this).GetMetadataValueEscaped(name));
+            return Link != null ? Link.GetMetadataValue(name) : EscapingUtilities.UnescapeAll(((IItem)this).GetMetadataValueEscaped(name));
         }
 
         /// <summary>
@@ -409,7 +434,12 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public bool HasMetadata(string name)
         {
-            if (_directMetadata != null && _directMetadata.Contains(name))
+            if (Link != null)
+            {
+                return Link.HasMetadata(name);
+            }
+
+            if (_directMetadata?.Contains(name) == true)
             {
                 return true;
             }
@@ -420,7 +450,7 @@ namespace Microsoft.Build.Evaluation
             }
 
             ProjectMetadata metadatum = GetItemDefinitionMetadata(name);
-            if (null != metadatum)
+            if (metadatum != null)
             {
                 return true;
             }
@@ -434,7 +464,7 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         string IItem.GetMetadataValueEscaped(string name)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(name, "name");
+            ErrorUtilities.VerifyThrowArgumentLength(name, nameof(name));
 
             string value = null;
 
@@ -456,13 +486,13 @@ namespace Microsoft.Build.Evaluation
             {
                 ProjectMetadata metadatum = GetItemDefinitionMetadata(name);
 
-                if (null != metadatum && Expander<ProjectProperty, ProjectItem>.ExpressionMayContainExpandableExpressions(metadatum.EvaluatedValueEscaped))
+                if (metadatum != null && Expander<ProjectProperty, ProjectItem>.ExpressionMayContainExpandableExpressions(metadatum.EvaluatedValueEscaped))
                 {
                     Expander<ProjectProperty, ProjectItem> expander = new Expander<ProjectProperty, ProjectItem>(null, null, new BuiltInMetadataTable(this), FileSystems.Default);
 
                     value = expander.ExpandIntoStringLeaveEscaped(metadatum.EvaluatedValueEscaped, ExpanderOptions.ExpandBuiltInMetadata, metadatum.Location);
                 }
-                else if (null != metadatum)
+                else if (metadatum != null)
                 {
                     return metadatum.EvaluatedValueEscaped;
                 }
@@ -489,7 +519,7 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         ProjectMetadata IItem<ProjectMetadata>.SetMetadata(ProjectMetadataElement metadataElement, string evaluatedInclude)
         {
-            _directMetadata = _directMetadata ?? new PropertyDictionary<ProjectMetadata>();
+            _directMetadata ??= new PropertyDictionary<ProjectMetadata>();
 
             ProjectMetadata predecessor = GetMetadata(metadataElement.Name);
 
@@ -512,7 +542,8 @@ namespace Microsoft.Build.Evaluation
         /// <remarks>Unevaluated value is assumed to be escaped as necessary</remarks>
         public ProjectMetadata SetMetadataValue(string name, string unevaluatedValue)
         {
-            return SetMetadataOperation(name, unevaluatedValue, propagateMetadataToSiblingItems: false);
+            return Link != null ? Link.SetMetadataValue(name, unevaluatedValue, false) :
+                                  SetMetadataOperation(name, unevaluatedValue, propagateMetadataToSiblingItems: false);
         }
 
         /// <summary>
@@ -529,7 +560,8 @@ namespace Microsoft.Build.Evaluation
         /// <returns>Returns the new or existing metadatum.</returns>
         public ProjectMetadata SetMetadataValue(string name, string unevaluatedValue, bool propagateMetadataToSiblingItems)
         {
-            return SetMetadataOperation(name, unevaluatedValue, propagateMetadataToSiblingItems: propagateMetadataToSiblingItems);
+            return Link != null ? Link.SetMetadataValue(name, unevaluatedValue, propagateMetadataToSiblingItems) :
+                                  SetMetadataOperation(name, unevaluatedValue, propagateMetadataToSiblingItems: propagateMetadataToSiblingItems);
         }
 
         private ProjectMetadata SetMetadataOperation(string name, string unevaluatedValue, bool propagateMetadataToSiblingItems)
@@ -539,7 +571,7 @@ namespace Microsoft.Build.Evaluation
             XmlUtilities.VerifyThrowArgumentValidElementName(name);
             ErrorUtilities.VerifyThrowArgument(!FileUtilities.ItemSpecModifiers.IsItemSpecModifier(name), "ItemSpecModifierCannotBeCustomMetadata", name);
             ErrorUtilities.VerifyThrowInvalidOperation(!XMakeElements.ReservedItemNames.Contains(name), "CannotModifyReservedItemMetadata", name);
-            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent != null && _xml.Parent.Parent != null, "OM_ObjectIsNoLongerActive");
+            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent?.Parent != null, "OM_ObjectIsNoLongerActive");
 
             if (!propagateMetadataToSiblingItems)
             {
@@ -548,7 +580,7 @@ namespace Microsoft.Build.Evaluation
 
             ProjectMetadata metadatum;
 
-            if (_directMetadata != null && _directMetadata.Contains(name))
+            if (_directMetadata?.Contains(name) == true)
             {
                 metadatum = _directMetadata[name];
                 metadatum.UnevaluatedValue = unevaluatedValue;
@@ -564,7 +596,7 @@ namespace Microsoft.Build.Evaluation
 
             if (!propagateMetadataToSiblingItems)
             {
-                _directMetadata = _directMetadata ?? new PropertyDictionary<ProjectMetadata>();
+                _directMetadata ??= new PropertyDictionary<ProjectMetadata>();
                 _directMetadata.Set(metadatum);
             }
             else
@@ -573,7 +605,7 @@ namespace Microsoft.Build.Evaluation
 
                 foreach (var siblingItem in siblingItems)
                 {
-                    siblingItem._directMetadata = siblingItem._directMetadata ?? new PropertyDictionary<ProjectMetadata>();
+                    siblingItem._directMetadata ??= new PropertyDictionary<ProjectMetadata>();
                     siblingItem._directMetadata.Set(metadatum.DeepClone());
                 }
             }
@@ -589,12 +621,17 @@ namespace Microsoft.Build.Evaluation
         /// </summary>
         public bool RemoveMetadata(string name)
         {
-            ErrorUtilities.VerifyThrowArgumentLength(name, "name");
+            if (Link != null)
+            {
+                return Link.RemoveMetadata(name);
+            }
+
+            ErrorUtilities.VerifyThrowArgumentLength(name, nameof(name));
             ErrorUtilities.VerifyThrowArgument(!FileUtilities.ItemSpecModifiers.IsItemSpecModifier(name), "ItemSpecModifierCannotBeCustomMetadata", name);
             Project.VerifyThrowInvalidOperationNotImported(_xml.ContainingProject);
-            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent != null && _xml.Parent.Parent != null, "OM_ObjectIsNoLongerActive");
+            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent?.Parent != null, "OM_ObjectIsNoLongerActive");
 
-            ProjectMetadata metadatum = (_directMetadata == null) ? null : _directMetadata[name];
+            ProjectMetadata metadatum = _directMetadata?[name];
 
             if (metadatum == null)
             {
@@ -635,8 +672,14 @@ namespace Microsoft.Build.Evaluation
         /// </remarks>
         public void Rename(string name)
         {
+            if (Link != null)
+            {
+                Link.Rename(name);
+                return;
+            }
+
             Project.VerifyThrowInvalidOperationNotImported(_xml.ContainingProject);
-            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent != null && _xml.Parent.Parent != null, "OM_ObjectIsNoLongerActive");
+            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent?.Parent != null, "OM_ObjectIsNoLongerActive");
 
             if (String.Equals(UnevaluatedInclude, name, StringComparison.Ordinal))
             {
@@ -732,7 +775,7 @@ namespace Microsoft.Build.Evaluation
         {
             ErrorUtilities.VerifyThrowArgumentLength(newItemType, "ItemType");
             Project.VerifyThrowInvalidOperationNotImported(_xml.ContainingProject);
-            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent != null && _xml.Parent.Parent != null, "OM_ObjectIsNoLongerActive");
+            ErrorUtilities.VerifyThrowInvalidOperation(_xml.Parent?.Parent != null, "OM_ObjectIsNoLongerActive");
 
             if (String.Equals(ItemType, newItemType, StringComparison.Ordinal))
             {
@@ -1015,14 +1058,14 @@ namespace Microsoft.Build.Evaluation
 
                 if (source._inheritedItemDefinitions != null)
                 {
-                    inheritedItemDefinitionsClone = inheritedItemDefinitionsClone ?? new List<ProjectItemDefinition>(inheritedItemDefinitionsCount + 1);
+                    inheritedItemDefinitionsClone ??= new List<ProjectItemDefinition>(inheritedItemDefinitionsCount + 1);
                     inheritedItemDefinitionsClone.AddRange(source._inheritedItemDefinitions);
                 }
 
                 ProjectItemDefinition sourceItemDefinition;
                 if (_project.ItemDefinitions.TryGetValue(source.ItemType, out sourceItemDefinition))
                 {
-                    inheritedItemDefinitionsClone = inheritedItemDefinitionsClone ?? new List<ProjectItemDefinition>(inheritedItemDefinitionsCount + 1);
+                    inheritedItemDefinitionsClone ??= new List<ProjectItemDefinition>(inheritedItemDefinitionsCount + 1);
                     inheritedItemDefinitionsClone.Add(sourceItemDefinition);
                 }
 

@@ -5,7 +5,6 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Threading;
 
 #if BUILDINGAPPXTASKS
@@ -79,6 +78,19 @@ namespace Microsoft.Build.Shared
         internal static void ThrowInternalErrorUnreachable()
         {
             if (s_throwExceptions)
+            {
+                throw new InternalErrorException("Unreachable?");
+            }
+        }
+
+        /// <summary>
+        /// Throws InternalErrorException. 
+        /// Indicates the code path followed should not have been possible.
+        /// This is only for situations that would mean that there is a bug in MSBuild itself.
+        /// </summary>
+        internal static void VerifyThrowInternalErrorUnreachable(bool condition)
+        {
+            if (s_throwExceptions && !condition)
             {
                 throw new InternalErrorException("Unreachable?");
             }
@@ -754,7 +766,7 @@ namespace Microsoft.Build.Shared
         /// </summary>
         internal static void VerifyThrowArgumentLengthIfNotNull(string parameter, string parameterName)
         {
-            if (parameter != null && parameter.Length == 0 && s_throwExceptions)
+            if (parameter?.Length == 0 && s_throwExceptions)
             {
                 throw new ArgumentException(ResourceUtilities.FormatResourceStringStripCodeAndKeyword("Shared.ParameterCannotHaveZeroLength", parameterName));
             }

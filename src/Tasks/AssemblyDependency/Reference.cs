@@ -240,7 +240,6 @@ namespace Microsoft.Build.Tasks
             _dependencies.Remove(dependencyToRemove);
         }
 
-
         /// <summary>
         /// Get the dependee references for this reference.
         ///  This is collection of References.
@@ -420,7 +419,7 @@ namespace Microsoft.Build.Tasks
         /// <param name="filenameExtension">This is the filename extension.</param>
         internal void AddRelatedFileExtension(string filenameExtension)
         {
-#if _DEBUG
+#if DEBUG
             Debug.Assert(filenameExtension[0]=='.', "Expected extension to start with '.'");
 #endif
             _relatedFileExtensions.Add(filenameExtension);
@@ -441,7 +440,7 @@ namespace Microsoft.Build.Tasks
         /// <param name="filename">This is the filename relative the this reference.</param>
         internal void AddSatelliteFile(string filename)
         {
-#if _DEBUG
+#if DEBUG
             Debug.Assert(!Path.IsPathRooted(filename), "Satellite path should be relative to the current reference.");
 #endif
             _satelliteFiles.Add(filename);
@@ -453,7 +452,7 @@ namespace Microsoft.Build.Tasks
         /// <param name="filename">This is the filename relative the this reference.</param>
         internal void AddSerializationAssemblyFile(string filename)
         {
-#if _DEBUG
+#if DEBUG
             Debug.Assert(!Path.IsPathRooted(filename), "Serialization assembly path should be relative to the current reference.");
 #endif
             _serializationAssemblyFiles.Add(filename);
@@ -494,7 +493,7 @@ namespace Microsoft.Build.Tasks
                     _fileNameWithoutExtension = null;
                     _directoryName = null;
 
-                    if (_fullPath == null || _fullPath.Length == 0)
+                    if (string.IsNullOrEmpty(_fullPath))
                     {
                         _scatterFiles = Array.Empty<string>();
                         _satelliteFiles = new List<string>();
@@ -522,7 +521,7 @@ namespace Microsoft.Build.Tasks
         {
             get
             {
-                if ((_directoryName == null || _directoryName.Length == 0) && (_fullPath != null && _fullPath.Length != 0))
+                if ((string.IsNullOrEmpty(_directoryName)) && (!string.IsNullOrEmpty(_fullPath)))
                 {
                     _directoryName = Path.GetDirectoryName(_fullPath);
                     if (_directoryName.Length == 0)
@@ -542,7 +541,7 @@ namespace Microsoft.Build.Tasks
         {
             get
             {
-                if ((_fileNameWithoutExtension == null || _fileNameWithoutExtension.Length == 0) && (_fullPath != null && _fullPath.Length != 0))
+                if ((string.IsNullOrEmpty(_fileNameWithoutExtension)) && (!string.IsNullOrEmpty(_fullPath)))
                 {
                     _fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_fullPath);
                 }
@@ -557,14 +556,13 @@ namespace Microsoft.Build.Tasks
         {
             get
             {
-                if ((_fullPathWithoutExtension == null || _fullPathWithoutExtension.Length == 0) && (_fullPath != null && _fullPath.Length != 0))
+                if ((string.IsNullOrEmpty(_fullPathWithoutExtension)) && (!string.IsNullOrEmpty(_fullPath)))
                 {
                     _fullPathWithoutExtension = Path.Combine(DirectoryName, FileNameWithoutExtension);
                 }
                 return _fullPathWithoutExtension;
             }
         }
-
 
         /// <summary>
         /// This is the HintPath from the source item. This is used to resolve the assembly.
@@ -611,7 +609,7 @@ namespace Microsoft.Build.Tasks
                 ErrorUtilities.VerifyThrow(
                     !(IsPrimary && _primarySourceItem == null), "A primary reference must have a primary source item.");
                 ErrorUtilities.VerifyThrow(
-                    (IsPrimary || _primarySourceItem == null), "Only a primary reference can have a primary source item.");
+                    IsPrimary || _primarySourceItem == null, "Only a primary reference can have a primary source item.");
 
                 return _primarySourceItem;
             }
@@ -884,7 +882,7 @@ namespace Microsoft.Build.Tasks
             _primarySourceItem = sourceItem;
             SDKName = sourceItem.GetMetadata("SDKName");
 
-            if (executableExtension != null && executableExtension.Length > 0)
+            if (!string.IsNullOrEmpty(executableExtension))
             {
                 // Set the expected extension.
                 SetExecutableExtension(executableExtension);

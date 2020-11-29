@@ -1,13 +1,11 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Shared;
-using Microsoft.Build.Evaluation;
 
 using Microsoft.Build.Construction;
 
@@ -39,6 +37,16 @@ namespace Microsoft.Build.Execution
         /// Unevaluated remove
         /// </summary>
         private string _remove;
+
+        /// <summary>
+        /// The list of metadata Remove should match on.
+        /// </summary>
+        private string _matchOnMetadata;
+
+        /// <summary>
+        /// The options for MatchOnMetadata.
+        /// </summary>
+        private string _matchOnMetadataOptions;
 
         /// <summary>
         /// The list of metadata to keep.
@@ -79,6 +87,16 @@ namespace Microsoft.Build.Execution
         /// Location of the remove, if any
         /// </summary>
         private ElementLocation _removeLocation;
+
+        /// <summary>
+        /// Location of matchOnMetadata, if any
+        /// </summary>
+        private ElementLocation _matchOnMetadataLocation;
+
+        /// <summary>
+        /// Location of metadataMatchingSchema, if any
+        /// </summary>
+        private ElementLocation _matchOnMetadataOptionsLocation;
 
         /// <summary>
         /// Location of keepMetadata, if any
@@ -123,6 +141,8 @@ namespace Microsoft.Build.Execution
             string include,
             string exclude,
             string remove,
+            string matchOnMetadata,
+            string matchOnMetadataOptions,
             string keepMetadata,
             string removeMetadata,
             string keepDuplicates,
@@ -131,6 +151,8 @@ namespace Microsoft.Build.Execution
             ElementLocation includeLocation,
             ElementLocation excludeLocation,
             ElementLocation removeLocation,
+            ElementLocation matchOnMetadataLocation,
+            ElementLocation matchOnMetadataOptionsLocation,
             ElementLocation keepMetadataLocation,
             ElementLocation removeMetadataLocation,
             ElementLocation keepDuplicatesLocation,
@@ -138,20 +160,22 @@ namespace Microsoft.Build.Execution
             List<ProjectItemGroupTaskMetadataInstance> metadata
             )
         {
-            ErrorUtilities.VerifyThrowInternalNull(itemType, "itemType");
-            ErrorUtilities.VerifyThrowInternalNull(include, "include");
-            ErrorUtilities.VerifyThrowInternalNull(exclude, "exclude");
-            ErrorUtilities.VerifyThrowInternalNull(remove, "remove");
-            ErrorUtilities.VerifyThrowInternalNull(keepMetadata, "keepMetadata");
-            ErrorUtilities.VerifyThrowInternalNull(removeMetadata, "removeMetadata");
-            ErrorUtilities.VerifyThrowInternalNull(keepDuplicates, "keepDuplicates");
-            ErrorUtilities.VerifyThrowInternalNull(condition, "condition");
-            ErrorUtilities.VerifyThrowInternalNull(location, "location");
+            ErrorUtilities.VerifyThrowInternalNull(itemType, nameof(itemType));
+            ErrorUtilities.VerifyThrowInternalNull(include, nameof(include));
+            ErrorUtilities.VerifyThrowInternalNull(exclude, nameof(exclude));
+            ErrorUtilities.VerifyThrowInternalNull(remove, nameof(remove));
+            ErrorUtilities.VerifyThrowInternalNull(keepMetadata, nameof(keepMetadata));
+            ErrorUtilities.VerifyThrowInternalNull(removeMetadata, nameof(removeMetadata));
+            ErrorUtilities.VerifyThrowInternalNull(keepDuplicates, nameof(keepDuplicates));
+            ErrorUtilities.VerifyThrowInternalNull(condition, nameof(condition));
+            ErrorUtilities.VerifyThrowInternalNull(location, nameof(location));
 
             _itemType = itemType;
             _include = include;
             _exclude = exclude;
             _remove = remove;
+            _matchOnMetadata = matchOnMetadata;
+            _matchOnMetadataOptions = matchOnMetadataOptions;
             _keepMetadata = keepMetadata;
             _removeMetadata = removeMetadata;
             _keepDuplicates = keepDuplicates;
@@ -160,6 +184,8 @@ namespace Microsoft.Build.Execution
             _includeLocation = includeLocation;
             _excludeLocation = excludeLocation;
             _removeLocation = removeLocation;
+            _matchOnMetadataLocation = matchOnMetadataLocation;
+            _matchOnMetadataOptionsLocation = matchOnMetadataOptionsLocation;
             _keepMetadataLocation = keepMetadataLocation;
             _removeMetadataLocation = removeMetadataLocation;
             _keepDuplicatesLocation = keepDuplicatesLocation;
@@ -169,7 +195,7 @@ namespace Microsoft.Build.Execution
 
         private ProjectItemGroupTaskItemInstance()
         {
-            
+
         }
 
         /// <summary>
@@ -182,6 +208,8 @@ namespace Microsoft.Build.Execution
             _include = that._include;
             _exclude = that._exclude;
             _remove = that._remove;
+            _matchOnMetadata = that._matchOnMetadata;
+            _matchOnMetadataOptions = that._matchOnMetadataOptions;
             _keepMetadata = that._keepMetadata;
             _removeMetadata = that._removeMetadata;
             _keepDuplicates = that._keepDuplicates;
@@ -227,6 +255,26 @@ namespace Microsoft.Build.Execution
             [DebuggerStepThrough]
             get
             { return _remove; }
+        }
+
+        /// <summary>
+        /// Unevaluated MatchOnMetadata value
+        /// </summary>
+        public string MatchOnMetadata
+        {
+            [DebuggerStepThrough]
+            get
+            { return _matchOnMetadata; }
+        }
+
+        /// <summary>
+        /// Unevaluated MatchOnMetadataOptions value
+        /// </summary>
+        public string MatchOnMetadataOptions
+        {
+            [DebuggerStepThrough]
+            get
+            { return _matchOnMetadataOptions; }
         }
 
         /// <summary>
@@ -325,6 +373,26 @@ namespace Microsoft.Build.Execution
         }
 
         /// <summary>
+        /// Location of the matchOnMetadata attribute, if any
+        /// </summary>
+        public ElementLocation MatchOnMetadataLocation
+        {
+            [DebuggerStepThrough]
+            get
+            { return _matchOnMetadataLocation; }
+        }
+
+        /// <summary>
+        /// Location of the matchOnMetadataOptions attribute, if any
+        /// </summary>
+        public ElementLocation MatchOnMetadataOptionsLocation
+        {
+            [DebuggerStepThrough]
+            get
+            { return _matchOnMetadataOptionsLocation; }
+        }
+
+        /// <summary>
         /// Location of the keepMetadata attribute, if any
         /// </summary>
         public ElementLocation KeepMetadataLocation
@@ -378,6 +446,8 @@ namespace Microsoft.Build.Execution
             translator.Translate(ref _include);
             translator.Translate(ref _exclude);
             translator.Translate(ref _remove);
+            translator.Translate(ref _matchOnMetadata);
+            translator.Translate(ref _matchOnMetadataOptions);
             translator.Translate(ref _keepMetadata);
             translator.Translate(ref _removeMetadata);
             translator.Translate(ref _keepDuplicates);

@@ -5,15 +5,9 @@
 
 using System;
 using System.IO;
-using System.Collections.Generic;
-using System.Text;
-
-using Microsoft.Build.Engine.UnitTests;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Logging;
 using Microsoft.Build.Shared;
-
-
 
 using EventSourceSink = Microsoft.Build.BackEnd.Logging.EventSourceSink;
 using Project = Microsoft.Build.Evaluation.Project;
@@ -66,13 +60,12 @@ namespace Microsoft.Build.UnitTests
                 SetUpFileLoggerAndLogMessage("logfile=" + log, new BuildMessageEventArgs("message here", null, null, MessageImportance.High));
                 VerifyFileContent(log, "message here");
 
-                
                 byte[] content = ReadRawBytes(log);
                 Assert.Equal((byte)109, content[0]); // 'm'
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -95,7 +88,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 finally
                 {
-                    if (null != log) File.Delete(log);
+                    if (log != null) File.Delete(log);
                 }
             }
            );
@@ -124,7 +117,7 @@ namespace Microsoft.Build.UnitTests
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -197,7 +190,7 @@ namespace Microsoft.Build.UnitTests
                 }
                 finally
                 {
-                    if (null != log) File.Delete(log);
+                    if (log != null) File.Delete(log);
                 }
             }
            );
@@ -223,7 +216,7 @@ namespace Microsoft.Build.UnitTests
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -248,7 +241,7 @@ namespace Microsoft.Build.UnitTests
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -290,7 +283,7 @@ namespace Microsoft.Build.UnitTests
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -311,7 +304,7 @@ namespace Microsoft.Build.UnitTests
             }
             finally
             {
-                if (null != log) File.Delete(log);
+                if (log != null) File.Delete(log);
             }
         }
 
@@ -365,6 +358,49 @@ namespace Microsoft.Build.UnitTests
                 var result = new FileInfo(logFile);
                 Assert.True(result.Exists);
                 Assert.Equal(0, new FileInfo(logFile).Length);
+            }
+        }
+
+        /// <summary>
+        /// File logger is writting the verbosity level as soon the build starts.
+        /// </summary>
+        [Theory]
+        [InlineData(LoggerVerbosity.Quiet, false)]
+        [InlineData(LoggerVerbosity.Minimal, false)]
+        [InlineData(LoggerVerbosity.Normal, true)]
+        [InlineData(LoggerVerbosity.Detailed, true)]
+        [InlineData(LoggerVerbosity.Diagnostic, true)]
+        public void LogVerbosityMessage(LoggerVerbosity loggerVerbosity, bool shouldContain)
+        {
+            using (var testEnvironment = TestEnvironment.Create())
+            {
+                var fileLogger = new FileLogger
+                {
+                    Verbosity = loggerVerbosity
+                };
+
+                var logFile = testEnvironment.CreateFile(".log");
+                fileLogger.Parameters = "logfile=" + logFile.Path;
+
+                Project project = ObjectModelHelpers.CreateInMemoryProject(@"
+                <Project ToolsVersion=`msbuilddefaulttoolsversion` xmlns=`msbuildnamespace`>
+                    <Target Name=`Build` />
+                </Project>
+                ");
+
+                project.Build(fileLogger);
+                project.ProjectCollection.UnregisterAllLoggers();
+
+                string log = File.ReadAllText(logFile.Path);
+                var message = ResourceUtilities.FormatResourceStringStripCodeAndKeyword("LogLoggerVerbosity", loggerVerbosity);
+                if (shouldContain)
+                {
+                    Assert.Contains(message, log);
+                }
+                else
+                {
+                    Assert.DoesNotContain(message, log);
+                }
             }
         }
 

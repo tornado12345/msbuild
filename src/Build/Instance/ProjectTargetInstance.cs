@@ -19,7 +19,7 @@ namespace Microsoft.Build.Execution
     /// <remarks>
     /// This is an immutable class.
     /// </remarks>
-    [DebuggerDisplay("Name={_name} Count={_children.Count} Condition={_condition} Inputs={_inputs} Outputs={_outputs} DependsOnTargets={_dependsOnTargets}")]
+    [DebuggerDisplay("Name={_name} Count={_children.Count} Condition={_condition} Inputs={_inputs} Outputs={_outputs} DependsOnTargets={_dependsOnTargets} BeforeTargets={_beforeTargets} AfterTargets={_afterTargets}")]
     public sealed class ProjectTargetInstance : IImmutable, IKeyed, ITranslatable
     {
         /// <summary>
@@ -28,7 +28,7 @@ namespace Microsoft.Build.Execution
         private string _name;
 
         /// <summary>
-        /// Condition on the target. 
+        /// Condition on the target.
         /// Evaluated during the build.
         /// </summary>
         private string _condition;
@@ -44,7 +44,7 @@ namespace Microsoft.Build.Execution
         private string _outputs;
 
         /// <summary>
-        /// Return values on the target. 
+        /// Return values on the target.
         /// </summary>
         private string _returns;
 
@@ -52,6 +52,16 @@ namespace Microsoft.Build.Execution
         /// Semicolon separated list of targets it depends on
         /// </summary>
         private string _dependsOnTargets;
+
+        /// <summary>
+        /// Semicolon separated list of targets it runs before
+        /// </summary>
+        private string _beforeTargets;
+
+        /// <summary>
+        /// Semicolon separated list of targets it runs after
+        /// </summary>
+        private string _afterTargets;
 
         /// <summary>
         /// Condition for whether to trim duplicate outputs
@@ -66,8 +76,8 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Whether the project file that this target lives in has at least one target
         /// with a Returns attribute on it.  If so, the default behaviour for all targets
-        /// in the file without Returns attributes changes from returning the Outputs, to 
-        /// returning nothing. 
+        /// in the file without Returns attributes changes from returning the Outputs, to
+        /// returning nothing.
         /// </summary>
         private bool _parentProjectSupportsReturnsAttribute;
 
@@ -136,6 +146,8 @@ namespace Microsoft.Build.Execution
             string returns,
             string keepDuplicateOutputs,
             string dependsOnTargets,
+            string beforeTargets,
+            string afterTargets,
             ElementLocation location,
             ElementLocation conditionLocation,
             ElementLocation inputsLocation,
@@ -150,15 +162,17 @@ namespace Microsoft.Build.Execution
             bool parentProjectSupportsReturnsAttribute
             )
         {
-            ErrorUtilities.VerifyThrowInternalLength(name, "name");
-            ErrorUtilities.VerifyThrowInternalNull(condition, "condition");
-            ErrorUtilities.VerifyThrowInternalNull(inputs, "inputs");
-            ErrorUtilities.VerifyThrowInternalNull(outputs, "outputs");
-            ErrorUtilities.VerifyThrowInternalNull(keepDuplicateOutputs, "keepDuplicateOutputs");
-            ErrorUtilities.VerifyThrowInternalNull(dependsOnTargets, "dependsOnTargets");
-            ErrorUtilities.VerifyThrowInternalNull(location, "location");
-            ErrorUtilities.VerifyThrowInternalNull(children, "children");
-            ErrorUtilities.VerifyThrowInternalNull(onErrorChildren, "onErrorChildren");
+            ErrorUtilities.VerifyThrowInternalLength(name, nameof(name));
+            ErrorUtilities.VerifyThrowInternalNull(condition, nameof(condition));
+            ErrorUtilities.VerifyThrowInternalNull(inputs, nameof(inputs));
+            ErrorUtilities.VerifyThrowInternalNull(outputs, nameof(outputs));
+            ErrorUtilities.VerifyThrowInternalNull(keepDuplicateOutputs, nameof(keepDuplicateOutputs));
+            ErrorUtilities.VerifyThrowInternalNull(dependsOnTargets, nameof(dependsOnTargets));
+            ErrorUtilities.VerifyThrowInternalNull(beforeTargets, nameof(beforeTargets));
+            ErrorUtilities.VerifyThrowInternalNull(afterTargets, nameof(afterTargets));
+            ErrorUtilities.VerifyThrowInternalNull(location, nameof(location));
+            ErrorUtilities.VerifyThrowInternalNull(children, nameof(children));
+            ErrorUtilities.VerifyThrowInternalNull(onErrorChildren, nameof(onErrorChildren));
 
             _name = name;
             _condition = condition;
@@ -167,6 +181,8 @@ namespace Microsoft.Build.Execution
             _returns = returns;
             _keepDuplicateOutputs = keepDuplicateOutputs;
             _dependsOnTargets = dependsOnTargets;
+            _beforeTargets = beforeTargets;
+            _afterTargets = afterTargets;
             _location = location;
             _conditionLocation = conditionLocation;
             _inputsLocation = inputsLocation;
@@ -262,6 +278,28 @@ namespace Microsoft.Build.Execution
         }
 
         /// <summary>
+        /// Unevaluated semicolon separated list of targets it runs before.
+        /// May be empty string.
+        /// </summary>
+        public string BeforeTargets
+        {
+            [DebuggerStepThrough]
+            get
+            { return _beforeTargets; }
+        }
+
+        /// <summary>
+        /// Unevaluated semicolon separated list of targets it runs after.
+        /// May be empty string.
+        /// </summary>
+        public string AfterTargets
+        {
+            [DebuggerStepThrough]
+            get
+            { return _afterTargets; }
+        }
+
+        /// <summary>
         /// Children below the target. The build iterates through this to get each task to execute.
         /// This is an ordered collection.
         /// This is a read-only list; the ProjectTargetInstance class is immutable.
@@ -300,7 +338,7 @@ namespace Microsoft.Build.Execution
 
         /// <summary>
         /// Full path to the file from which this target originated.
-        /// If it originated in a project that was not loaded and has never been 
+        /// If it originated in a project that was not loaded and has never been
         /// given a path, returns an empty string.
         /// </summary>
         public string FullPath
@@ -412,8 +450,8 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Whether the project file that this target lives in has at least one target
         /// with a Returns attribute on it.  If so, the default behaviour for all targets
-        /// in the file without Returns attributes changes from returning the Outputs, to 
-        /// returning nothing. 
+        /// in the file without Returns attributes changes from returning the Outputs, to
+        /// returning nothing.
         /// </summary>
         internal bool ParentProjectSupportsReturnsAttribute
         {
@@ -505,7 +543,7 @@ namespace Microsoft.Build.Execution
         /// <returns>The new task instance.</returns>
         internal ProjectTaskInstance AddTask(string taskName, string condition, string continueOnError, string msbuildRuntime, string msbuildArchitecture)
         {
-            ErrorUtilities.VerifyThrowInternalLength(taskName, "taskName");
+            ErrorUtilities.VerifyThrowInternalLength(taskName, nameof(taskName));
             ProjectTaskInstance task = new ProjectTaskInstance(taskName, _location, condition ?? String.Empty, continueOnError ?? String.Empty, msbuildRuntime ?? String.Empty, msbuildArchitecture ?? String.Empty);
             this.AddProjectTargetInstanceChild(task);
             return task;
@@ -520,6 +558,8 @@ namespace Microsoft.Build.Execution
             translator.Translate(ref _returns);
             translator.Translate(ref _keepDuplicateOutputs);
             translator.Translate(ref _dependsOnTargets);
+            translator.Translate(ref _beforeTargets);
+            translator.Translate(ref _afterTargets);
             translator.Translate(ref _location, ElementLocation.FactoryForDeserialization);
             translator.Translate(ref _conditionLocation, ElementLocation.FactoryForDeserialization);
             translator.Translate(ref _inputsLocation, ElementLocation.FactoryForDeserialization);

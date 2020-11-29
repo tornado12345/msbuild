@@ -10,7 +10,6 @@ using System.Runtime.Remoting.Lifetime;
 using System.Runtime.Remoting;
 #endif
 using System.Threading;
-using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Execution;
@@ -22,6 +21,7 @@ using TaskLoggingContext = Microsoft.Build.BackEnd.Logging.TaskLoggingContext;
 using System.Threading.Tasks;
 using Microsoft.Build.BackEnd.Components.Caching;
 using System.Reflection;
+using Microsoft.Build.Eventing;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -33,10 +33,10 @@ namespace Microsoft.Build.BackEnd
 #if FEATURE_APPDOMAIN
         MarshalByRefObject,
 #endif
-        IBuildEngine5
+        IBuildEngine7
     {
         /// <summary>
-        /// True if the "secret" environment variable MSBUILDNOINPROCNODE is set. 
+        /// True if the "secret" environment variable MSBUILDNOINPROCNODE is set.
         /// </summary>
         private static bool s_onlyUseOutOfProcNodes = Environment.GetEnvironmentVariable("MSBUILDNOINPROCNODE") == "1";
 
@@ -113,9 +113,9 @@ namespace Microsoft.Build.BackEnd
         /// <param name="targetBuilderCallback">An <see cref="ITargetBuilderCallback"/> to use to invoke targets and build projects.</param>
         public TaskHost(IBuildComponentHost host, BuildRequestEntry requestEntry, ElementLocation taskLocation, ITargetBuilderCallback targetBuilderCallback)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(host, "host");
-            ErrorUtilities.VerifyThrowArgumentNull(requestEntry, "requestEntry");
-            ErrorUtilities.VerifyThrowInternalNull(taskLocation, "taskLocation");
+            ErrorUtilities.VerifyThrowArgumentNull(host, nameof(host));
+            ErrorUtilities.VerifyThrowArgumentNull(requestEntry, nameof(requestEntry));
+            ErrorUtilities.VerifyThrowInternalNull(taskLocation, nameof(taskLocation));
 
             _host = host;
             _requestEntry = requestEntry;
@@ -130,7 +130,7 @@ namespace Microsoft.Build.BackEnd
         /// Returns true in the multiproc case
         /// </summary>
         /// <comment>
-        /// If MSBUILDNOINPROCNODE is set, then even if there's only one node in the buildparameters, it will be an out-of-proc node.  
+        /// If MSBUILDNOINPROCNODE is set, then even if there's only one node in the buildparameters, it will be an out-of-proc node.
         /// </comment>
         public bool IsRunningMultipleNodes
         {
@@ -240,6 +240,8 @@ namespace Microsoft.Build.BackEnd
             }
         }
 
+        public bool BuildRequestsSucceeded { get; private set; } = true;
+
         #region IBuildEngine2 Members
 
         /// <summary>
@@ -285,7 +287,7 @@ namespace Microsoft.Build.BackEnd
 
             // If the caller supplies an array to put the target outputs in, it must have the same length as the array of project file names they provided, too.
             // "MSB3094: "{2}" refers to {0} item(s), and "{3}" refers to {1} item(s). They must have the same number of items."
-            ErrorUtilities.VerifyThrowArgument((targetOutputsPerProject == null) || (projectFileNames.Length == targetOutputsPerProject.Length), "General.TwoVectorsMustHaveSameLength", projectFileNames.Length, targetOutputsPerProject.Length, "projectFileNames", "targetOutputsPerProject");
+            ErrorUtilities.VerifyThrowArgument((targetOutputsPerProject == null) || (projectFileNames.Length == targetOutputsPerProject.Length), "General.TwoVectorsMustHaveSameLength", projectFileNames.Length, targetOutputsPerProject?.Length ?? 0, "projectFileNames", "targetOutputsPerProject");
 
             BuildEngineResult result = BuildProjectFilesInParallel(projectFileNames, targetNames, globalProperties, new List<String>[projectFileNames.Length], toolsVersion, includeTargetOutputs);
 
@@ -307,6 +309,8 @@ namespace Microsoft.Build.BackEnd
                 }
             }
 
+            BuildRequestsSucceeded = result.Result;
+
             return result.Result;
         }
 
@@ -315,7 +319,7 @@ namespace Microsoft.Build.BackEnd
         #region IBuildEngine3 Members
 
         /// <summary>
-        /// Builds multiple project files in parallel. 
+        /// Builds multiple project files in parallel.
         /// Thread safe.
         /// </summary>
         /// <param name="projectFileNames">The list of projects to build</param>
@@ -323,7 +327,7 @@ namespace Microsoft.Build.BackEnd
         /// <param name="globalProperties">The global properties to use for each project</param>
         /// <param name="undefineProperties">The list of global properties to undefine</param>
         /// <param name="toolsVersion">The tools versions to use</param>
-        /// <param name="returnTargetOutputs">Should the target outputs be returned in teh BuildEngineResult</param>
+        /// <param name="returnTargetOutputs">Should the target outputs be returned in the BuildEngineResult</param>
         /// <returns>A structure containing the result of the build, success or failure and the list of target outputs per project</returns>
         public BuildEngineResult BuildProjectFilesInParallel(string[] projectFileNames, string[] targetNames, System.Collections.IDictionary[] globalProperties, IList<String>[] undefineProperties, string[] toolsVersion, bool returnTargetOutputs)
         {
@@ -336,7 +340,7 @@ namespace Microsoft.Build.BackEnd
         /// <summary>
         /// Requests to yield the node.
         /// Thread safe, however Yield cannot be called unless the
-        /// last call to Yield or Reaquire was Reaquire.
+        /// last call to Yield or Reacquire was Reacquire.
         /// </summary>
         public void Yield()
         {
@@ -345,14 +349,15 @@ namespace Microsoft.Build.BackEnd
                 IRequestBuilderCallback builderCallback = _requestEntry.Builder as IRequestBuilderCallback;
                 ErrorUtilities.VerifyThrow(_yieldThreadId == -1, "Cannot call Yield() while yielding.");
                 _yieldThreadId = Thread.CurrentThread.ManagedThreadId;
+                MSBuildEventSource.Log.ExecuteTaskYieldStart(_taskLoggingContext.TaskName, _taskLoggingContext.BuildEventContext.TaskId);
                 builderCallback.Yield();
             }
         }
 
         /// <summary>
         /// Requests to reacquire the node.
-        /// Thread safe, however Reaquire cannot be called unless the
-        /// last call to Yield or Reaquire was Yield.
+        /// Thread safe, however Reacquire cannot be called unless the
+        /// last call to Yield or Reacquire was Yield.
         /// </summary>
         public void Reacquire()
         {
@@ -361,7 +366,10 @@ namespace Microsoft.Build.BackEnd
                 IRequestBuilderCallback builderCallback = _requestEntry.Builder as IRequestBuilderCallback;
                 ErrorUtilities.VerifyThrow(_yieldThreadId != -1, "Cannot call Reacquire() before Yield().");
                 ErrorUtilities.VerifyThrow(_yieldThreadId == Thread.CurrentThread.ManagedThreadId, "Cannot call Reacquire() on thread {0} when Yield() was called on thread {1}", Thread.CurrentThread.ManagedThreadId, _yieldThreadId);
+                MSBuildEventSource.Log.ExecuteTaskYieldStop(_taskLoggingContext.TaskName, _taskLoggingContext.BuildEventContext.TaskId);
+                MSBuildEventSource.Log.ExecuteTaskReacquireStart(_taskLoggingContext.TaskName, _taskLoggingContext.BuildEventContext.TaskId);
                 builderCallback.Reacquire();
+                MSBuildEventSource.Log.ExecuteTaskReacquireStop(_taskLoggingContext.TaskName, _taskLoggingContext.BuildEventContext.TaskId);
                 _yieldThreadId = -1;
             }
         }
@@ -379,7 +387,7 @@ namespace Microsoft.Build.BackEnd
         {
             lock (_callbackMonitor)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(e, "e");
+                ErrorUtilities.VerifyThrowArgumentNull(e, nameof(e));
 
                 if (!_activeProxy)
                 {
@@ -436,6 +444,7 @@ namespace Microsoft.Build.BackEnd
                 {
                     e.BuildEventContext = _taskLoggingContext.BuildEventContext;
                     _taskLoggingContext.LoggingService.LogBuildEvent(e);
+                    _taskLoggingContext.HasLoggedErrors = true;
                 }
             }
         }
@@ -449,7 +458,7 @@ namespace Microsoft.Build.BackEnd
         {
             lock (_callbackMonitor)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(e, "e");
+                ErrorUtilities.VerifyThrowArgumentNull(e, nameof(e));
 
                 if (!_activeProxy)
                 {
@@ -490,7 +499,7 @@ namespace Microsoft.Build.BackEnd
         {
             lock (_callbackMonitor)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(e, "e");
+                ErrorUtilities.VerifyThrowArgumentNull(e, nameof(e));
 
                 if (!_activeProxy)
                 {
@@ -531,7 +540,7 @@ namespace Microsoft.Build.BackEnd
         {
             lock (_callbackMonitor)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(e, "e");
+                ErrorUtilities.VerifyThrowArgumentNull(e, nameof(e));
 
                 if (!_activeProxy)
                 {
@@ -622,7 +631,7 @@ namespace Microsoft.Build.BackEnd
         {
             lock (_callbackMonitor)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(eventName, "eventName");
+                ErrorUtilities.VerifyThrowArgumentNull(eventName, nameof(eventName));
 
                 if (!_activeProxy)
                 {
@@ -647,14 +656,34 @@ namespace Microsoft.Build.BackEnd
 
         #endregion
 
+        #region IBuildEngine6 Members
+
+        /// <summary>
+        /// Gets the global properties for the current project.
+        /// </summary>
+        /// <returns>An <see cref="IReadOnlyDictionary{String, String}" /> containing the global properties of the current project.</returns>
+        public IReadOnlyDictionary<string, string> GetGlobalProperties()
+        {
+            return _requestEntry.RequestConfiguration.GlobalProperties.ToDictionary();
+        }
+
+        #endregion
+
+        #region IBuildEngine7 Members
+        /// <summary>
+        /// Enables or disables emitting a default error when a task fails without logging errors
+        /// </summary>
+        public bool AllowFailureWithoutError { get; set; } = false;
+        #endregion
+
         /// <summary>
         /// Called by the internal MSBuild task.
         /// Does not take the lock because it is called by another request builder thread.
         /// </summary>
         public async Task<BuildEngineResult> InternalBuildProjects(string[] projectFileNames, string[] targetNames, IDictionary[] globalProperties, IList<String>[] undefineProperties, string[] toolsVersion, bool returnTargetOutputs, bool skipNonexistentTargets = false)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(projectFileNames, "projectFileNames");
-            ErrorUtilities.VerifyThrowArgumentNull(globalProperties, "globalProperties");
+            ErrorUtilities.VerifyThrowArgumentNull(projectFileNames, nameof(projectFileNames));
+            ErrorUtilities.VerifyThrowArgumentNull(globalProperties, nameof(globalProperties));
             VerifyActiveProxy();
 
             BuildEngineResult result;
@@ -682,6 +711,7 @@ namespace Microsoft.Build.BackEnd
                 }
 
                 result = new BuildEngineResult(overallSuccess, targetOutputsPerProject);
+                BuildRequestsSucceeded = overallSuccess;
             }
             else
             {
@@ -695,7 +725,7 @@ namespace Microsoft.Build.BackEnd
 #if FEATURE_APPDOMAIN
         /// <inheritdoc />
         /// <summary>
-        /// InitializeLifetimeService is called when the remote object is activated. 
+        /// InitializeLifetimeService is called when the remote object is activated.
         /// This method will determine how long the lifetime for the object will be.
         /// </summary>
         /// <returns>The lease object to control this object's lifetime.</returns>
@@ -780,10 +810,7 @@ namespace Microsoft.Build.BackEnd
                 {
                     ILease lease = (ILease)RemotingServices.GetLifetimeService(this);
 
-                    if (lease != null)
-                    {
-                        lease.Unregister(_sponsor);
-                    }
+                    lease?.Unregister(_sponsor);
 
                     _sponsor.Close();
                     _sponsor = null;
@@ -815,13 +842,13 @@ namespace Microsoft.Build.BackEnd
         /// <param name="globalProperties">The global properties to use for each project</param>
         /// <param name="undefineProperties">The list of global properties to undefine</param>
         /// <param name="toolsVersion">The tools versions to use</param>
-        /// <param name="returnTargetOutputs">Should the target outputs be returned in teh BuildEngineResult</param>
+        /// <param name="returnTargetOutputs">Should the target outputs be returned in the BuildEngineResult</param>
         /// <param name="skipNonexistentTargets">If set, skip targets that are not defined in the projects to be built.</param>
         /// <returns>A Task returning a structure containing the result of the build, success or failure and the list of target outputs per project</returns>
         private async Task<BuildEngineResult> BuildProjectFilesInParallelAsync(string[] projectFileNames, string[] targetNames, IDictionary[] globalProperties, IList<String>[] undefineProperties, string[] toolsVersion, bool returnTargetOutputs, bool skipNonexistentTargets = false)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(projectFileNames, "projectFileNames");
-            ErrorUtilities.VerifyThrowArgumentNull(globalProperties, "globalProperties");
+            ErrorUtilities.VerifyThrowArgumentNull(projectFileNames, nameof(projectFileNames));
+            ErrorUtilities.VerifyThrowArgumentNull(globalProperties, nameof(globalProperties));
             VerifyActiveProxy();
 
             List<IDictionary<string, ITaskItem[]>> targetOutputsPerProject = null;
@@ -903,10 +930,7 @@ namespace Microsoft.Build.BackEnd
                     // Now walk through the results, and report that subset which was asked for.
                     for (int i = 0; i < results.Length; i++)
                     {
-                        if (targetOutputsPerProject != null)
-                        {
-                            targetOutputsPerProject.Add(new Dictionary<string, ITaskItem[]>(StringComparer.OrdinalIgnoreCase));
-                        }
+                        targetOutputsPerProject?.Add(new Dictionary<string, ITaskItem[]>(StringComparer.OrdinalIgnoreCase));
 
                         foreach (KeyValuePair<string, TargetResult> resultEntry in results[i].ResultsByTarget)
                         {
@@ -929,10 +953,22 @@ namespace Microsoft.Build.BackEnd
                         {
                             overallSuccess = false;
                         }
+
+                        if (!string.IsNullOrEmpty(results[i].SchedulerInducedError))
+                        {
+                            LoggingContext.LogErrorFromText(
+                                subcategoryResourceName: null,
+                                errorCode: null,
+                                helpKeyword: null,
+                                file: new BuildEventFileInfo(ProjectFileOfTaskNode, LineNumberOfTaskNode, ColumnNumberOfTaskNode),
+                                message: results[i].SchedulerInducedError);
+                        }
                     }
 
-                    ErrorUtilities.VerifyThrow(results.Length == projectFileNames.Length || overallSuccess == false, "The number of results returned {0} cannot be less than the number of project files {1} unless one of the results indicated failure.", results.Length, projectFileNames.Length);
+                    ErrorUtilities.VerifyThrow(results.Length == projectFileNames.Length || !overallSuccess, "The number of results returned {0} cannot be less than the number of project files {1} unless one of the results indicated failure.", results.Length, projectFileNames.Length);
                 }
+
+                BuildRequestsSucceeded = overallSuccess;
 
                 return new BuildEngineResult(overallSuccess, targetOutputsPerProject);
             }
@@ -944,7 +980,7 @@ namespace Microsoft.Build.BackEnd
         /// </summary>
         private void VerifyActiveProxy()
         {
-            ErrorUtilities.VerifyThrow(_activeProxy == true, "Attempted to use an inactive task host.");
+            ErrorUtilities.VerifyThrow(_activeProxy, "Attempted to use an inactive task host.");
         }
     }
 }

@@ -7,7 +7,6 @@ using System.Collections;
 using Microsoft.Build.Framework;
 
 using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
-using Xunit;
 
 namespace Microsoft.Build.UnitTests
 {
@@ -214,7 +213,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// Null ITaskItem[] output parameter. 
+        /// Null ITaskItem[] output parameter.
         /// </summary>
         [Output]
         public ITaskItem[] NullITaskItemArrayOutputParameter
@@ -227,7 +226,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// Empty string output parameter. 
+        /// Empty string output parameter.
         /// </summary>
         [Output]
         public string EmptyStringOutputParameter
@@ -239,7 +238,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// Empty string output parameter. 
+        /// Empty string output parameter.
         /// </summary>
         [Output]
         public string[] EmptyStringInStringArrayOutputParameter
@@ -252,7 +251,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// ITaskItem output parameter. 
+        /// ITaskItem output parameter.
         /// </summary>
         [Output]
         public ITaskItem ITaskItemOutputParameter
@@ -265,7 +264,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// string output parameter. 
+        /// string output parameter.
         /// </summary>
         [Output]
         public string StringOutputParameter
@@ -277,7 +276,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// string array output parameter. 
+        /// string array output parameter.
         /// </summary>
         [Output]
         public string[] StringArrayOutputParameter
@@ -289,7 +288,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// int output parameter. 
+        /// int output parameter.
         /// </summary>
         [Output]
         public int IntOutputParameter
@@ -301,7 +300,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// int array output parameter. 
+        /// int array output parameter.
         /// </summary>
         [Output]
         public int[] IntArrayOutputParameter
@@ -313,7 +312,7 @@ namespace Microsoft.Build.UnitTests
         }
 
         /// <summary>
-        /// object array output parameter. 
+        /// object array output parameter.
         /// </summary>
         [Output]
         public object[] ObjectArrayOutputParameter

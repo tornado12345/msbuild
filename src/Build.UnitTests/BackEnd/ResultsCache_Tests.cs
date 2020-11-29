@@ -4,8 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading;
 using Microsoft.Build.Framework;
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.Execution;
@@ -168,8 +166,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
         /// <summary>
         /// If a result had multiple targets associated with it and we only requested some of their 
-        /// results, the returned result should only contain the targets we asked for, BUT the overall 
-        /// status of the result should remain the same.  
+        /// results, the returned result should only contain the targets we asked for, and the overall
+        /// status of the result should reflect the targets we asked for as well.
         /// </summary>
         [Fact]
         public void TestRetrieveSubsetTargetsFromResult()
@@ -182,13 +180,13 @@ namespace Microsoft.Build.UnitTests.BackEnd
             result.AddResultsForTarget("testTarget2", BuildResultUtilities.GetEmptySucceedingTargetResult());
             cache.AddResult(result);
 
-            ResultsCacheResponse response = cache.SatisfyRequest(request, new List<string>(), new List<string>(new string[] { "testTarget2" }), new List<string>(new string[] { "testTarget" }), skippedResultsAreOK: false);
+            ResultsCacheResponse response = cache.SatisfyRequest(request, new List<string>(), new List<string>(new string[] { "testTarget2" }), skippedResultsDoNotCauseCacheMiss: false);
 
             Assert.Equal(ResultsCacheResponseType.Satisfied, response.Type);
 
             Assert.True(AreResultsIdenticalForTarget(result, response.Results, "testTarget2"));
             Assert.False(response.Results.HasResultsForTarget("testTarget"));
-            Assert.Equal(BuildResultCode.Failure, response.Results.OverallResult);
+            Assert.Equal(BuildResultCode.Success, response.Results.OverallResult);
         }
 
         [Fact]

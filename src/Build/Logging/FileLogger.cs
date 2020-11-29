@@ -48,7 +48,7 @@ namespace Microsoft.Build.Logging
         /// <param name="eventSource">Available events.</param>
         public override void Initialize(IEventSource eventSource)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(eventSource, "eventSource");
+            ErrorUtilities.VerifyThrowArgumentNull(eventSource, nameof(eventSource));
             eventSource.BuildFinished += FileLoggerBuildFinished;
             InitializeFileLogger(eventSource, 1);
         }
@@ -80,6 +80,11 @@ namespace Microsoft.Build.Logging
             // Finally, ask the base console logger class to initialize. It may
             // want to make decisions based on our verbosity, so we do this last.
             base.Initialize(eventSource, nodeCount);
+
+            if (!SkipProjectStartedText && Verbosity >= LoggerVerbosity.Normal)
+            {
+                eventSource.BuildStarted += (obj, args) => WriteHandler(ResourceUtilities.FormatResourceStringStripCodeAndKeyword("LogLoggerVerbosity", Verbosity));
+            }
 
             try
             {

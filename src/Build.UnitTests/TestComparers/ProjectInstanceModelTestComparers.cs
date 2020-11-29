@@ -86,6 +86,8 @@ namespace Microsoft.Build.Engine.UnitTests.TestComparers
                 Assert.Equal(x.Returns, y.Returns);
                 Assert.Equal(x.KeepDuplicateOutputs, y.KeepDuplicateOutputs);
                 Assert.Equal(x.DependsOnTargets, y.DependsOnTargets);
+                Assert.Equal(x.BeforeTargets, y.BeforeTargets);
+                Assert.Equal(x.AfterTargets, y.AfterTargets);
                 Assert.Equal(x.ParentProjectSupportsReturnsAttribute, y.ParentProjectSupportsReturnsAttribute);
                 Assert.Equal(x.Location, y.Location, new Helpers.ElementLocationComparerIgnoringType());
                 Assert.Equal(x.ConditionLocation, y.ConditionLocation, new Helpers.ElementLocationComparerIgnoringType());
@@ -328,7 +330,7 @@ namespace Microsoft.Build.Engine.UnitTests.TestComparers
             throw new NotImplementedException();
         }
 
-        private void AssertParametersEqual(IDictionary<string, Tuple<string, ElementLocation>> x, IDictionary<string, Tuple<string, ElementLocation>> y)
+        private void AssertParametersEqual(IDictionary<string, (string, ElementLocation)> x, IDictionary<string, (string, ElementLocation)> y)
         {
             Assert.Equal(x.Count, y.Count);
 

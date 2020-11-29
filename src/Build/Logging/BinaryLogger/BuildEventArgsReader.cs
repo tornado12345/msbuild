@@ -112,6 +112,18 @@ namespace Microsoft.Build.Logging
                 case BinaryLogRecordKind.TargetSkipped:
                     result = ReadTargetSkippedEventArgs();
                     break;
+                case BinaryLogRecordKind.EnvironmentVariableRead:
+                    result = ReadEnvironmentVariableReadEventArgs();
+                    break;
+                case BinaryLogRecordKind.PropertyReassignment:
+                    result = ReadPropertyReassignmentEventArgs();
+                    break;
+                case BinaryLogRecordKind.UninitializedPropertyRead:
+                    result = ReadUninitializedPropertyReadEventArgs();
+                    break;
+                case BinaryLogRecordKind.PropertyInitialValueSet:
+                    result = ReadPropertyInitialValueSetEventArgs();
+                    break;
                 default:
                     break;
             }
@@ -508,6 +520,85 @@ namespace Microsoft.Build.Logging
             return e;
         }
 
+        private BuildEventArgs ReadEnvironmentVariableReadEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var importance = (MessageImportance)ReadInt32();
+
+            var environmentVariableName = ReadString();
+
+            var e = new EnvironmentVariableReadEventArgs(
+                environmentVariableName,
+                fields.Message,
+                fields.HelpKeyword,
+                fields.SenderName,
+                importance);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
+        private BuildEventArgs ReadPropertyReassignmentEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var importance = (MessageImportance)ReadInt32();
+            string propertyName = ReadString();
+            string previousValue = ReadString();
+            string newValue = ReadString();
+            string location = ReadString();
+
+            var e = new PropertyReassignmentEventArgs(
+                propertyName,
+                previousValue,
+                newValue,
+                location,
+                fields.Message,
+                fields.HelpKeyword,
+                fields.SenderName,
+                importance);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
+        private BuildEventArgs ReadUninitializedPropertyReadEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var importance = (MessageImportance)ReadInt32();
+            string propertyName = ReadString();
+
+            var e = new UninitializedPropertyReadEventArgs(
+                propertyName,
+                fields.Message,
+                fields.HelpKeyword,
+                fields.SenderName,
+                importance);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
+        private BuildEventArgs ReadPropertyInitialValueSetEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var importance = (MessageImportance)ReadInt32();
+            string propertyName = ReadString();
+            string propertyValue = ReadString();
+            string propertySource = ReadString();
+
+            var e = new PropertyInitialValueSetEventArgs(
+                propertyName,
+                propertyValue,
+                propertySource,
+                fields.Message,
+                fields.HelpKeyword,
+                fields.SenderName,
+                importance);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
         /// <summary>
         /// For errors and warnings these 8 fields are written out explicitly
         /// (their presence is not marked as a bit in the flags). So we have to
@@ -880,7 +971,6 @@ namespace Microsoft.Build.Logging
                 if (hasParent)
                 {
                     parentId = ReadInt64();
-
                 }
                 return new EvaluationLocation(id, parentId, evaluationPass, evaluationDescription, file, line, elementName, description, kind);
             }

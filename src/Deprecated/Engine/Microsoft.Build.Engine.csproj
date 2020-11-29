@@ -4,7 +4,7 @@
     <NoWarn>$(NoWarn);618</NoWarn>
     <GenerateReferenceAssemblySources>true</GenerateReferenceAssemblySources>
     <EnableDefaultItems>false</EnableDefaultItems>
-    <CreateTlb Condition=" '$(ContinuousIntegrationBuild)' == 'true' ">true</CreateTlb>
+    <CreateTlb>true</CreateTlb>
     <AdditionalTlbExpAsmPaths>$(XMakeRefPath)</AdditionalTlbExpAsmPaths>
     <PublishTlbPath>$(XMakeRefPath)</PublishTlbPath>
     <GenerateAssemblyRefs>true</GenerateAssemblyRefs>
@@ -13,6 +13,7 @@
     <IsPackable>true</IsPackable>
     <PackageDescription>This package contains the $(MSBuildProjectName) assembly which contains the legacy compatibility shim for the MSBuild engine.  NOTE: This assembly is deprecated.</PackageDescription>
     <IncludeSatelliteOutputInPack>false</IncludeSatelliteOutputInPack>
+    <NoWarn>$(NoWarn);1570;1572;1573;1587</NoWarn>
   </PropertyGroup>
   
   <ItemGroup>

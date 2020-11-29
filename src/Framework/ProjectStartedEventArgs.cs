@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System.Runtime.InteropServices;
 using System;
 using System.Collections;
 using System.IO;
@@ -193,7 +192,7 @@ namespace Microsoft.Build.Framework
         private int projectId;
 
         /// <summary>
-        /// Gets the idenifier of the project.
+        /// Gets the identifier of the project.
         /// </summary>
         public int ProjectId
         {

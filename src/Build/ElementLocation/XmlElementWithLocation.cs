@@ -1,10 +1,10 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using Microsoft.Build.Shared;
 using System;
 using System.Xml;
 using System.Diagnostics;
+using Microsoft.Build.ObjectModelRemoting;
 
 namespace Microsoft.Build.Construction
 {
@@ -17,7 +17,7 @@ namespace Microsoft.Build.Construction
     /// C# doesn't currently allow covariance in method overloading, only on delegates.
     /// The caller must bravely downcast.
     /// </remarks>
-    internal class XmlElementWithLocation : XmlElement, IXmlLineInfo
+    internal class XmlElementWithLocation : XmlElement, IXmlLineInfo, ILinkedXml
     {
         /// <summary>
         /// Line, column, file information
@@ -47,6 +47,11 @@ namespace Microsoft.Build.Construction
             int adjustedColumn = (columnNumber == 0) ? columnNumber : columnNumber - 1;
             _elementLocation = ElementLocation.Create(documentWithLocation.FullPath, lineNumber, adjustedColumn);
         }
+
+        ProjectElementLink ILinkedXml.Link => null;
+
+        XmlElementWithLocation ILinkedXml.Xml => this;
+
 
         /// <summary>
         /// Returns the line number if available, else 0.
@@ -145,7 +150,7 @@ namespace Microsoft.Build.Construction
         {
             XmlAttributeWithLocation attributeWithLocation = GetAttributeWithLocation(name);
 
-            return (attributeWithLocation != null) ? attributeWithLocation.Location : null;
+            return attributeWithLocation?.Location;
         }
     }
 }

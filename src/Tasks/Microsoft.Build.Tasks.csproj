@@ -11,11 +11,11 @@
     <AssemblyName>Microsoft.Build.Tasks.Core</AssemblyName>
     <RootNamespace>Microsoft.Build.Tasks</RootNamespace>
     <DefineConstants>$(DefineConstants);MICROSOFT_BUILD_TASKS</DefineConstants>
-    <CreateTlb Condition=" '$(ContinuousIntegrationBuild)' == 'true' ">true</CreateTlb>
+    <CreateTlb>true</CreateTlb>
     <IsPackable>true</IsPackable>
     <PackageDescription>This package contains the $(MSBuildProjectName) assembly which implements the commonly used tasks of MSBuild.</PackageDescription>
     <IncludeSatelliteOutputInPack>false</IncludeSatelliteOutputInPack>
-    <ApplyPartialNgenOptimization>true</ApplyPartialNgenOptimization>
+    <ApplyNgenOptimization Condition="'$(TargetFramework)' == '$(FullFrameworkTFM)'">partial</ApplyNgenOptimization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -60,10 +60,6 @@
       <Link>CanonicalError.cs</Link>
       <ExcludeFromStyleCop>True</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="..\Shared\Constants.cs">
-      <Link>Constants.cs</Link>
-      <ExcludeFromStyleCop>True</ExcludeFromStyleCop>
-    </Compile>
     <Compile Include="AssemblyDependency\AssemblyMetadata.cs" />
     <Compile Include="ConvertToAbsolutePath.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
@@ -84,6 +80,16 @@
     </Compile>
     <Compile Include="..\Shared\NGen.cs">
       <Link>NGen.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\IConstrainedEqualityComparer.cs"/>
+    <Compile Include="..\Shared\IInternable.cs">
+      <Link>IInternable.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\WeakStringCache.cs">
+      <Link>WeakStringCache.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\WeakStringCache.Concurrent.cs">
+      <Link>WeakStringCache.Concurrent.cs</Link>
     </Compile>
     <Compile Include="..\Shared\OpportunisticIntern.cs">
       <Link>OpportunisticIntern.cs</Link>
@@ -144,6 +150,7 @@
       <Link>Modifiers.cs</Link>
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="..\Shared\MSBuildNameIgnoreCaseComparer.cs" />
     <Compile Include="..\Shared\ReadOnlyCollection.cs" />
     <Compile Include="..\Shared\ReadOnlyEmptyDictionary.cs" />
     <Compile Include="..\Shared\Tracing.cs" />
@@ -289,7 +296,6 @@
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="AssemblyDependency\Resolver.cs">
-      <SubType>Code</SubType>
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="AssemblyDependency\ResolveAssemblyReference.cs">
@@ -325,6 +331,9 @@
     <Compile Include="AssignTargetPath.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="BootstrapperUtil\*.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="CallTarget.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
@@ -334,6 +343,7 @@
     <Compile Include="CommandLineBuilderExtension.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="ResourceHandling\*.cs" />
     <Compile Include="ResolveComReference.cs" />
     <Compile Include="BuildCacheDisposeWrapper.cs" />
     <Compile Include="DownloadFile.cs" />
@@ -396,10 +406,25 @@
     <Compile Include="FindInList.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="FormatUrl.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="FormatVersion.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="FxCopExclusions\Microsoft.Build.Tasks.Suppressions.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="GenerateApplicationManifest.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="GenerateDeploymentManifest.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="GenerateLauncher.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="GenerateManifestBase.cs" Condition="'$(MonoBuild)' != 'true'">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="GenerateResource.cs">
@@ -454,6 +479,9 @@
     <Compile Include="MakeDir.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="ManifestUtil\*.cs" Exclude="ManifestUtil\CngLightup.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Message.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
@@ -473,8 +501,15 @@
     <Compile Include="RemoveDir.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="ResGenDependencies.cs" />
     <Compile Include="ResolveCodeAnalysisRuleSet.cs" />
     <Compile Include="ResolveKeySource.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="ResolveManifestFiles.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="ResolveNonMSBuildProjectOutput.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="ResolveProjectBase.cs">
@@ -484,6 +519,11 @@
     <Compile Include="RoslynCodeTaskFactory\RoslynCodeTaskFactoryCodeType.cs" />
     <Compile Include="RoslynCodeTaskFactory\RoslynCodeTaskFactoryCompilers.cs" />
     <Compile Include="RoslynCodeTaskFactory\RoslynCodeTaskFactoryTaskInfo.cs" />
+    <Compile Include="SGen.cs" Condition="'$(MonoBuild)' != 'true'">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="System.Design.cs" />
+    <Compile Include="system.design\stronglytypedresourcebuilder.cs" />
     <Compile Include="TaskExtension.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
@@ -501,6 +541,7 @@
     <Compile Include="Warning.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
+    <Compile Include="XslTransformation.cs" />
     <Compile Include="AssignCulture.cs" />
     <Compile Include="Culture.cs" />
     <Compile Include="CultureInfoCache.cs" />
@@ -542,9 +583,6 @@
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="AxTlbBaseTask.cs" />
-    <Compile Include="BootstrapperUtil\*.cs">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
     <Compile Include="ComDependencyWalker.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
@@ -567,19 +605,7 @@
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="FindInvalidProjectReferences.cs" />
-    <Compile Include="FormatUrl.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
-    <Compile Include="GenerateApplicationManifest.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
     <Compile Include="GenerateBootstrapper.cs">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
-    <Compile Include="GenerateDeploymentManifest.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
-    <Compile Include="GenerateManifestBase.cs" Condition="'$(MonoBuild)' != 'true'">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="GenerateTrustInfo.cs" Condition="'$(MonoBuild)' != 'true'">
@@ -596,11 +622,11 @@
     <Compile Include="Interop.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="RCWForCurrentContext.cs" />
-    <Compile Include="LC.cs" Condition="'$(MonoBuild)' != 'true'">
+    <Compile Include="ManifestUtil\CngLightup.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="ManifestUtil\*.cs" Condition="'$(MonoBuild)' != 'true'">
+    <Compile Include="RCWForCurrentContext.cs" />
+    <Compile Include="LC.cs" Condition="'$(MonoBuild)' != 'true'">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="PiaReference.cs">
@@ -610,17 +636,10 @@
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="ResGen.cs" />
-    <Compile Include="ResGenDependencies.cs" />
     <Compile Include="ResolveComReferenceCache.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="ResolveManifestFiles.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
     <Compile Include="ResolveNativeReference.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
-    <Compile Include="ResolveNonMSBuildProjectOutput.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="ResolveSDKReference.cs" />
@@ -628,13 +647,7 @@
     <Compile Include="RequiresFramework35SP1Assembly.cs" Condition="'$(MonoBuild)' != 'true'">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="SGen.cs">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
     <Compile Include="SignFile.cs" Condition="'$(MonoBuild)' != 'true'">
-      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
-    </Compile>
-    <Compile Include="system.design\stronglytypedresourcebuilder.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="StrongNameException.cs">
@@ -643,7 +656,6 @@
     <Compile Include="StrongNameUtils.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
-    <Compile Include="System.Design.cs" />
     <Compile Include="TlbImp.cs" />
     <Compile Include="TlbReference.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
@@ -655,7 +667,6 @@
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
     <Compile Include="WinMDExp.cs" />
-    <Compile Include="XslTransformation.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
     <Compile Include="XamlTaskFactory\CommandLineGenerator.cs" />
@@ -711,6 +722,15 @@
     <Content Include="Microsoft.Common.targets">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Microsoft.Managed.targets">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Microsoft.Managed.Before.targets">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Microsoft.Managed.After.targets">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Microsoft.CSharp.CurrentVersion.targets">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -736,7 +756,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Microsoft.Common.overridetasks">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <SubType>Designer</SubType>
     </Content>
     <Content Include="Microsoft.Common.props">
@@ -749,6 +769,9 @@
       <Link>Current\Microsoft.Common.props</Link>
     </Content>
     <Content Include="Microsoft.Common.tasks">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Microsoft.NET.props">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Microsoft.NETFramework.CurrentVersion.props">
@@ -834,9 +857,15 @@
     <DataFile Include="Microsoft.NETFramework.props">
       <SubType>Designer</SubType>
     </DataFile>
+    <DataFile Include="Microsoft.NET.props">
+      <SubType>Designer</SubType>
+    </DataFile>
     <DataFile Include="Microsoft.NETFramework.CurrentVersion.props">
       <SubType>Designer</SubType>
     </DataFile>
+    <DataFile Include="Microsoft.Managed.targets" />
+    <DataFile Include="Microsoft.Managed.Before.targets" />
+    <DataFile Include="Microsoft.Managed.After.targets" />
     <DataFile Include="Microsoft.CSharp.targets" />
     <DataFile Include="Microsoft.CSharp.CurrentVersion.targets" />
     <DataFile Include="Microsoft.CSharp.CrossTargeting.targets" />
@@ -957,6 +986,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Resources.Extensions" />
   </ItemGroup>
 
   <!-- Tasks need to mimic redistributing the compilers, so add references to both full framework and .net core -->
@@ -974,11 +1004,12 @@
 
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework'">
     <PackageReference Include="System.CodeDom" />
-    <PackageReference Include="System.Linq.Parallel" />
-    <PackageReference Include="System.Net.Http" />
     <PackageReference Include="System.Reflection.Metadata" />
     <PackageReference Include="System.Reflection.TypeExtensions" />
-    <PackageReference Include="System.Resources.Writer" />
+    <PackageReference Include="System.Runtime.InteropServices" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+    <PackageReference Include="System.Security.Permissions" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" />
 
     <!-- Need Win32 API on .NET Core to ping registry to determine long path support -->

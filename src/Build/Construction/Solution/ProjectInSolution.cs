@@ -95,7 +95,9 @@ namespace Microsoft.Build.Construction
         #region Member data
         private string _relativePath;         // Relative from .SLN file.  For example, "WindowsApplication1\WindowsApplication1.csproj"
         private readonly List<string> _dependencies;     // A list of strings representing the Guids of the dependent projects.
-        private string _uniqueProjectName;    // For example, "MySlnFolder\MySubSlnFolder\WindowsApplication1"
+        private IReadOnlyList<string> _dependenciesAsReadonly;
+        private string _uniqueProjectName;    // For example, "MySlnFolder\MySubSlnFolder\Windows_Application1"
+        private string _originalProjectName;    // For example, "MySlnFolder\MySubSlnFolder\Windows.Application1"
 
         /// <summary>
         /// The project configuration in given solution configuration
@@ -103,6 +105,7 @@ namespace Microsoft.Build.Construction
         /// V: project configuration 
         /// </summary>
         private readonly Dictionary<string, ProjectConfigurationInSolution> _projectConfigurations;
+        private IReadOnlyDictionary<string, ProjectConfigurationInSolution> _projectConfigurationsReadOnly;
 
         #endregion
 
@@ -176,13 +179,16 @@ namespace Microsoft.Build.Construction
         /// List of guids, in "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}" form, mapping to projects 
         /// that this project has a build order dependency on, as defined in the solution file. 
         /// </summary>
-        public IReadOnlyList<string> Dependencies => _dependencies.AsReadOnly();
+        public IReadOnlyList<string> Dependencies => _dependenciesAsReadonly ?? (_dependenciesAsReadonly = _dependencies.AsReadOnly());
 
         /// <summary>
         /// Configurations for this project, keyed off the configuration's full name, e.g. "Debug|x86"
+        /// They contain only the project configurations from the solution file that fully matched (configuration and platform) against the solution configurations.
         /// </summary>
-        public IReadOnlyDictionary<string, ProjectConfigurationInSolution> ProjectConfigurations =>
-            new ReadOnlyDictionary<string, ProjectConfigurationInSolution>(_projectConfigurations);
+        public IReadOnlyDictionary<string, ProjectConfigurationInSolution> ProjectConfigurations
+            =>
+                _projectConfigurationsReadOnly
+                ?? (_projectConfigurationsReadOnly = new ReadOnlyDictionary<string, ProjectConfigurationInSolution>(_projectConfigurations));
 
         /// <summary>
         /// Extension of the project file, if any
@@ -222,6 +228,7 @@ namespace Microsoft.Build.Construction
         internal void AddDependency(string referencedProjectGuid)
         {
             _dependencies.Add(referencedProjectGuid);
+            _dependenciesAsReadonly = null;
         }
 
         /// <summary>
@@ -230,6 +237,7 @@ namespace Microsoft.Build.Construction
         internal void SetProjectConfiguration(string configurationName, ProjectConfigurationInSolution configuration)
         {
             _projectConfigurations[configurationName] = configuration;
+            _projectConfigurationsReadOnly = null;
         }
 
         /// <summary>
@@ -275,14 +283,14 @@ namespace Microsoft.Build.Construction
                     }
                 }
 
-                if (mainProjectElement != null && mainProjectElement.LocalName == "Project")
+                if (mainProjectElement?.LocalName == "Project")
                 {
                     // MSBuild supports project files with an empty (supported in Visual Studio 2017) or the default MSBuild
                     // namespace.
                     bool emptyNamespace = string.IsNullOrEmpty(mainProjectElement.NamespaceURI);
-                    bool defaultNamespace = String.Compare(mainProjectElement.NamespaceURI,
+                    bool defaultNamespace = String.Equals(mainProjectElement.NamespaceURI,
                                                 XMakeAttributes.defaultXmlNamespace,
-                                                StringComparison.OrdinalIgnoreCase) == 0;
+                                                StringComparison.OrdinalIgnoreCase);
                     bool projectElementInvalid = ElementContainsInvalidNamespaceDefitions(mainProjectElement);
 
                     // If the MSBuild namespace is declared, it is very likely an MSBuild project that should be built.
@@ -338,7 +346,7 @@ namespace Microsoft.Build.Construction
         }
 
         /// <summary>
-        /// Find the unique name for this project, e.g. SolutionFolder\SubSolutionFolder\ProjectName
+        /// Find the unique name for this project, e.g. SolutionFolder\SubSolutionFolder\Project_Name
         /// </summary>
         internal string GetUniqueProjectName()
         {
@@ -362,7 +370,7 @@ namespace Microsoft.Build.Construction
                         if (!ParentSolution.ProjectsByGuid.TryGetValue(ParentProjectGuid, out ProjectInSolution proj))
                         {
                             ProjectFileErrorUtilities.VerifyThrowInvalidProjectFile(proj != null, "SubCategoryForSolutionParsingErrors",
-                                new BuildEventFileInfo(ParentSolution.FullPath), "SolutionParseNestedProjectError");
+                                new BuildEventFileInfo(ParentSolution.FullPath), "SolutionParseNestedProjectErrorWithNameAndGuid", ProjectName, ProjectGuid, ParentProjectGuid);
                         }
 
                         uniqueName = proj.GetUniqueProjectName() + "\\";
@@ -374,6 +382,55 @@ namespace Microsoft.Build.Construction
             }
 
             return _uniqueProjectName;
+        }
+
+        /// <summary>
+        /// Gets the original project name with the parent project as it is declared in the solution file, e.g. SolutionFolder\SubSolutionFolder\Project.Name
+        /// </summary>
+        internal string GetOriginalProjectName()
+        {
+            if (_originalProjectName == null)
+            {
+                // EtpSubProject and Venus projects have names that are already unique.  No need to prepend the SLN folder.
+                if ((ProjectType == SolutionProjectType.WebProject) || (ProjectType == SolutionProjectType.EtpSubProject))
+                {
+                    _originalProjectName = ProjectName;
+                }
+                else
+                {
+                    // This is "normal" project, which in this context means anything non-Venus and non-EtpSubProject.
+
+                    // If this project has a parent SLN folder, first get the full project name for the SLN folder,
+                    // and tack on trailing backslash.
+                    string projectName = String.Empty;
+
+                    if (ParentProjectGuid != null)
+                    {
+                        if (!ParentSolution.ProjectsByGuid.TryGetValue(ParentProjectGuid, out ProjectInSolution parent))
+                        {
+                            ProjectFileErrorUtilities.VerifyThrowInvalidProjectFile(parent != null, "SubCategoryForSolutionParsingErrors",
+                                new BuildEventFileInfo(ParentSolution.FullPath), "SolutionParseNestedProjectErrorWithNameAndGuid", ProjectName, ProjectGuid, ParentProjectGuid);
+                        }
+
+                        projectName = parent.GetOriginalProjectName() + "\\";
+                    }
+
+                    // Now tack on our own project name, and cache it in the ProjectInSolution object for future quick access.
+                    _originalProjectName = projectName + ProjectName;
+                }
+            }
+
+            return _originalProjectName;
+        }
+
+        internal string GetProjectGuidWithoutCurlyBrackets()
+        {
+            if (string.IsNullOrEmpty(ProjectGuid))
+            {
+                return null;
+            }
+
+            return ProjectGuid.Trim(new char[] { '{', '}' });
         }
 
         /// <summary>
@@ -427,7 +484,7 @@ namespace Microsoft.Build.Construction
             // entry point targets
             foreach (string projectName in projectNamesToDisambiguate)
             {
-                if (String.Compare(uniqueProjectName, projectName, StringComparison.OrdinalIgnoreCase) == 0)
+                if (String.Equals(uniqueProjectName, projectName, StringComparison.OrdinalIgnoreCase))
                 {
                     // Prepend "Solution:" so that the collision is resolved, but the
                     // log of the solution project still looks reasonable.

@@ -3,7 +3,6 @@
 
 using System;
 using System.Reflection;
-using System.Text;
 using System.IO;
 
 using Microsoft.Build.Framework;
@@ -38,6 +37,26 @@ namespace Microsoft.Build.Logging
             string loggerAssemblyFile,
             string loggerSwitchParameters,
             LoggerVerbosity verbosity
+        ) : this(loggerClassName,
+            loggerAssemblyName,
+            loggerAssemblyFile,
+            loggerSwitchParameters,
+            verbosity,
+            isOptional: false)
+        {
+        }
+
+        /// <summary>
+        /// Creates a logger description from given data
+        /// </summary>
+        public LoggerDescription
+        (
+            string loggerClassName,
+            string loggerAssemblyName,
+            string loggerAssemblyFile,
+            string loggerSwitchParameters,
+            LoggerVerbosity verbosity,
+            bool isOptional
         )
         {
             _loggerClassName = loggerClassName;
@@ -50,6 +69,7 @@ namespace Microsoft.Build.Logging
             _loggerAssembly = AssemblyLoadInfo.Create(loggerAssemblyName, loggerAssemblyFile);
             _loggerSwitchParameters = loggerSwitchParameters;
             _verbosity = verbosity;
+            _isOptional = isOptional;
         }
 
         #endregion
@@ -102,6 +122,14 @@ namespace Microsoft.Build.Logging
             get
             {
                 return _loggerSwitchParameters;
+            }
+        }
+
+        public bool IsOptional
+        {
+            get
+            {
+                return _isOptional;
             }
         }
 
@@ -220,7 +248,7 @@ namespace Microsoft.Build.Logging
                 if (innerException is LoggerException)
                 {
                     // Logger failed politely during construction. In order to preserve
-                    // the stack trace at which the error occured we wrap the original
+                    // the stack trace at which the error occurred we wrap the original
                     // exception instead of throwing.
                     LoggerException l = ((LoggerException)innerException);
                     throw new LoggerException(l.Message, innerException, l.ErrorCode, l.HelpKeyword);
@@ -251,12 +279,12 @@ namespace Microsoft.Build.Logging
         /// <returns>true, if specified type is a logger</returns>
         private static bool IsForwardingLoggerClass(Type type, object unused)
         {
-            return (type.GetTypeInfo().IsClass &&
+            return type.GetTypeInfo().IsClass &&
                 !type.GetTypeInfo().IsAbstract &&
 #if FEATURE_TYPE_GETINTERFACE
-                (type.GetTypeInfo().GetInterface("IForwardingLogger") != null));
+                (type.GetTypeInfo().GetInterface("IForwardingLogger") != null);
 #else
-                (type.GetInterfaces().Any(interfaceType => interfaceType.Name == "IForwardingLogger")));
+                (type.GetInterfaces().Any(interfaceType => interfaceType.Name == "IForwardingLogger"));
 #endif
         }
 
@@ -267,12 +295,12 @@ namespace Microsoft.Build.Logging
         /// <returns>true, if specified type is a logger</returns>
         private static bool IsLoggerClass(Type type, object unused)
         {
-            return (type.GetTypeInfo().IsClass &&
+            return type.GetTypeInfo().IsClass &&
                 !type.GetTypeInfo().IsAbstract &&
 #if FEATURE_TYPE_GETINTERFACE
-                (type.GetTypeInfo().GetInterface("ILogger") != null));
+                (type.GetTypeInfo().GetInterface("ILogger") != null);
 #else
-                (type.GetInterfaces().Any(interfaceType => interfaceType.Name == "ILogger")));
+                (type.GetInterfaces().Any(interfaceType => interfaceType.Name == "ILogger"));
 #endif
         }
 
@@ -296,6 +324,7 @@ namespace Microsoft.Build.Logging
         private AssemblyLoadInfo _loggerAssembly;
         private LoggerVerbosity _verbosity;
         private int _loggerId;
+        private bool _isOptional;
         #endregion
 
         #region CustomSerializationToStream

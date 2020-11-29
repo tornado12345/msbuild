@@ -35,8 +35,6 @@ namespace Microsoft.Build.Construction
     /// </summary>
     internal class SolutionProjectGenerator
     {
-        #region Private Fields
-
         /// <summary>
         /// Name of the property used to store the path to the solution being built.
         /// </summary>
@@ -62,7 +60,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// A known list of target names to create.  This is for backwards compatibility.
         /// </summary>
-        internal static readonly ISet<string> _defaultTargetNames = ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase,
+        internal static readonly ImmutableHashSet<string> _defaultTargetNames = ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase,
             "Build",
             "Clean",
             "Rebuild",
@@ -103,7 +101,7 @@ namespace Microsoft.Build.Construction
         private readonly SolutionFile _solutionFile;
 
         /// <summary>
-        /// The global properties passed under which the project should be opened. 
+        /// The global properties passed under which the project should be opened.
         /// </summary>
         private readonly IDictionary<string, string> _globalProperties;
 
@@ -113,7 +111,7 @@ namespace Microsoft.Build.Construction
         private readonly string _toolsVersionOverride;
 
         /// <summary>
-        /// The context of this build (used for logging purposes). 
+        /// The context of this build (used for logging purposes).
         /// </summary>
         private readonly BuildEventContext _projectBuildEventContext;
 
@@ -142,10 +140,6 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private readonly int _submissionId;
 
-#endregion // Private Fields
-
-#region Constructors
-
         /// <summary>
         /// Constructor.
         /// </summary>
@@ -169,16 +163,12 @@ namespace Microsoft.Build.Construction
 
             if (targetNames != null)
             {
-                _targetNames = targetNames.Select(i => i.Split(MSBuildConstants.ColonChar, 2, StringSplitOptions.RemoveEmptyEntries).Last()).ToList();
+                _targetNames = targetNames.Select(i => i.Split(new char[] { ':' }, 2, StringSplitOptions.RemoveEmptyEntries).Last()).ToList();
             }
         }
 
-#endregion // Constructors
-
-#region Methods
-
         /// <summary>
-        /// This method generates an MSBuild project file from the list of projects and project dependencies 
+        /// This method generates an MSBuild project file from the list of projects and project dependencies
         /// that have been collected from the solution file.
         /// </summary>
         /// <param name="solution">The parser which contains the solution file.</param>
@@ -331,7 +321,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Normally the active solution configuration/platform is determined when we build the solution
         /// wrapper project, not when we create it. However, we need to know them to scan project references
-        /// for the right project configuration/platform. It's unlikely that references would be conditional, 
+        /// for the right project configuration/platform. It's unlikely that references would be conditional,
         /// but still possible and we want to get that case right.
         /// </summary>
         internal static string PredictActiveSolutionConfigurationName(SolutionFile solutionFile, IDictionary<string, string> globalProperties)
@@ -386,7 +376,7 @@ namespace Microsoft.Build.Construction
 
 #if FEATURE_ASPNET_COMPILER
         /// <summary>
-        /// Add a call to the ResolveAssemblyReference task to crack the pre-resolved referenced 
+        /// Add a call to the ResolveAssemblyReference task to crack the pre-resolved referenced
         /// assemblies for the complete list of dependencies, PDBs, satellites, etc.  The invoke
         /// the Copy task to copy all these files (or at least the ones that RAR determined should
         /// be copied local) into the web project's bin directory.
@@ -449,10 +439,10 @@ namespace Microsoft.Build.Construction
         }
 
         /// <summary>
-        /// This code handles the *.REFRESH files that are in the "bin" subdirectory of 
-        /// a web project.  These .REFRESH files are just text files that contain absolute or 
-        /// relative paths to the referenced assemblies.  The goal of these tasks is to 
-        /// search all *.REFRESH files and extract fully-qualified absolute paths for 
+        /// This code handles the *.REFRESH files that are in the "bin" subdirectory of
+        /// a web project.  These .REFRESH files are just text files that contain absolute or
+        /// relative paths to the referenced assemblies.  The goal of these tasks is to
+        /// search all *.REFRESH files and extract fully-qualified absolute paths for
         /// each of the references.
         /// </summary>
         private static void AddTasksToResolveAutoRefreshFileReferences
@@ -647,6 +637,12 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private static bool WouldProjectBuild(SolutionFile solutionFile, string selectedSolutionConfiguration, ProjectInSolution project, ProjectConfigurationInSolution projectConfiguration)
         {
+            // If the solution filter does not contain this project, do not build it.
+            if (!solutionFile.ProjectShouldBuild(project.RelativePath))
+            {
+                return false;
+            }
+
             if (projectConfiguration == null)
             {
                 if (project.ProjectType == SolutionProjectType.WebProject)
@@ -685,7 +681,7 @@ namespace Microsoft.Build.Construction
             // Validate against our minimum for upgradable projects
             ProjectFileErrorUtilities.VerifyThrowInvalidProjectFile
                 (
-                (_solutionFile.Version >= SolutionFile.slnFileMinVersion),
+                _solutionFile.Version >= SolutionFile.slnFileMinVersion,
                 "SubCategoryForSolutionParsingErrors",
                 new BuildEventFileInfo(_solutionFile.FullPath),
                 "SolutionParseUpgradeNeeded"
@@ -857,6 +853,64 @@ namespace Microsoft.Build.Construction
             ProjectImportElement importAfter = traversalProject.CreateImportElement(@"$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportAfter\*");
             importAfter.Condition = @"'$(ImportByWildcardBeforeSolution)' != 'false' and exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\SolutionFile\ImportAfter')"; // Avoids wildcard perf problem
 
+            /* The code below adds the following XML:
+
+            - TOP -
+
+                <PropertyGroup Condition="'$(ImportDirectorySolutionProps)' != 'false' and '$(DirectorySolutionPropsPath)' == ''">
+                  <_DirectorySolutionPropsFile Condition="'$(_DirectorySolutionPropsFile)' == ''">Directory.Solution.props</_DirectorySolutionPropsFile>
+                  <_DirectorySolutionPropsBasePath Condition="'$(_DirectorySolutionPropsBasePath)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '$(_DirectorySolutionPropsFile)'))</_DirectorySolutionPropsBasePath>
+                  <DirectorySolutionPropsPath Condition="'$(_DirectorySolutionPropsBasePath)' != '' and '$(_DirectorySolutionPropsFile)' != ''">$([System.IO.Path]::Combine('$(_DirectorySolutionPropsBasePath)', '$(_DirectorySolutionPropsFile)'))</DirectorySolutionPropsPath>
+                </PropertyGroup>
+
+                <Import Project="$(DirectorySolutionPropsPath)" Condition="'$(ImportDirectorySolutionProps)' != 'false' and exists('$(DirectorySolutionPropsPath)')"/>
+
+            - BOTTOM -
+
+                <PropertyGroup Condition="'$(ImportDirectorySolutionTargets)' != 'false' and '$(DirectorySolutionTargetsPath)' == ''">
+                  <_DirectorySolutionTargetsFile Condition="'$(_DirectorySolutionTargetsFile)' == ''">Directory.Solution.targets</_DirectorySolutionTargetsFile>
+                  <_DirectorySolutionTargetsBasePath Condition="'$(_DirectorySolutionTargetsBasePath)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '$(_DirectorySolutionTargetsFile)'))</_DirectorySolutionTargetsBasePath>
+                  <DirectorySolutionTargetsPath Condition="'$(_DirectorySolutionTargetsBasePath)' != '' and '$(_DirectorySolutionTargetsFile)' != ''">$([System.IO.Path]::Combine('$(_DirectorySolutionTargetsBasePath)', '$(_DirectorySolutionTargetsFile)'))</DirectorySolutionTargetsPath>
+                </PropertyGroup>
+
+                <Import Project="$(DirectorySolutionTargetsPath)" Condition="'$(ImportDirectorySolutionTargets)' != 'false' and exists('$(DirectorySolutionTargetsPath)')"/>
+            */
+            ProjectPropertyGroupElement directorySolutionPropsPropertyGroup = traversalProject.CreatePropertyGroupElement();
+            directorySolutionPropsPropertyGroup.Condition = "'$(ImportDirectorySolutionProps)' != 'false' and '$(DirectorySolutionPropsPath)' == ''";
+
+            ProjectPropertyElement directorySolutionPropsFileProperty = traversalProject.CreatePropertyElement("_DirectorySolutionPropsFile");
+            directorySolutionPropsFileProperty.Value = "Directory.Solution.props";
+            directorySolutionPropsFileProperty.Condition = "'$(_DirectorySolutionPropsFile)' == ''";
+
+            ProjectPropertyElement directorySolutionPropsBasePathProperty = traversalProject.CreatePropertyElement("_DirectorySolutionPropsBasePath");
+            directorySolutionPropsBasePathProperty.Value = "$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '$(_DirectorySolutionPropsFile)'))";
+            directorySolutionPropsBasePathProperty.Condition = "'$(_DirectorySolutionPropsBasePath)' == ''";
+
+            ProjectPropertyElement directorySolutionPropsPathProperty = traversalProject.CreatePropertyElement("DirectorySolutionPropsPath");
+            directorySolutionPropsPathProperty.Value = "$([System.IO.Path]::Combine('$(_DirectorySolutionPropsBasePath)', '$(_DirectorySolutionPropsFile)'))";
+            directorySolutionPropsPathProperty.Condition = "'$(_DirectorySolutionPropsBasePath)' != '' and '$(_DirectorySolutionPropsFile)' != ''";
+
+            ProjectImportElement directorySolutionPropsImport = traversalProject.CreateImportElement("$(DirectorySolutionPropsPath)");
+            directorySolutionPropsImport.Condition = "'$(ImportDirectorySolutionProps)' != 'false' and exists('$(DirectorySolutionPropsPath)')";
+
+            ProjectPropertyGroupElement directorySolutionTargetsPropertyGroup = traversalProject.CreatePropertyGroupElement();
+            directorySolutionTargetsPropertyGroup.Condition = "'$(ImportDirectorySolutionTargets)' != 'false' and '$(DirectorySolutionTargetsPath)' == ''";
+
+            ProjectPropertyElement directorySolutionTargetsFileProperty = traversalProject.CreatePropertyElement("_DirectorySolutionTargetsFile");
+            directorySolutionTargetsFileProperty.Value = "Directory.Solution.targets";
+            directorySolutionTargetsFileProperty.Condition = "'$(_DirectorySolutionTargetsFile)' == ''";
+
+            ProjectPropertyElement directorySolutionTargetsBasePathProperty = traversalProject.CreatePropertyElement("_DirectorySolutionTargetsBasePath");
+            directorySolutionTargetsBasePathProperty.Value = "$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '$(_DirectorySolutionTargetsFile)'))";
+            directorySolutionTargetsBasePathProperty.Condition = "'$(_DirectorySolutionTargetsBasePath)' == ''";
+
+            ProjectPropertyElement directorySolutionTargetsPathProperty = traversalProject.CreatePropertyElement("DirectorySolutionTargetsPath");
+            directorySolutionTargetsPathProperty.Value = "$([System.IO.Path]::Combine('$(_DirectorySolutionTargetsBasePath)', '$(_DirectorySolutionTargetsFile)'))";
+            directorySolutionTargetsPathProperty.Condition = "'$(_DirectorySolutionTargetsBasePath)' != '' and '$(_DirectorySolutionTargetsFile)' != ''";
+
+            ProjectImportElement directorySolutionTargetsImport = traversalProject.CreateImportElement("$(DirectorySolutionTargetsPath)");
+            directorySolutionTargetsImport.Condition = "'$(ImportDirectorySolutionTargets)' != 'false' and exists('$(DirectorySolutionTargetsPath)')";
+
             // Add our local extensibility points to the project representing the solution
             // Imported at the top: before.mysolution.sln.targets
             // Imported at the bottom: after.mysolution.sln.targets
@@ -872,16 +926,31 @@ namespace Microsoft.Build.Construction
 
             // Put locals second so they can override globals if they want
             traversalProject.PrependChild(importBeforeLocal);
+            traversalProject.PrependChild(directorySolutionPropsImport);
+            traversalProject.PrependChild(directorySolutionPropsPropertyGroup);
             traversalProject.PrependChild(importBefore);
             traversalProject.AppendChild(importAfter);
+            traversalProject.AppendChild(directorySolutionTargetsPropertyGroup);
+            traversalProject.AppendChild(directorySolutionTargetsImport);
             traversalProject.AppendChild(importAfterLocal);
+
+            directorySolutionTargetsPropertyGroup.AppendChild(directorySolutionTargetsFileProperty);
+            directorySolutionTargetsPropertyGroup.AppendChild(directorySolutionTargetsBasePathProperty);
+            directorySolutionTargetsPropertyGroup.AppendChild(directorySolutionTargetsPathProperty);
+
+            directorySolutionPropsPropertyGroup.AppendChild(directorySolutionPropsFileProperty);
+            directorySolutionPropsPropertyGroup.AppendChild(directorySolutionPropsBasePathProperty);
+            directorySolutionPropsPropertyGroup.AppendChild(directorySolutionPropsPathProperty);
 
             // These are just dummies necessary to make the evaluation into a project instance succeed when 
             // any custom imported targets have declarations like BeforeTargets="Build"
             // They'll be replaced momentarily with the real ones.
-            foreach (string targetName in _defaultTargetNames)
+            string[] dummyTargetsForEvaluationTime = _defaultTargetNames.Union(_targetNames).ToArray();
+            foreach (string targetName in dummyTargetsForEvaluationTime)
             {
-                traversalProject.AddTarget(targetName);
+                ProjectTargetElement target = traversalProject.CreateTargetElement(targetName);
+                // Prepend so that any imported target overrides these default ones.
+                traversalProject.PrependChild(target);
             }
 
             // For debugging purposes: some information is lost when evaluating into a project instance,
@@ -903,10 +972,15 @@ namespace Microsoft.Build.Construction
                 _submissionId
                 );
 
-            // Make way for the real ones                
-            foreach (string targetName in _defaultTargetNames)
+            // Make way for the real ones
+            foreach (string targetName in dummyTargetsForEvaluationTime)
             {
-                traversalInstance.RemoveTarget(targetName);
+                // Remove targets only if they were the dummy ones (from the metaproj path),
+                // but leave them if they're from another source (imported/overridden).
+                if (traversalInstance.Targets[targetName].Location.File == traversalProject.FullPath)
+                {
+                    traversalInstance.RemoveTarget(targetName);
+                }
             }
 
             AddStandardTraversalTargets(traversalInstance, projectsInOrder);
@@ -920,7 +994,7 @@ namespace Microsoft.Build.Construction
             {
                 metaproject.Save(path);
             }
-            if (_loggingService.IncludeEvaluationMetaprojects == true)
+            if (_loggingService.IncludeEvaluationMetaprojects)
             {
                 var xml = new StringBuilder();
                 using (var writer = new StringWriter(xml))
@@ -1066,35 +1140,35 @@ namespace Microsoft.Build.Construction
         }
 
         /// <summary>
-        /// Produces a set of targets which allows the MSBuild scheduler to schedule projects in the order automatically by 
+        /// Produces a set of targets which allows the MSBuild scheduler to schedule projects in the order automatically by
         /// following their dependencies without enforcing build levels.
         /// </summary>
         /// <remarks>
         /// We want MSBuild to be able to parallelize the builds of these projects where possible and still honor references.
         /// Since the project files referenced by the solution do not (necessarily) themselves contain actual project references
         /// to the projects they depend on, we need to synthesize this relationship ourselves.  This is done by creating a target
-        /// which first invokes the project's dependencies, then invokes the actual project itself.  However, invoking the 
-        /// dependencies must also invoke their dependencies and so on down the line.  
-        /// 
+        /// which first invokes the project's dependencies, then invokes the actual project itself.  However, invoking the
+        /// dependencies must also invoke their dependencies and so on down the line.
+        ///
         /// Additionally, we do not wish to create a separate MSBuild project to contain this target yet we want to parallelize
         /// calls to these targets.  The way to do this is to pass in different global properties to the same project in the same
         /// MSBuild call.  MSBuild easily allows this using the AdditionalProperties metadata which can be specified on an Item.
-        /// 
+        ///
         /// Assuming the solution project we are generating is called "foo.proj", we can accomplish this parallelism as follows:
         /// <ItemGroup>
         ///     <ProjectReference Include="Project0"/>
         ///     <ProjectReference Include="Project1"/>
         ///     <ProjectReference Include="Project2"/>
         /// </ItemGroup>
-        /// 
+        ///
         /// We now have expressed the top level reference to all projects as @(SolutionReference) and each project's
         /// set of references as @(PROJECTNAMEReference).  We construct our target as:
-        /// 
+        ///
         /// <Target Name="Build">
         ///     <MSBuild Projects="@(ProjectReference)" Targets="Build" />
         ///     <MSBuild Projects="actualProjectName" Targets="Build" />
         /// </Target>
-        /// 
+        ///
         /// The first MSBuild call re-invokes the solution project instructing it to build the reference projects for the
         /// current project.  The second MSBuild call invokes the actual project itself.  Because all reference projects have
         /// the same additional properties, MSBuild will only build the first one it comes across and the rest will be
@@ -1233,7 +1307,7 @@ namespace Microsoft.Build.Construction
                 outputItemAsItem = "@(" + outputItem + ")";
             }
 
-            ProjectTargetInstance target = metaprojectInstance.AddTarget(targetName ?? "Build", String.Empty, String.Empty, outputItemAsItem, null, String.Empty, String.Empty, false /* legacy target returns behaviour */);
+            ProjectTargetInstance target = metaprojectInstance.AddTarget(targetName ?? "Build", String.Empty, String.Empty, outputItemAsItem, null, String.Empty, String.Empty, String.Empty, String.Empty, false /* legacy target returns behaviour */);
 
             AddReferencesBuildTask(target, targetName, null /* No need to capture output */);
 
@@ -1278,7 +1352,7 @@ namespace Microsoft.Build.Construction
             }
 
             task.SetParameter("BuildInParallel", "True");
-            task.SetParameter("ToolsVersion", MSBuildConstants.CurrentToolsVersion);
+            task.SetParameter("ToolsVersion", "Current");
             task.SetParameter("Properties", SolutionProperties);
             task.SetParameter("SkipNonexistentProjects", "%(ProjectReference.SkipNonexistentProjects)");
 
@@ -1298,7 +1372,7 @@ namespace Microsoft.Build.Construction
             // Add a supporting target called "GetFrameworkPathAndRedistList".
             AddTargetForGetFrameworkPathAndRedistList(metaprojectInstance);
 
-            ProjectTargetInstance newTarget = metaprojectInstance.AddTarget(targetName ?? "Build", ComputeTargetConditionForWebProject(project), null, null, null, null, "GetFrameworkPathAndRedistList", false /* legacy target returns behaviour */);
+            ProjectTargetInstance newTarget = metaprojectInstance.AddTarget(targetName ?? "Build", ComputeTargetConditionForWebProject(project), null, null, null, null, "GetFrameworkPathAndRedistList", null, null, false /* legacy target returns behaviour */);
 
             // Build the references
             AddReferencesBuildTask(newTarget, targetName, null /* No need to capture output */);
@@ -1346,7 +1420,7 @@ namespace Microsoft.Build.Construction
 
                     // Update our big condition string to include this configuration.
                     conditionDescribingValidConfigurations.Append(" or ");
-                    conditionDescribingValidConfigurations.Append(String.Format(CultureInfo.InvariantCulture, "('$(AspNetConfiguration)' == '{0}')", EscapingUtilities.Escape(configurationName)));
+                    conditionDescribingValidConfigurations.AppendFormat(CultureInfo.InvariantCulture, "('$(AspNetConfiguration)' == '{0}')", EscapingUtilities.Escape(configurationName));
                 }
 
                 StringBuilder referenceItemName = new StringBuilder(GenerateSafePropertyName(project, "References"));
@@ -1665,7 +1739,7 @@ namespace Microsoft.Build.Construction
 
         /// <summary>
         /// When adding a target to build a web project, we want to put a Condition on the Target node that
-        /// effectively says "Only build this target if the web project is active (marked for building) in the 
+        /// effectively says "Only build this target if the web project is active (marked for building) in the
         /// current solution configuration.
         /// </summary>
         private string ComputeTargetConditionForWebProject(ProjectInSolution project)
@@ -1689,8 +1763,8 @@ namespace Microsoft.Build.Construction
                         condition.Append(")");
                     }
                 }
-                else if (String.Compare(solutionConfiguration.ConfigurationName, "Release", StringComparison.OrdinalIgnoreCase) == 0 ||
-                         String.Compare(solutionConfiguration.ConfigurationName, "Debug", StringComparison.OrdinalIgnoreCase) == 0)
+                else if (String.Equals(solutionConfiguration.ConfigurationName, "Release", StringComparison.OrdinalIgnoreCase) ||
+                         String.Equals(solutionConfiguration.ConfigurationName, "Debug", StringComparison.OrdinalIgnoreCase))
                 {
                     // we don't have a project configuration that matches the solution configuration but
                     // the solution configuration is called "Release" or "Debug" which are standard AspNetConfigurations
@@ -1718,7 +1792,7 @@ namespace Microsoft.Build.Construction
                 return;
             }
 
-            ProjectTargetInstance frameworkPathAndRedistListTarget = metaprojectInstance.AddTarget("GetFrameworkPathAndRedistList", String.Empty, null, null, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance frameworkPathAndRedistListTarget = metaprojectInstance.AddTarget("GetFrameworkPathAndRedistList", String.Empty, null, null, null, null, null, null, null, false /* legacy target returns behaviour */);
 
             ProjectTaskInstance getFrameworkPathTask = frameworkPathAndRedistListTarget.AddTask("GetFrameworkPath", String.Empty, null);
 
@@ -1764,7 +1838,7 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private void AddMetaprojectTargetForUnknownProjectType(ProjectInstance traversalProject, ProjectInstance metaprojectInstance, ProjectInSolution project, string targetName, string unknownProjectTypeErrorMessage)
         {
-            ProjectTargetInstance newTarget = metaprojectInstance.AddTarget(targetName ?? "Build", "'$(CurrentSolutionConfigurationContents)' != ''", null, null, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance newTarget = metaprojectInstance.AddTarget(targetName ?? "Build", "'$(CurrentSolutionConfigurationContents)' != ''", null, null, null, null, null, null, null, false /* legacy target returns behaviour */);
 
             foreach (SolutionConfigurationInSolution solutionConfiguration in _solutionFile.SolutionConfigurations)
             {
@@ -1842,7 +1916,7 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private void AddValidateProjectsTarget(ProjectInstance traversalProject, List<ProjectInSolution> projects)
         {
-            ProjectTargetInstance newTarget = traversalProject.AddTarget("ValidateProjects", null, null, null, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance newTarget = traversalProject.AddTarget("ValidateProjects", null, null, null, null, null, null, null, null, false /* legacy target returns behaviour */);
 
             foreach (ProjectInSolution project in projects)
             {
@@ -1894,7 +1968,10 @@ namespace Microsoft.Build.Construction
                 outputItemAsItem = "@(" + outputItem + ")";
             }
 
-            ProjectTargetInstance target = traversalProject.AddTarget(targetName ?? "Build", String.Empty, String.Empty, outputItemAsItem, null, String.Empty, String.Empty, false /* legacy target returns behaviour */);
+            string correctedTargetName = targetName ?? "Build";
+
+            traversalProject.RemoveTarget(correctedTargetName);
+            ProjectTargetInstance target = traversalProject.AddTarget(correctedTargetName, string.Empty, string.Empty, outputItemAsItem, null, string.Empty, string.Empty, string.Empty, string.Empty, false /* legacy target returns behaviour */);
             AddReferencesBuildTask(target, targetName, outputItem);
         }
 
@@ -1963,7 +2040,7 @@ namespace Microsoft.Build.Construction
                 outputItemAsItem = "@(" + outputItemName + ")";
             }
 
-            ProjectTargetInstance targetElement = traversalProject.AddTarget(actualTargetName, null, null, outputItemAsItem, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance targetElement = traversalProject.AddTarget(actualTargetName, null, null, outputItemAsItem, null, null, null, null, null, false /* legacy target returns behaviour */);
             if (canBuildDirectly)
             {
                 AddProjectBuildTask(traversalProject, projectConfiguration, targetElement, targetToBuild, "@(ProjectReference)", "'%(ProjectReference.Identity)' == '" + EscapingUtilities.Escape(project.AbsolutePath) + "'", outputItemName);
@@ -2027,7 +2104,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Normally the active solution configuration/platform is determined when we build the solution
         /// wrapper project, not when we create it. However, we need to know them to scan project references
-        /// for the right project configuration/platform. It's unlikely that references would be conditional, 
+        /// for the right project configuration/platform. It's unlikely that references would be conditional,
         /// but still possible and we want to get that case right.
         /// </summary>
         private string PredictActiveSolutionConfigurationName()
@@ -2037,7 +2114,7 @@ namespace Microsoft.Build.Construction
 
         /// <summary>
         /// Loads each MSBuild project in this solution and looks for its project-to-project references so that
-        /// we know what build order we should use when building the solution. 
+        /// we know what build order we should use when building the solution.
         /// </summary>
         private void ScanProjectDependencies(string childProjectToolsVersion, string fullSolutionConfigurationName)
         {
@@ -2177,12 +2254,12 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Creates the default Venus configuration property based on the selected solution configuration.
         /// Unfortunately, Venus projects only expose one project configuration in the IDE (Debug) although
-        /// they allow building Debug and Release from command line. This means that if we wanted to use 
+        /// they allow building Debug and Release from command line. This means that if we wanted to use
         /// the project configuration from the active solution configuration for Venus projects, we'd always
         /// end up with Debug and there'd be no way to build the Release configuration. To work around this,
         /// we use a special mechanism for choosing ASP.NET project configuration: we set it to Release if
-        /// we're building a Release solution configuration, and to Debug if we're building a Debug solution 
-        /// configuration. The property is also settable from the command line, in which case it takes 
+        /// we're building a Release solution configuration, and to Debug if we're building a Debug solution
+        /// configuration. The property is also settable from the command line, in which case it takes
         /// precedence over this algorithm.
         /// </summary>
         private static void AddVenusConfigurationDefaults(ProjectRootElement traversalProject)
@@ -2234,7 +2311,7 @@ namespace Microsoft.Build.Construction
 
         /// <summary>
         /// Special hack for web projects. It can happen that there is no Release configuration for solutions
-        /// containing web projects, yet we still want to be able to build the Release configuration for 
+        /// containing web projects, yet we still want to be able to build the Release configuration for
         /// those projects. Since the ASP.NET project configuration defaults to the solution configuration,
         /// we allow Release even if it doesn't actually exist in the solution.
         /// </summary>
@@ -2245,7 +2322,7 @@ namespace Microsoft.Build.Construction
                 bool solutionHasReleaseConfiguration = false;
                 foreach (SolutionConfigurationInSolution solutionConfiguration in _solutionFile.SolutionConfigurations)
                 {
-                    if (string.Compare(solutionConfiguration.ConfigurationName, "Release", StringComparison.OrdinalIgnoreCase) == 0)
+                    if (string.Equals(solutionConfiguration.ConfigurationName, "Release", StringComparison.OrdinalIgnoreCase))
                     {
                         solutionHasReleaseConfiguration = true;
                         break;
@@ -2275,7 +2352,7 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private void AddValidateSolutionConfigurationTarget(ProjectInstance traversalProject)
         {
-            ProjectTargetInstance initialTarget = traversalProject.AddTarget("ValidateSolutionConfiguration", null, null, null, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance initialTarget = traversalProject.AddTarget("ValidateSolutionConfiguration", null, null, null, null, null, null, null, null, false /* legacy target returns behaviour */);
 
             if (_solutionFile.SolutionConfigurations.Count > 0)
             {
@@ -2316,7 +2393,7 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private static void AddValidateToolsVersionsTarget(ProjectInstance traversalProject)
         {
-            ProjectTargetInstance validateToolsVersionsTarget = traversalProject.AddTarget("ValidateToolsVersions", null, null, null, null, null, null, false /* legacy target returns behaviour */);
+            ProjectTargetInstance validateToolsVersionsTarget = traversalProject.AddTarget("ValidateToolsVersions", null, null, null, null, null, null, null, null, false /* legacy target returns behaviour */);
             ProjectTaskInstance toolsVersionErrorTask = AddErrorWarningMessageInstance
                 (
                 validateToolsVersionsTarget,
@@ -2339,6 +2416,8 @@ namespace Microsoft.Build.Construction
                 returns: null,
                 keepDuplicateOutputs: null,
                 dependsOnTargets: null,
+                beforeTargets: null,
+                afterTargets: null,
                 parentProjectSupportsReturnsAttribute: false);
 
             var property = new ProjectPropertyGroupTaskPropertyInstance(
@@ -2354,7 +2433,5 @@ namespace Microsoft.Build.Construction
                                                             initialTarget.Location,
                                                             new List<ProjectPropertyGroupTaskPropertyInstance> { property }));
         }
-
-#endregion // Methods
     }
 }

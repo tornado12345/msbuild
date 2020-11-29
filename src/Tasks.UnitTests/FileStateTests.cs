@@ -3,14 +3,8 @@
 
 using System;
 using System.IO;
-using System.Reflection;
-using System.Collections;
-using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Tasks;
-using Microsoft.Build.Utilities;
-using System.Text.RegularExpressions;
-using System.Globalization;
 using Xunit;
 
 namespace Microsoft.Build.UnitTests
@@ -50,10 +44,8 @@ namespace Microsoft.Build.UnitTests
             Assert.Throws<ArgumentException>(() => { var time = state.LastWriteTime; });
         }
 
-        [Fact]
-        [Trait("Category", "netcore-osx-failing")]
-        [Trait("Category", "netcore-linux-failing")]
-        [Trait("Category", "mono-osx-failing")]
+        [ConditionalFact(typeof(NativeMethodsShared), nameof(NativeMethodsShared.IsMaxPathLegacyWindows))]
+        [PlatformSpecific(TestPlatforms.Windows)]
         public void BadTooLongLastWriteTime()
         {
             Helpers.VerifyAssertThrowsSameWay(
@@ -344,7 +336,7 @@ namespace Microsoft.Build.UnitTests
         public void ExistsButDirectory()
         {
             Assert.Equal(new FileInfo(Path.GetTempPath()).Exists, new FileState(Path.GetTempPath()).FileExists);
-            Assert.True((new FileState(Path.GetTempPath()).IsDirectory));
+            Assert.True(new FileState(Path.GetTempPath()).IsDirectory);
         }
 
         [Fact]

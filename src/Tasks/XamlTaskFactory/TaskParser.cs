@@ -19,11 +19,6 @@ namespace Microsoft.Build.Tasks.Xaml
     internal class TaskParser
     {
         /// <summary>
-        /// The set of switches added so far.
-        /// </summary>
-        private readonly HashSet<string> _switchesAdded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
         /// The ordered list of how the switches get emitted.
         /// </summary>
         private readonly List<string> _switchOrderList = new List<string>();
@@ -182,7 +177,7 @@ namespace Microsoft.Build.Tasks.Xaml
             ErrorUtilities.VerifyThrowArgumentLength(desiredRule, nameof(desiredRule));
 
             object rootObject = XamlServices.Load(reader);
-            if (null != rootObject)
+            if (rootObject != null)
             {
                 XamlTypes.ProjectSchemaDefinitions schemas = rootObject as XamlTypes.ProjectSchemaDefinitions;
                 if (schemas != null)
@@ -305,9 +300,13 @@ namespace Microsoft.Build.Tasks.Xaml
             }
 
             // generate the list of parameters in order
-            if (!_switchesAdded.Contains(propertyToAdd.Name))
+            if (!_switchOrderList.Contains(propertyToAdd.Name))
             {
                 _switchOrderList.Add(propertyToAdd.Name);
+            }
+            else
+            {
+                throw new XamlParseException(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("Xaml.DuplicatePropertyName", propertyToAdd.Name));
             }
 
             // Inherit the Prefix from the Tool
@@ -388,7 +387,7 @@ namespace Microsoft.Build.Tasks.Xaml
                 propertyToAdd.Arguments.Add(arg);
             }
 
-            if (argumentDependencyLookup != null && !argumentDependencyLookup.ContainsKey(propertyToAdd.Name))
+            if (argumentDependencyLookup?.ContainsKey(propertyToAdd.Name) == false)
             {
                 argumentDependencyLookup.Add(propertyToAdd.Name, propertyToAdd);
             }
@@ -474,8 +473,8 @@ namespace Microsoft.Build.Tasks.Xaml
 
             if (intProperty != null)
             {
-                parameter.Max = intProperty.MaxValue != null ? intProperty.MaxValue.ToString() : null;
-                parameter.Min = intProperty.MinValue != null ? intProperty.MinValue.ToString() : null;
+                parameter.Max = intProperty.MaxValue?.ToString();
+                parameter.Min = intProperty.MinValue?.ToString();
             }
 
             if (boolProperty != null)

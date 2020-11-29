@@ -2,8 +2,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>$(FullFrameworkTFM)</TargetFramework>
-    <!-- <ApplyPartialNgenOptimization>true</ApplyPartialNgenOptimization> -->
-
     <!-- VS Insertion -->
     <TargetVsixContainerName>Microsoft.Build.vsix</TargetVsixContainerName>
     <VisualStudioInsertionComponent>Microsoft.Build</VisualStudioInsertionComponent>
@@ -33,9 +31,10 @@
     DependsOnTargets="SetBinPaths"
     Condition="!$(ShouldSkipProject)">
     <ItemGroup>
-      <SwrProperty Include="Version=$(BuildVersion)" />
+      <SwrProperty Include="Version=$(VsixVersion)" />
       <SwrProperty Include="X86BinPath=$(X86BinPath)" />
       <SwrProperty Include="X64BinPath=$(X64BinPath)" />
+      <SwrProperty Include="FrameworkBinPath=$(FrameworkBinPath)" />
       <SwrProperty Include="TaskHostBinPath=$(MSBuildTaskHostBinPath)" />
       <SwrProperty Include="TaskHostX64BinPath=$(MSBuildTaskHostX64BinPath)" />
       <SwrProperty Include="MSBuildConversionBinPath=$(MSBuildConversionBinPath)" />

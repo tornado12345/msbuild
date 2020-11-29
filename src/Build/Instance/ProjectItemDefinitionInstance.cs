@@ -1,16 +1,15 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Build.BackEnd;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
-using Microsoft.Build.Execution;
 using Microsoft.Build.Shared;
-using System.Collections.Generic;
-using System;
-using Microsoft.Build.BackEnd;
 
 namespace Microsoft.Build.Execution
 {
@@ -36,11 +35,10 @@ namespace Microsoft.Build.Execution
         /// <summary>
         /// Constructs an empty project item definition instance.
         /// </summary>
-        /// <param name="projectInstance">The project instance to which this item definition belongs.</param>
         /// <param name="itemType">The type of item this definition object represents.</param>
-        internal ProjectItemDefinitionInstance(ProjectInstance projectInstance, string itemType)
+        internal ProjectItemDefinitionInstance(string itemType)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(itemType, "itemType");
+            ErrorUtilities.VerifyThrowArgumentNull(itemType, nameof(itemType));
 
             _itemType = itemType;
         }
@@ -52,8 +50,8 @@ namespace Microsoft.Build.Execution
         /// Assumes that the itemType string originated in a ProjectItemDefinitionElement and therefore
         /// was already validated.
         /// </remarks>
-        internal ProjectItemDefinitionInstance(ProjectInstance projectInstance, ProjectItemDefinition itemDefinition)
-            : this(projectInstance, itemDefinition.ItemType)
+        internal ProjectItemDefinitionInstance(ProjectItemDefinition itemDefinition)
+            : this(itemDefinition.ItemType)
         {
             if (itemDefinition.MetadataCount > 0)
             {
@@ -128,7 +126,7 @@ namespace Microsoft.Build.Execution
         }
 
         /// <summary>
-        /// Implementation of IKeyed exposing the item type, so these 
+        /// Implementation of IKeyed exposing the item type, so these
         /// can be put in a dictionary conveniently.
         /// </summary>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -144,7 +142,7 @@ namespace Microsoft.Build.Execution
         [DebuggerStepThrough]
         public ProjectMetadataInstance GetMetadata(string name)
         {
-            return (_metadata == null) ? null : _metadata[name];
+            return _metadata?[name];
         }
 
         #region IMetadataTable Members
@@ -199,7 +197,7 @@ namespace Microsoft.Build.Execution
         ProjectMetadataInstance IItemDefinition<ProjectMetadataInstance>.SetMetadata(ProjectMetadataElement xml, string evaluatedValue, ProjectMetadataInstance predecessor)
         {
             // No mutability check as this is used during creation (evaluation)
-            _metadata = _metadata ?? new CopyOnWritePropertyDictionary<ProjectMetadataInstance>();
+            _metadata ??= new CopyOnWritePropertyDictionary<ProjectMetadataInstance>();
 
             ProjectMetadataInstance metadatum = new ProjectMetadataInstance(xml.Name, evaluatedValue);
             _metadata[xml.Name] = metadatum;

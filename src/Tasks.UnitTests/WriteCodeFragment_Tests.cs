@@ -3,15 +3,13 @@
 
 using System;
 using System.IO;
-
-using Microsoft.Build.Framework;
 using Microsoft.Build.Tasks;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Shared;
 using Xunit;
-using System.Collections.Generic;
 using System.Linq;
-using MSBuildConstants = Microsoft.Build.Tasks.MSBuildConstants;
+using System.Runtime.InteropServices;
+using Shouldly;
 
 namespace Microsoft.Build.UnitTests
 {
@@ -486,16 +484,8 @@ namespace Microsoft.Build.UnitTests
 
         private static readonly string VBCarriageReturn = "Global.Microsoft.VisualBasic.ChrW(13)";
         private static readonly string VBLineFeed = "Global.Microsoft.VisualBasic.ChrW(10)";
-        private static readonly string WindowsNewLine = $"{VBCarriageReturn}&{VBLineFeed}";
 
-        public static readonly string VBLineSeparator =
-#if FEATURE_CODEDOM
-            WindowsNewLine;
-#else
-            NativeMethodsShared.IsWindows
-                ? WindowsNewLine
-                : VBLineFeed;
-#endif
+        public static readonly string VBLineSeparator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? $"{VBCarriageReturn}&{VBLineFeed}" : VBLineFeed;
 
         /// <summary>
         /// Multi line argument values should cause a verbatim string to be used
@@ -626,7 +616,10 @@ namespace Microsoft.Build.UnitTests
             string content = File.ReadAllText(task.OutputFile.ItemSpec);
             Console.WriteLine(content);
 
-            CheckContentCSharp(content, @"[assembly: AssemblyTrademarkAttribute(""Microsoft"", Date=""2009"", Copyright=""(C)"")]");
+            // NOTE: order here is defined by dictionary traversal order and may change
+            // based on implementation details there, but named parameters can have different
+            // orders so that's ok.
+            CheckContentCSharp(content, @"[assembly: AssemblyTrademarkAttribute(""Microsoft"", Copyright=""(C)"", Date=""2009"")]");
 
             File.Delete(task.OutputFile.ItemSpec);
         }
@@ -695,7 +688,7 @@ namespace Microsoft.Build.UnitTests
                              .Select(line => line.Trim())
                              .Where(line => line.Length > 0 && !line.StartsWith(commentStart)));
 
-            Assert.Equal(expectedContent, normalizedActualContent);
+            expectedContent.ShouldBe(normalizedActualContent);
         }
     }
 }

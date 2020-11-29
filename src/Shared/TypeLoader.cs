@@ -1,15 +1,14 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Shared
 {
@@ -18,7 +17,7 @@ namespace Microsoft.Build.Shared
     /// </summary>
     internal class TypeLoader
     {
-#if !FEATURE_ASSEMBLY_LOADFROM
+#if FEATURE_ASSEMBLYLOADCONTEXT
         /// <summary>
         /// AssemblyContextLoader used to load DLLs outside of msbuild.exe directory
         /// </summary>
@@ -40,7 +39,7 @@ namespace Microsoft.Build.Shared
         /// </summary>
         private Func<Type, object, bool> _isDesiredType;
 
-#if !FEATURE_ASSEMBLY_LOADFROM
+#if FEATURE_ASSEMBLYLOADCONTEXT
         static TypeLoader()
         {
             s_coreClrAssemblyLoader = new CoreClrAssemblyLoader();
@@ -132,7 +131,7 @@ namespace Microsoft.Build.Shared
             }
             else
             {
-                isPartialMatch = (String.Compare(typeName1, typeName2, StringComparison.OrdinalIgnoreCase) == 0);
+                isPartialMatch = (String.Equals(typeName1, typeName2, StringComparison.OrdinalIgnoreCase));
             }
 
             return isPartialMatch;
@@ -151,7 +150,7 @@ namespace Microsoft.Build.Shared
             {
                 if (assemblyLoadInfo.AssemblyName != null)
                 {
-#if FEATURE_ASSEMBLY_LOADFROM
+#if !FEATURE_ASSEMBLYLOADCONTEXT
                     loadedAssembly = Assembly.Load(assemblyLoadInfo.AssemblyName);
 #else
                     loadedAssembly = Assembly.Load(new AssemblyName(assemblyLoadInfo.AssemblyName));
@@ -159,27 +158,12 @@ namespace Microsoft.Build.Shared
                 }
                 else
                 {
-#if FEATURE_ASSEMBLY_LOADFROM
+#if !FEATURE_ASSEMBLYLOADCONTEXT
                     loadedAssembly = Assembly.UnsafeLoadFrom(assemblyLoadInfo.AssemblyFile);
 #else
-                    // If the Assembly is provided via a file path, the following rules are used to load the assembly:
-                    // - if the simple name of the assembly exists in the same folder as msbuild.exe, then that assembly gets loaded, indifferent of the user specified path
-                    // - otherwise, the assembly from the user specified path is loaded, if it exists.
-
-                    var assemblyNameInExecutableDirectory = Path.Combine(BuildEnvironmentHelper.Instance.CurrentMSBuildToolsDirectory,
-                        Path.GetFileName(assemblyLoadInfo.AssemblyFile));
-
-                    if (FileSystems.Default.FileExists(assemblyNameInExecutableDirectory))
-                    {
-                        var simpleName = Path.GetFileNameWithoutExtension(assemblyLoadInfo.AssemblyFile);
-                        loadedAssembly = Assembly.Load(new AssemblyName(simpleName));
-                    }
-                    else
-                    {
-                        var baseDir = Path.GetDirectoryName(assemblyLoadInfo.AssemblyFile);
-                        s_coreClrAssemblyLoader.AddDependencyLocation(baseDir);
-                        loadedAssembly = s_coreClrAssemblyLoader.LoadFromPath(assemblyLoadInfo.AssemblyFile);
-                    }
+                    var baseDir = Path.GetDirectoryName(assemblyLoadInfo.AssemblyFile);
+                    s_coreClrAssemblyLoader.AddDependencyLocation(baseDir);
+                    loadedAssembly = s_coreClrAssemblyLoader.LoadFromPath(assemblyLoadInfo.AssemblyFile);
 #endif
                 }
             }
@@ -248,6 +232,7 @@ namespace Microsoft.Build.Shared
         /// 
         /// This type represents a combination of a type filter and an assemblyInfo object.
         /// </summary>
+        [DebuggerDisplay("Types in {_assemblyLoadInfo} matching {_isDesiredType}")]
         private class AssemblyInfoToLoadedTypes
         {
             /// <summary>
@@ -294,7 +279,7 @@ namespace Microsoft.Build.Shared
             internal AssemblyInfoToLoadedTypes(Func<Type, object, bool> typeFilter, AssemblyLoadInfo loadInfo)
             {
                 ErrorUtilities.VerifyThrowArgumentNull(typeFilter, "typefilter");
-                ErrorUtilities.VerifyThrowArgumentNull(loadInfo, "loadInfo");
+                ErrorUtilities.VerifyThrowArgumentNull(loadInfo, nameof(loadInfo));
 
                 _isDesiredType = typeFilter;
                 _assemblyLoadInfo = loadInfo;
@@ -307,7 +292,7 @@ namespace Microsoft.Build.Shared
             /// </summary>
             internal LoadedType GetLoadedTypeByTypeName(string typeName)
             {
-                ErrorUtilities.VerifyThrowArgumentNull(typeName, "typeName");
+                ErrorUtilities.VerifyThrowArgumentNull(typeName, nameof(typeName));
 
                 // Only one thread should be doing operations on this instance of the object at a time.
 

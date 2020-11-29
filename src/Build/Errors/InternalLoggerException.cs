@@ -91,11 +91,11 @@ namespace Microsoft.Build.Exceptions
          )
             : base(message, innerException)
         {
-            ErrorUtilities.VerifyThrow((message != null) && (message.Length > 0), "Need error message.");
-            ErrorUtilities.VerifyThrow(innerException != null || initializationException == true, "Need the logger exception.");
-            ErrorUtilities.VerifyThrow((errorCode != null) && (errorCode.Length > 0), "Must specify the error message code.");
-            ErrorUtilities.VerifyThrow((helpKeyword != null) && (helpKeyword.Length > 0), "Must specify the help keyword for the IDE.");
-
+            ErrorUtilities.VerifyThrow(!string.IsNullOrEmpty(message), "Need error message.");
+            ErrorUtilities.VerifyThrow(innerException != null || initializationException, "Need the logger exception.");
+            ErrorUtilities.VerifyThrow(!string.IsNullOrEmpty(errorCode), "Must specify the error message code.");
+            ErrorUtilities.VerifyThrow(!string.IsNullOrEmpty(helpKeyword), "Must specify the help keyword for the IDE.");
+            
             this.e = e;
             this.errorCode = errorCode;
             this.helpKeyword = helpKeyword;
@@ -105,7 +105,7 @@ namespace Microsoft.Build.Exceptions
         #region Serialization (update when adding new class members)
 
         /// <summary>
-        /// Protected constructor used for (de)serialization. 
+        /// Protected constructor used for (de)serialization.
         /// If we ever add new members to this class, we'll need to update this.
         /// </summary>
         /// <param name="info"></param>
@@ -241,7 +241,7 @@ namespace Microsoft.Build.Exceptions
         // the F1-help keyword for the host IDE
         private string helpKeyword;
 
-        // This flag is set to indicate that the exception occured during logger initialization
+        // This flag is set to indicate that the exception occurred during logger initialization
         [OptionalField(VersionAdded = 2)]
         private bool initializationException;
     }

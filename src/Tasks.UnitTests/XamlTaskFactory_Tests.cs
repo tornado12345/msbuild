@@ -3,13 +3,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Microsoft.Build.Framework;
-using System.Xml;
 using System.IO;
 using System.CodeDom;
 using System.CodeDom.Compiler;
-using System.Linq;
 using Microsoft.CSharp;
 using System.Reflection;
 using Microsoft.Build.Shared;
@@ -17,6 +14,7 @@ using System.Globalization;
 using Microsoft.Build.Tasks.Xaml;
 using System.Xaml;
 using Xunit;
+using Shouldly;
 
 namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
 {
@@ -189,6 +187,25 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
             Assert.Equal("Oi:NO", properties.First.Value.ReverseSwitchName);
             Assert.Equal("true", properties.First.Value.Reversible); // "Switch should be marked as reversible"
             Assert.Equal(PropertyType.Boolean, properties.First.Value.Type);
+        }
+
+        [Fact]
+        public void TestParseIncorrect_PropertyNamesMustBeUnique()
+        {
+            string incorrectXmlContents = @"<ProjectSchemaDefinitions
+                                       xmlns=`clr-namespace:Microsoft.Build.Framework.XamlTypes;assembly=Microsoft.Build.Framework`
+                                       xmlns:x=`http://schemas.microsoft.com/winfx/2006/xaml`
+                                       xmlns:sys=`clr-namespace:System;assembly=mscorlib`
+                                       xmlns:impl=`clr-namespace:Microsoft.VisualStudio.Project.Contracts.Implementation;assembly=Microsoft.VisualStudio.Project.Contracts.Implementation`>
+                                     <Rule Name=`CL`>
+                                       <BoolProperty Name=`SameName` Switch=`Og` ReverseSwitch=`Og-` />
+                                       <BoolProperty Name=`SameName` Switch=`Og` ReverseSwitch=`Og-` />
+                                     </Rule>
+                                   </ProjectSchemaDefinitions>";
+
+            Should
+                .Throw<XamlParseException>(() => XamlTestHelpers.LoadAndParse(incorrectXmlContents, "CL"))
+                .Message.ShouldStartWith("MSB3724");
         }
 
         /// <summary>
@@ -585,7 +602,7 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
             object[] attributes = pi.GetCustomAttributes(true);
             foreach (object attribute in attributes)
             {
-                Assert.Equal("/Br", (attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString()));
+                Assert.Equal("/Br", attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString());
             }
         }
 
@@ -603,7 +620,7 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
             object[] attributes = pi.GetCustomAttributes(true);
             foreach (object attribute in attributes)
             {
-                Assert.Equal("/Bn", (attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString()));
+                Assert.Equal("/Bn", attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString());
             }
         }
 
@@ -621,7 +638,7 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
             object[] attributes = pi.GetCustomAttributes(true);
             foreach (object attribute in attributes)
             {
-                Assert.Equal("/Bs", (attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString()));
+                Assert.Equal("/Bs", attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString());
             }
         }
 
@@ -639,7 +656,7 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
             object[] attributes = pi.GetCustomAttributes(true);
             foreach (object attribute in attributes)
             {
-                Assert.Equal("/Bi", (attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString()));
+                Assert.Equal("/Bi", attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString());
             }
         }
 
@@ -660,7 +677,7 @@ namespace Microsoft.Build.UnitTests.XamlTaskFactory_Tests
                 PropertyInfo documentationAttribute = attribute.GetType().GetProperty("SwitchName");
                 if (documentationAttribute != null)
                 {
-                    Assert.Equal("/Bsa", (attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString()));
+                    Assert.Equal("/Bsa", attribute.GetType().GetProperty("SwitchName").GetValue(attribute, null).ToString());
                 }
                 else
                 {

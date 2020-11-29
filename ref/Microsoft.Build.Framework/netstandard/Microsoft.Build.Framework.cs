@@ -16,11 +16,13 @@ namespace Microsoft.Build.Framework
         public BuildErrorEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName) { }
         public BuildErrorEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, System.DateTime eventTimestamp) { }
         public BuildErrorEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, System.DateTime eventTimestamp, params object[] messageArgs) { }
+        public BuildErrorEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, string helpLink, System.DateTime eventTimestamp, params object[] messageArgs) { }
         public string Code { get { throw null; } }
         public int ColumnNumber { get { throw null; } }
         public int EndColumnNumber { get { throw null; } }
         public int EndLineNumber { get { throw null; } }
         public string File { get { throw null; } }
+        public string HelpLink { get { throw null; } }
         public int LineNumber { get { throw null; } }
         public string ProjectFile { get { throw null; } set { } }
         public string Subcategory { get { throw null; } }
@@ -118,11 +120,13 @@ namespace Microsoft.Build.Framework
         public BuildWarningEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName) { }
         public BuildWarningEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, System.DateTime eventTimestamp) { }
         public BuildWarningEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, System.DateTime eventTimestamp, params object[] messageArgs) { }
+        public BuildWarningEventArgs(string subcategory, string code, string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message, string helpKeyword, string senderName, string helpLink, System.DateTime eventTimestamp, params object[] messageArgs) { }
         public string Code { get { throw null; } }
         public int ColumnNumber { get { throw null; } }
         public int EndColumnNumber { get { throw null; } }
         public int EndLineNumber { get { throw null; } }
         public string File { get { throw null; } }
+        public string HelpLink { get { throw null; } }
         public int LineNumber { get { throw null; } }
         public string ProjectFile { get { throw null; } set { } }
         public string Subcategory { get { throw null; } }
@@ -143,6 +147,12 @@ namespace Microsoft.Build.Framework
         protected CustomBuildEventArgs(string message, string helpKeyword, string senderName, System.DateTime eventTimestamp, params object[] messageArgs) { }
     }
     public delegate void CustomBuildEventHandler(object sender, Microsoft.Build.Framework.CustomBuildEventArgs e);
+    public partial class EnvironmentVariableReadEventArgs : Microsoft.Build.Framework.BuildMessageEventArgs
+    {
+        public EnvironmentVariableReadEventArgs() { }
+        public EnvironmentVariableReadEventArgs(string environmentVariableName, string message, string helpKeyword=null, string senderName=null, Microsoft.Build.Framework.MessageImportance importance=(Microsoft.Build.Framework.MessageImportance)(2)) { }
+        public string EnvironmentVariableName { get { throw null; } set { } }
+    }
     public partial class ExternalProjectFinishedEventArgs : Microsoft.Build.Framework.CustomBuildEventArgs
     {
         protected ExternalProjectFinishedEventArgs() { }
@@ -192,6 +202,14 @@ namespace Microsoft.Build.Framework
     public partial interface IBuildEngine5 : Microsoft.Build.Framework.IBuildEngine, Microsoft.Build.Framework.IBuildEngine2, Microsoft.Build.Framework.IBuildEngine3, Microsoft.Build.Framework.IBuildEngine4
     {
         void LogTelemetry(string eventName, System.Collections.Generic.IDictionary<string, string> properties);
+    }
+    public partial interface IBuildEngine6 : Microsoft.Build.Framework.IBuildEngine, Microsoft.Build.Framework.IBuildEngine2, Microsoft.Build.Framework.IBuildEngine3, Microsoft.Build.Framework.IBuildEngine4, Microsoft.Build.Framework.IBuildEngine5
+    {
+        System.Collections.Generic.IReadOnlyDictionary<string, string> GetGlobalProperties();
+    }
+    public partial interface IBuildEngine7 : Microsoft.Build.Framework.IBuildEngine, Microsoft.Build.Framework.IBuildEngine2, Microsoft.Build.Framework.IBuildEngine3, Microsoft.Build.Framework.IBuildEngine4, Microsoft.Build.Framework.IBuildEngine5, Microsoft.Build.Framework.IBuildEngine6
+    {
+        bool AllowFailureWithoutError { get; set; }
     }
     public partial interface ICancelableTask : Microsoft.Build.Framework.ITask
     {
@@ -401,6 +419,23 @@ namespace Microsoft.Build.Framework
         public string ToolsVersion { get { throw null; } }
     }
     public delegate void ProjectStartedEventHandler(object sender, Microsoft.Build.Framework.ProjectStartedEventArgs e);
+    public partial class PropertyInitialValueSetEventArgs : Microsoft.Build.Framework.BuildMessageEventArgs
+    {
+        public PropertyInitialValueSetEventArgs() { }
+        public PropertyInitialValueSetEventArgs(string propertyName, string propertyValue, string propertySource, string message, string helpKeyword=null, string senderName=null, Microsoft.Build.Framework.MessageImportance importance=(Microsoft.Build.Framework.MessageImportance)(2)) { }
+        public string PropertyName { get { throw null; } set { } }
+        public string PropertySource { get { throw null; } set { } }
+        public string PropertyValue { get { throw null; } set { } }
+    }
+    public partial class PropertyReassignmentEventArgs : Microsoft.Build.Framework.BuildMessageEventArgs
+    {
+        public PropertyReassignmentEventArgs() { }
+        public PropertyReassignmentEventArgs(string propertyName, string previousValue, string newValue, string location, string message, string helpKeyword=null, string senderName=null, Microsoft.Build.Framework.MessageImportance importance=(Microsoft.Build.Framework.MessageImportance)(2)) { }
+        public string Location { get { throw null; } set { } }
+        public string NewValue { get { throw null; } set { } }
+        public string PreviousValue { get { throw null; } set { } }
+        public string PropertyName { get { throw null; } set { } }
+    }
     public enum RegisteredTaskObjectLifetime
     {
         AppDomain = 1,
@@ -455,6 +490,7 @@ namespace Microsoft.Build.Framework
     {
         protected SdkResolverContext() { }
         public virtual bool Interactive { get { throw null; } protected set { } }
+        public virtual bool IsRunningInVisualStudio { get { throw null; } protected set { } }
         public virtual Microsoft.Build.Framework.SdkLogger Logger { get { throw null; } protected set { } }
         public virtual System.Version MSBuildVersion { get { throw null; } protected set { } }
         public virtual string ProjectFilePath { get { throw null; } protected set { } }
@@ -464,7 +500,10 @@ namespace Microsoft.Build.Framework
     public abstract partial class SdkResult
     {
         protected SdkResult() { }
+        public virtual System.Collections.Generic.IList<string> AdditionalPaths { get { throw null; } set { } }
+        public virtual System.Collections.Generic.IDictionary<string, Microsoft.Build.Framework.SdkResultItem> ItemsToAdd { get { throw null; } protected set { } }
         public virtual string Path { get { throw null; } protected set { } }
+        public virtual System.Collections.Generic.IDictionary<string, string> PropertiesToAdd { get { throw null; } protected set { } }
         public virtual Microsoft.Build.Framework.SdkReference SdkReference { get { throw null; } protected set { } }
         public virtual bool Success { get { throw null; } protected set { } }
         public virtual string Version { get { throw null; } protected set { } }
@@ -473,7 +512,18 @@ namespace Microsoft.Build.Framework
     {
         protected SdkResultFactory() { }
         public abstract Microsoft.Build.Framework.SdkResult IndicateFailure(System.Collections.Generic.IEnumerable<string> errors, System.Collections.Generic.IEnumerable<string> warnings=null);
+        public virtual Microsoft.Build.Framework.SdkResult IndicateSuccess(System.Collections.Generic.IEnumerable<string> paths, string version, System.Collections.Generic.IDictionary<string, string> propertiesToAdd=null, System.Collections.Generic.IDictionary<string, Microsoft.Build.Framework.SdkResultItem> itemsToAdd=null, System.Collections.Generic.IEnumerable<string> warnings=null) { throw null; }
+        public virtual Microsoft.Build.Framework.SdkResult IndicateSuccess(string path, string version, System.Collections.Generic.IDictionary<string, string> propertiesToAdd, System.Collections.Generic.IDictionary<string, Microsoft.Build.Framework.SdkResultItem> itemsToAdd, System.Collections.Generic.IEnumerable<string> warnings=null) { throw null; }
         public abstract Microsoft.Build.Framework.SdkResult IndicateSuccess(string path, string version, System.Collections.Generic.IEnumerable<string> warnings=null);
+    }
+    public partial class SdkResultItem
+    {
+        public SdkResultItem() { }
+        public SdkResultItem(string itemSpec, System.Collections.Generic.Dictionary<string, string> metadata) { }
+        public string ItemSpec { get { throw null; } set { } }
+        public System.Collections.Generic.Dictionary<string, string> Metadata { get { throw null; } }
+        public override bool Equals(object obj) { throw null; }
+        public override int GetHashCode() { throw null; }
     }
     public enum TargetBuiltReason
     {
@@ -539,6 +589,8 @@ namespace Microsoft.Build.Framework
     public partial class TaskPropertyInfo
     {
         public TaskPropertyInfo(string name, System.Type typeOfParameter, bool output, bool required) { }
+        public bool Log { get { throw null; } set { } }
+        public bool LogItemMetadata { get { throw null; } set { } }
         public string Name { get { throw null; } }
         public bool Output { get { throw null; } }
         public System.Type PropertyType { get { throw null; } }
@@ -561,6 +613,12 @@ namespace Microsoft.Build.Framework
         public System.Collections.Generic.IDictionary<string, string> Properties { get { throw null; } set { } }
     }
     public delegate void TelemetryEventHandler(object sender, Microsoft.Build.Framework.TelemetryEventArgs e);
+    public partial class UninitializedPropertyReadEventArgs : Microsoft.Build.Framework.BuildMessageEventArgs
+    {
+        public UninitializedPropertyReadEventArgs() { }
+        public UninitializedPropertyReadEventArgs(string propertyName, string message, string helpKeyword=null, string senderName=null, Microsoft.Build.Framework.MessageImportance importance=(Microsoft.Build.Framework.MessageImportance)(2)) { }
+        public string PropertyName { get { throw null; } set { } }
+    }
 }
 namespace Microsoft.Build.Framework.Profiler
 {

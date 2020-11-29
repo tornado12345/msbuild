@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Shared
@@ -23,7 +22,7 @@ namespace Microsoft.Build.Shared
 
         /// <summary>
         /// Name of the Visual Studio (and Blend) process.
-        // VS ASP intellisense server fails without Microsoft.VisualStudio.Web.Host. Remove when issue fixed: https://devdiv.visualstudio.com/DevDiv/_workitems/edit/574986
+        /// VS ASP intellisense server fails without Microsoft.VisualStudio.Web.Host. Remove when issue fixed: https://devdiv.visualstudio.com/DevDiv/_workitems/edit/574986
         /// </summary>
         private static readonly string[] s_visualStudioProcess = {"DEVENV", "BLEND", "Microsoft.VisualStudio.Web.Host"};
 
@@ -207,7 +206,6 @@ namespace Microsoft.Build.Shared
             }
 
             return null;
-
         }
 
         private static BuildEnvironment TryFromMSBuildAssemblyUnderVisualStudio(string msbuildAssembly, string msbuildExe, bool allowLegacyToolsVersion = false)
@@ -329,7 +327,13 @@ namespace Microsoft.Build.Shared
 
         private static string GetMSBuildExeFromVsRoot(string visualStudioRoot)
         {
-            return FileUtilities.CombinePaths(visualStudioRoot, "MSBuild", CurrentToolsVersion, "Bin", "MSBuild.exe");
+            return FileUtilities.CombinePaths(
+                visualStudioRoot,
+                "MSBuild",
+                CurrentToolsVersion,
+                "Bin",
+                IntPtr.Size == 8 ? "amd64" : string.Empty,
+                "MSBuild.exe");
         }
 
         private static bool? _runningTests;
@@ -383,6 +387,13 @@ namespace Microsoft.Build.Shared
         private static string GetProcessFromRunningProcess()
         {
 #if RUNTIME_TYPE_NETCORE
+            // The EntryAssembly property can return null when a managed assembly has been loaded from
+            // an unmanaged application (for example, using custom CLR hosting).
+            if (AssemblyUtilities.EntryAssembly == null)
+            {
+                return Process.GetCurrentProcess().MainModule.FileName;
+            }
+
             return AssemblyUtilities.GetAssemblyLocation(AssemblyUtilities.EntryAssembly);
 #else
             return Process.GetCurrentProcess().MainModule.FileName;
@@ -436,7 +447,6 @@ namespace Microsoft.Build.Shared
         private static Func<string, string> s_getEnvironmentVariable = GetEnvironmentVariable;
         private static Func<bool> s_runningTests = CheckIfRunningTests;
 
-
         private static class BuildEnvironmentHelperSingleton
         {
             // Explicit static constructor to tell C# compiler
@@ -460,7 +470,7 @@ namespace Microsoft.Build.Shared
         VisualStudio,
 
         /// <summary>
-        /// Running in a standalone toolset mode. All toolsets and extensions paths are relative to the app 
+        /// Running in a standalone toolset mode. All toolsets and extensions paths are relative to the app
         /// running and not dependent on Visual Studio. (e.g. dotnet CLI, open source clone of our repo)
         /// </summary>
         Standalone,

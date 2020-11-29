@@ -2,25 +2,24 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.IO;
-using System.Globalization;
-using System.Text;
-using System.Diagnostics;
-using System.Reflection;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text;
+using System.Xml.Linq;
 
+using Microsoft.Build.Eventing;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
+using Microsoft.Build.Tasks.AssemblyDependency;
 using Microsoft.Build.Utilities;
 
-#if (!STANDALONEBUILD)
-using Microsoft.Internal.Performance;
-#endif
 using FrameworkNameVersioning = System.Runtime.Versioning.FrameworkName;
 using SystemProcessorArchitecture = System.Reflection.ProcessorArchitecture;
-using System.Xml.Linq;
-using Microsoft.Build.Tasks.AssemblyDependency;
 
 namespace Microsoft.Build.Tasks
 {
@@ -31,12 +30,12 @@ namespace Microsoft.Build.Tasks
     public class ResolveAssemblyReference : TaskExtension
     {
         /// <summary>
-        /// key assembly used to trigger inclusion of facade references. 
+        /// key assembly used to trigger inclusion of facade references.
         /// </summary>
         private const string SystemRuntimeAssemblyName = "System.Runtime";
 
         /// <summary>
-        /// additional key assembly used to trigger inclusion of facade references. 
+        /// additional key assembly used to trigger inclusion of facade references.
         /// </summary>
         private const string NETStandardAssemblyName = "netstandard";
 
@@ -129,11 +128,11 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// If there is a mismatch between the targetprocessor architecture and the architecture of a primary reference.
-        /// 
-        /// When this is error,  an error will be logged. 
-        /// 
+        ///
+        /// When this is error,  an error will be logged.
+        ///
         /// When this is warn, if there is a mismatch between the targetprocessor architecture and the architecture of a primary reference a warning will be logged.
-        /// 
+        ///
         /// When this is none, no error or warning will be logged.
         /// </summary>
         public string WarnOrErrorOnTargetArchitectureMismatch
@@ -156,12 +155,12 @@ namespace Microsoft.Build.Tasks
         ///
         /// Optional attributes are:
         ///     bool Private [default=true] -- means 'CopyLocal'
-        ///     string FusionName -- the simple or strong fusion name for this item. If this 
+        ///     string FusionName -- the simple or strong fusion name for this item. If this
         ///         attribute is present it can save time since the assembly file won't need
         ///         to be opened to get the fusion name.
         ///     bool ExternallyResolved [default=false] -- indicates that the reference and its
         ///        dependencies are resolved by an external system (commonly from nuget assets) and
-        ///        so several steps can be skipped as an optimization: finding dependencies, 
+        ///        so several steps can be skipped as an optimization: finding dependencies,
         ///        satellite assemblies, etc.
         /// </summary>
         public ITaskItem[] AssemblyFiles
@@ -171,9 +170,9 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// The list of directories which contain the redist lists for the most current 
+        /// The list of directories which contain the redist lists for the most current
         /// framework which can be targeted on the machine. If this is not set
-        /// Then we will looks for the highest framework installed on the machine 
+        /// Then we will looks for the highest framework installed on the machine
         /// for a given target framework identifier and use that.
         /// </summary>
         public string[] LatestTargetFrameworkDirectories
@@ -241,26 +240,26 @@ namespace Microsoft.Build.Tasks
         ///
         /// Optional attributes are:
         ///     bool Private [default=true] -- means 'CopyLocal'
-        ///     string HintPath [default=''] -- location of file name to consider as a reference, 
+        ///     string HintPath [default=''] -- location of file name to consider as a reference,
         ///         used when {HintPathFromItem} is one of the paths in SearchPaths.
-        ///     bool SpecificVersion [default=absent] -- 
-        ///         when true, the exact fusionname in the Include must be matched. 
+        ///     bool SpecificVersion [default=absent] --
+        ///         when true, the exact fusionname in the Include must be matched.
         ///         when false, any assembly with the same simple name will be a match.
-        ///         when absent, then look at the value in Include. 
+        ///         when absent, then look at the value in Include.
         ///           If its a simple name then behave as if specific version=false.
-        ///           If its a strong name name then behave as if specific version=true.
-        ///     string ExecutableExtension [default=absent] -- 
+        ///           If its a strong name then behave as if specific version=true.
+        ///     string ExecutableExtension [default=absent] --
         ///         when present, the resolved assembly must have this extension.
         ///         when absent, .dll is considered and then .exe for each directory looked at.
-        ///     string SubType -- only items with empty SubTypes will be considered. Items 
+        ///     string SubType -- only items with empty SubTypes will be considered. Items
         ///         with non-empty subtypes will be ignored.
-        ///     string AssemblyFolderKey [default=absent] -- supported for legacy AssemblyFolder 
+        ///     string AssemblyFolderKey [default=absent] -- supported for legacy AssemblyFolder
         ///         resolution. This key can have a value like 'hklm\vendor folder'. When set, only
         ///         this particular assembly folder key will be used.
         ///            This is to support the scenario in VSWhidey#357946 in which there are multiple
         ///            side-by-side libraries installed and the user wants to pick an exact version.
-        ///     bool EmbedInteropTyeps [default=absent] -- 
-        ///         when true, we should treat this assembly as if it has no dependencies and should 
+        ///     bool EmbedInteropTyeps [default=absent] --
+        ///         when true, we should treat this assembly as if it has no dependencies and should
         ///         be completely embedded into the target assembly.
         /// </summary>
         public ITaskItem[] Assemblies
@@ -271,7 +270,7 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// A list of assembly files that can be part of the search and resolution process.
-        /// These must be absolute filesnames, or project-relative filenames.
+        /// These must be absolute filenames, or project-relative filenames.
         ///
         /// Assembly files in this list will be considered when SearchPaths contains
         /// {CandidateAssemblyFiles} as one of the paths to consider.
@@ -293,9 +292,9 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// Path to the target frameworks directory. Required to figure out CopyLocal status 
+        /// Path to the target frameworks directory. Required to figure out CopyLocal status
         /// for resulting items.
-        /// If not present, then no resulting items will be deemed CopyLocal='true' unless they explicity 
+        /// If not present, then no resulting items will be deemed CopyLocal='true' unless they explicity
         /// have a Private='true' attribute on their source item.
         /// </summary>
         public string[] TargetFrameworkDirectories
@@ -306,14 +305,14 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// A list of XML files that contain assemblies that are expected to be installed on the target machine.
-        /// 
+        ///
         /// Format of the file is like:
-        /// 
+        ///
         ///     <FileList Redist="Microsoft-Windows-CLRCoreComp" >
         ///         <File AssemblyName="System" Version="2.0.0.0" PublicKeyToken="b77a5c561934e089" Culture="neutral" ProcessorArchitecture="MSIL" FileVersion="2.0.40824.0" InGAC="true" />
         ///         etc.
         ///     </FileList>
-        /// 
+        ///
         /// When present, assemblies from this list will be candidates to automatically "unify" from prior versions up to
         /// the version listed in the XML. Also, assemblies with InGAC='true' will be considered prerequisites and will be CopyLocal='false'
         /// unless explicitly overridden.
@@ -332,16 +331,16 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// A list of XML files that contain assemblies that are expected to be in the target subset
-        /// 
+        ///
         /// Format of the file is like:
-        /// 
+        ///
         ///     <FileList Redist="ClientSubset" >
         ///         <File AssemblyName="System" Version="2.0.0.0" PublicKeyToken="b77a5c561934e089" Culture="neutral" ProcessorArchitecture="MSIL" FileVersion="2.0.40824.0" InGAC="true" />
         ///         etc.
         ///     </FileList>
-        /// 
+        ///
         /// Items in this list may optionally specify the "FrameworkDirectory" metadata to associate an InstalledAssemblySubsetTable
-        /// with a particular framework directory. 
+        /// with a particular framework directory.
         /// If there is only a single TargetFrameworkDirectories element, then any items in this list missing the
         /// "FrameworkDirectory" metadata will be treated as though this metadata is set to the lone (unique) value passed
         /// to TargetFrameworkDirectories.
@@ -358,19 +357,19 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// A list of XML files that contain the full framework for the profile.
-        /// 
-        /// Normally nothing is passed in here, this is for the cases where the location of the xml file for the full framework 
+        ///
+        /// Normally nothing is passed in here, this is for the cases where the location of the xml file for the full framework
         /// is not under a RedistList folder.
-        /// 
+        ///
         /// Format of the file is like:
-        /// 
+        ///
         ///     <FileList Redist="MatchingRedistListName" >
         ///         <File AssemblyName="System" Version="2.0.0.0" PublicKeyToken="b77a5c561934e089" Culture="neutral" ProcessorArchitecture="MSIL" FileVersion="2.0.40824.0" InGAC="true" />
         ///         etc.
         ///     </FileList>
-        /// 
+        ///
         /// Items in this list must specify the "FrameworkDirectory" metadata to associate an redist list
-        /// with a particular framework directory. If the association is not made an error will be logged. The reason is, 
+        /// with a particular framework directory. If the association is not made an error will be logged. The reason is,
         /// The logic in rar assumes if a FrameworkDirectory is not set it will use the target framework directory.
         /// </summary>
         public ITaskItem[] FullFrameworkAssemblyTables
@@ -385,7 +384,7 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// [default=false]
-        /// Boolean property to control whether or not the task should look for and use additional installed 
+        /// Boolean property to control whether or not the task should look for and use additional installed
         /// assembly tables (a.k.a Redist Lists) found in the RedistList directory underneath the provided
         /// TargetFrameworkDirectories.
         /// </summary>
@@ -397,7 +396,7 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// [default=false]
-        /// Boolean property to control whether or not the task should look for and use additional installed 
+        /// Boolean property to control whether or not the task should look for and use additional installed
         /// assembly subset tables (a.k.a Subset Lists) found in the SubsetList directory underneath the provided
         /// TargetFrameworkDirectories.
         /// </summary>
@@ -417,14 +416,14 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// The preferred target processor architecture. Used for resolving {GAC} references. 
+        /// The preferred target processor architecture. Used for resolving {GAC} references.
         /// Should be like x86, IA64 or AMD64.
-        /// 
+        ///
         /// This is the order of preference:
         /// (1) Assemblies in the GAC that match the supplied ProcessorArchitecture.
         /// (2) Assemblies in the GAC that have ProcessorArchitecture=MSIL
         /// (3) Assemblies in the GAC that have no ProcessorArchitecture.
-        /// 
+        ///
         /// If absent, then only consider assemblies in the GAC that have ProcessorArchitecture==MSIL or
         /// no ProcessorArchitecture (these are pre-Whidbey assemblies).
         /// </summary>
@@ -442,6 +441,18 @@ namespace Microsoft.Build.Tasks
             get { return _targetedRuntimeVersionRawValue; }
             set { _targetedRuntimeVersionRawValue = value; }
         }
+
+        /// <summary>
+        /// If not null, serializes information about <see cref="AssemblyFiles" /> inputs to the named file.
+        /// This overrides the usual outputs, so do not use this unless you are building an SDK with many references.
+        /// </summary>
+        public string AssemblyInformationCacheOutputPath { get; set; }
+
+        /// <summary>
+        /// If not null, uses this set of caches as inputs if RAR cannot find the usual cache in the obj folder. Typically
+        /// used for demos and first-run scenarios.
+        /// </summary>
+        public ITaskItem[] AssemblyInformationCachePaths { get; set; }
 
         /// <summary>
         /// List of locations to search for assemblyFiles when resolving dependencies.
@@ -498,7 +509,6 @@ namespace Microsoft.Build.Tasks
             set { _allowedAssemblyExtensions = value; }
         }
 
-
         /// <summary>
         /// [default=.pdb;.xml]
         /// These are the extensions that will be considered when looking for related files.
@@ -508,7 +518,6 @@ namespace Microsoft.Build.Tasks
             get { return _relatedFileExtensions; }
             set { _relatedFileExtensions = value; }
         }
-
 
         /// <summary>
         /// If this file name is passed in, then we parse it as an app.config file and extract bindingRedirect mappings. These mappings are used in the dependency
@@ -565,23 +574,22 @@ namespace Microsoft.Build.Tasks
             set { _autoUnify = value; }
         }
 
-
         /// <summary>
-        ///  When determining if a dependency should be copied locally one of the checks done is to see if the 
-        ///  parent reference in the project file has the Private metadata set or not. If that metadata is set then 
-        ///  We will use that for the dependency as well. 
-        ///  
-        /// However, if the metadata is not set then the dependency will go through the same checks as the parent reference. 
+        ///  When determining if a dependency should be copied locally one of the checks done is to see if the
+        ///  parent reference in the project file has the Private metadata set or not. If that metadata is set then
+        ///  We will use that for the dependency as well.
+        ///
+        /// However, if the metadata is not set then the dependency will go through the same checks as the parent reference.
         /// One of these checks is to see if the reference is in the GAC. If a reference is in the GAC then we will not copy it locally
         /// as it is assumed it will be in the gac on the target machine as well. However this only applies to that specific reference and not its dependencies.
-        /// 
+        ///
         /// This means a reference in the project file may be copy local false due to it being in the GAC but the dependencies may still be copied locally because they are not in the GAC.
         /// This is the default behavior for RAR and causes the default value for this property to be true.
-        /// 
-        /// When this property is false we will still check project file references to see if they are in the GAC and set their copy local state as appropriate. 
-        /// However for dependencies we will not only check to see if they are in the GAC but we will also check to see if the parent reference from the project file is in the GAC. 
+        ///
+        /// When this property is false we will still check project file references to see if they are in the GAC and set their copy local state as appropriate.
+        /// However for dependencies we will not only check to see if they are in the GAC but we will also check to see if the parent reference from the project file is in the GAC.
         /// If the parent reference from the project file is in the GAC then we will not copy the dependency locally.
-        /// 
+        ///
         /// NOTE: If there are multiple parent reference and ANY of them does not come from the GAC then we will set copy local to true.
         /// </summary>
         public bool CopyLocalDependenciesWhenParentReferenceInGac
@@ -707,9 +715,9 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// Provide a set of names which if seen in the TargetFrameworkSubset list will cause the ignoring 
+        /// Provide a set of names which if seen in the TargetFrameworkSubset list will cause the ignoring
         /// of TargetFrameworkSubsets.
-        /// 
+        ///
         /// Full, Complete
         /// </summary>
         public string[] FullTargetFrameworkSubsetNames
@@ -746,7 +754,7 @@ namespace Microsoft.Build.Tasks
 
         /// <summary>
         /// Set of folders which containd a RedistList directory which represent the full framework for a given client profile.
-        /// An example would be 
+        /// An example would be
         /// %programfiles%\reference assemblies\microsoft\framework\v4.0
         /// </summary>
         public string[] FullFrameworkFolders
@@ -787,9 +795,9 @@ namespace Microsoft.Build.Tasks
         ///     string FusionName - the fusion name for this dependency.
         ///     string ResolvedFrom - the literal search path that this file was resolved from.
         ///     bool IsRedistRoot - Whether or not this assembly is the representative for an entire redist.
-        ///         'true' means the assembly is representative of an entire redist and should be indicated as 
+        ///         'true' means the assembly is representative of an entire redist and should be indicated as
         ///         an application dependency in an application manifest.
-        ///         'false' means the assembly is internal to a redist and should not be part of the 
+        ///         'false' means the assembly is internal to a redist and should not be part of the
         ///         application manifest.
         ///     string Redist - The name (if any) of the redist that contains this assembly.
         /// Does not include first order primary references--this list is in ResolvedFiles.
@@ -813,10 +821,10 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// Any satellite files found. These will be CopyLocal=true iff the reference or dependency 
+        /// Any satellite files found. These will be CopyLocal=true iff the reference or dependency
         /// that caused this item to exist is CopyLocal=true.
         ///     bool CopyLocal - whether the given reference should be copied to the output directory.
-        ///     string DestinationSubDirectory - the relative destination directory that this file 
+        ///     string DestinationSubDirectory - the relative destination directory that this file
         ///       should be copied to. This is mainly for satellites.
         /// </summary>
         [Output]
@@ -826,7 +834,7 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// Any XML serialization assemblies found. These will be CopyLocal=true iff the reference or dependency 
+        /// Any XML serialization assemblies found. These will be CopyLocal=true iff the reference or dependency
         /// that caused this item to exist is CopyLocal=true.
         ///     bool CopyLocal - whether the given reference should be copied to the output directory.
         /// </summary>
@@ -858,9 +866,9 @@ namespace Microsoft.Build.Tasks
         }
 
         /// <summary>
-        /// Regardless of the value of AutoUnify, returns one item for every distinct conflicting assembly 
-        /// identity--including culture and PKT--that was found that did not have a suitable bindingRedirect 
-        /// entry in the ApplicationConfigurationFile. 
+        /// Regardless of the value of AutoUnify, returns one item for every distinct conflicting assembly
+        /// identity--including culture and PKT--that was found that did not have a suitable bindingRedirect
+        /// entry in the ApplicationConfigurationFile.
         ///
         /// Each returned ITaskItem will have the following values:
         ///  ItemSpec - the full fusion name of the assembly family with empty version=0.0.0.0
@@ -907,7 +915,6 @@ namespace Microsoft.Build.Tasks
             private set;
         }
 
-
         #endregion
         #region Logging
 
@@ -928,9 +935,7 @@ namespace Microsoft.Build.Tasks
         )
         {
             bool success = true;
-#if (!STANDALONEBUILD)
-            using (new CodeMarkerStartEnd(CodeMarkerEvent.perfMSBuildRARLogResultsBegin, CodeMarkerEvent.perfMSBuildRARLogResultsEnd))
-#endif
+            MSBuildEventSource.Log.RarLogResultsStart();
             {
                 /*
                 PERF NOTE: The Silent flag turns off logging completely from the task side. This means
@@ -971,16 +976,31 @@ namespace Microsoft.Build.Tasks
 
                         if (conflictCandidate.IsConflictVictim)
                         {
-                            LogConflict(conflictCandidate, fusionName);
+                            bool logWarning = idealAssemblyRemappingsIdentities.Any(i => i.assemblyName.FullName.Equals(fusionName) && i.reference.GetConflictVictims().Count == 0);
+                            StringBuilder logConflict = StringBuilderCache.Acquire();
+                            LogConflict(conflictCandidate, fusionName, logConflict);
+                            StringBuilder logDependencies = logWarning ? logConflict.AppendLine() : StringBuilderCache.Acquire();
 
                             // Log the assemblies and primary source items which are related to the conflict which was just logged.
                             Reference victor = dependencyTable.GetReference(conflictCandidate.ConflictVictorName);
 
                             // Log the winner of the conflict resolution, the source items and dependencies which caused it
-                            LogReferenceDependenciesAndSourceItems(conflictCandidate.ConflictVictorName.FullName, victor);
+                            LogReferenceDependenciesAndSourceItemsToStringBuilder(conflictCandidate.ConflictVictorName.FullName, victor, logDependencies);
 
                             // Log the reference which lost the conflict and the dependencies and source items which caused it.
-                            LogReferenceDependenciesAndSourceItems(fusionName, conflictCandidate);
+                            LogReferenceDependenciesAndSourceItemsToStringBuilder(fusionName, conflictCandidate, logDependencies.AppendLine());
+
+                            if (logWarning)
+                            {
+                                // This warning is logged regardless of AutoUnify since it means a conflict existed where the reference	
+                                // chosen was not the conflict victor in a version comparison. In other words, the victor was older.
+                                Log.LogWarningWithCodeFromResources("ResolveAssemblyReference.FoundConflicts", assemblyName.Name, StringBuilderCache.GetStringAndRelease(logConflict));
+                            }
+                            else
+                            {
+                                Log.LogMessage(ChooseReferenceLoggingImportance(conflictCandidate), StringBuilderCache.GetStringAndRelease(logConflict));
+                                Log.LogMessage(MessageImportance.Low, StringBuilderCache.GetStringAndRelease(logDependencies));
+                            }
                         }
                     }
 
@@ -1063,13 +1083,6 @@ namespace Microsoft.Build.Tasks
                                     }
                                 }
                             }
-
-                            if (conflictVictims.Count == 0)
-                            {
-                                // This warning is logged regardless of AutoUnify since it means a conflict existed where the reference
-                                // chosen was not the conflict victor in a version comparison, in other words it was older.
-                                Log.LogWarningWithCodeFromResources("ResolveAssemblyReference.FoundConflicts", idealRemappingPartialAssemblyName.Name);
-                            }
                         }
 
                         // Log the warning
@@ -1124,15 +1137,17 @@ namespace Microsoft.Build.Tasks
                         if (assemblyFoldersEx != null && _showAssemblyFoldersExLocations.TryGetValue(r.SearchPath, out messageImportance))
                         {
                             Log.LogMessageFromResources(messageImportance, "ResolveAssemblyReference.AssemblyFoldersExSearchLocations", r.SearchPath);
-                            foreach (AssemblyFoldersExInfo info in assemblyFoldersEx)
+                            foreach (var path in assemblyFoldersEx.UniqueDirectoryPaths)
                             {
-                                Log.LogMessageFromResources(messageImportance, "ResolveAssemblyReference.EightSpaceIndent", info.DirectoryPath);
+                                Log.LogMessageFromResources(messageImportance, "ResolveAssemblyReference.EightSpaceIndent", path);
                             }
                         }
                     }
                 }
             }
 #endif
+
+            MSBuildEventSource.Log.RarLogResultsStop();
 
             return success;
         }
@@ -1157,27 +1172,27 @@ namespace Microsoft.Build.Tasks
         /// <summary>
         /// Log the source items and dependencies which lead to a given item.
         /// </summary>
-        private void LogReferenceDependenciesAndSourceItems(string fusionName, Reference conflictCandidate)
+        private void LogReferenceDependenciesAndSourceItemsToStringBuilder(string fusionName, Reference conflictCandidate, StringBuilder log)
         {
             ErrorUtilities.VerifyThrowInternalNull(conflictCandidate, "ConflictCandidate");
-            Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.FourSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.ReferenceDependsOn", fusionName, conflictCandidate.FullPath));
+            log.Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.FourSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.ReferenceDependsOn", fusionName, conflictCandidate.FullPath)));
 
             if (conflictCandidate.IsPrimary)
             {
                 if (conflictCandidate.IsResolved)
                 {
-                    LogDependeeReference(conflictCandidate);
+                    LogDependeeReferenceToStringBuilder(conflictCandidate, log);
                 }
                 else
                 {
-                    Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.EightSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.UnResolvedPrimaryItemSpec", conflictCandidate.PrimarySourceItem));
+                    log.AppendLine().Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.EightSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.UnResolvedPrimaryItemSpec", conflictCandidate.PrimarySourceItem)));
                 }
             }
 
             // Log the references for the conflict victim
             foreach (Reference dependeeReference in conflictCandidate.GetDependees())
             {
-                LogDependeeReference(dependeeReference);
+                LogDependeeReferenceToStringBuilder(dependeeReference, log);
             }
         }
 
@@ -1185,14 +1200,15 @@ namespace Microsoft.Build.Tasks
         /// Log the dependee and the item specs which caused the dependee reference to be resolved.
         /// </summary>
         /// <param name="dependeeReference"></param>
-        private void LogDependeeReference(Reference dependeeReference)
+        /// <param name="log">The means by which messages should be logged.</param>
+        private void LogDependeeReferenceToStringBuilder(Reference dependeeReference, StringBuilder log)
         {
-            Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.EightSpaceIndent", dependeeReference.FullPath);
+            log.AppendLine().AppendLine(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.EightSpaceIndent", dependeeReference.FullPath));
 
-            Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.TenSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.PrimarySourceItemsForReference", dependeeReference.FullPath));
+            log.Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.TenSpaceIndent", ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.PrimarySourceItemsForReference", dependeeReference.FullPath)));
             foreach (ITaskItem sourceItem in dependeeReference.GetSourceItems())
             {
-                Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.TwelveSpaceIndent", sourceItem.ItemSpec);
+                log.AppendLine().Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.TwelveSpaceIndent", sourceItem.ItemSpec));
             }
         }
 
@@ -1271,6 +1287,12 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         private void LogInputs()
         {
+            if (Traits.Instance.EscapeHatches.LogTaskInputs)
+            {
+                // the inputs will be logged automatically anyway, avoid duplication in the logs
+                return;
+            }
+
             if (!Silent)
             {
                 Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.LogTaskPropertyFormat", "TargetFrameworkMoniker");
@@ -1404,7 +1426,6 @@ namespace Microsoft.Build.Tasks
                     Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.FourSpaceIndent", latestFolder);
                 }
 
-
                 Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.LogTaskPropertyFormat", "ProfileTablesLocation");
                 foreach (ITaskItem profileTable in FullFrameworkAssemblyTables)
                 {
@@ -1418,11 +1439,11 @@ namespace Microsoft.Build.Tasks
         /// Log a specific item metadata.
         /// </summary>
         /// <param name="item"></param>
-        /// <param name="attribute"></param>
+        /// <param name="metadataName"></param>
         private void LogAttribute(ITaskItem item, string metadataName)
         {
             string metadataValue = item.GetMetadata(metadataName);
-            if (metadataValue != null && metadataValue.Length > 0)
+            if (!string.IsNullOrEmpty(metadataValue))
             {
                 Log.LogMessageFromResources(MessageImportance.Low, "ResolveAssemblyReference.EightSpaceIndent", Log.FormatResourceString("ResolveAssemblyReference.LogAttributeFormat", metadataName, metadataValue));
             }
@@ -1554,7 +1575,7 @@ namespace Microsoft.Build.Tasks
         /// <param name="importance">The importance of the message.</param>
         private void LogFullName(Reference reference, MessageImportance importance)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(reference, "reference");
+            ErrorUtilities.VerifyThrowArgumentNull(reference, nameof(reference));
 
             if (reference.IsResolved)
             {
@@ -1568,6 +1589,7 @@ namespace Microsoft.Build.Tasks
         /// show information about them.
         /// </summary>
         /// <param name="reference">The reference.</param>
+        /// <param name="fusionName">The fusion name.</param>
         /// <param name="importance">The importance of the message.</param>
         private void LogAssembliesConsideredAndRejected(Reference reference, string fusionName, MessageImportance importance)
         {
@@ -1597,7 +1619,6 @@ namespace Microsoft.Build.Tasks
                             _showAssemblyFoldersExLocations[location.SearchPath] = importance;
                         }
                     }
-
 
                     // If this is a new search location, then show the message.
                     if (lastSearchPath != location.SearchPath)
@@ -1766,7 +1787,6 @@ namespace Microsoft.Build.Tasks
             }
         }
 
-
         /// <summary>
         /// Log a message about the imageruntime information.
         /// </summary>
@@ -1788,26 +1808,24 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         /// <param name="reference">The reference.</param>
         /// <param name="fusionName">The fusion name of the reference.</param>
-        private void LogConflict(Reference reference, string fusionName)
+        /// <param name="log">StringBuilder holding information to be logged.</param>
+        private void LogConflict(Reference reference, string fusionName, StringBuilder log)
         {
-            // Set an importance level to be used for secondary messages.
-            MessageImportance importance = ChooseReferenceLoggingImportance(reference);
-
-            Log.LogMessageFromResources(importance, "ResolveAssemblyReference.ConflictFound", reference.ConflictVictorName, fusionName);
+            log.Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.ConflictFound", reference.ConflictVictorName, fusionName));
             switch (reference.ConflictLossExplanation)
             {
                 case ConflictLossReason.HadLowerVersion:
                     {
                         Debug.Assert(!reference.IsPrimary, "A primary reference should never lose a conflict because of version. This is an insoluble conflict instead.");
                         string message = Log.FormatResourceString("ResolveAssemblyReference.ConflictHigherVersionChosen", reference.ConflictVictorName);
-                        Log.LogMessageFromResources(importance, "ResolveAssemblyReference.FourSpaceIndent", message);
+                        log.AppendLine().Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.FourSpaceIndent", message));
                         break;
                     }
 
                 case ConflictLossReason.WasNotPrimary:
                     {
                         string message = Log.FormatResourceString("ResolveAssemblyReference.ConflictPrimaryChosen", reference.ConflictVictorName, fusionName);
-                        Log.LogMessageFromResources(importance, "ResolveAssemblyReference.FourSpaceIndent", message);
+                        log.AppendLine().Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.FourSpaceIndent", message));
                         break;
                     }
 
@@ -1822,9 +1840,7 @@ namespace Microsoft.Build.Tasks
                     {
                         // For dependencies, adding an app.config entry could help. Log a comment, there will be
                         // a summary warning later on.
-                        string message;
-                        string code = Log.ExtractMessageCode(Log.FormatResourceString("ResolveAssemblyReference.ConflictUnsolvable", reference.ConflictVictorName, fusionName), out message);
-                        Log.LogMessage(MessageImportance.High, message);
+                        log.AppendLine().Append(ResourceUtilities.FormatResourceStringIgnoreCodeAndKeyword("ResolveAssemblyReference.ConflictUnsolvable", reference.ConflictVictorName, fusionName));
                     }
                     break;
                 // Can happen if one of the references has a dependency with the same simplename, and version but no publickeytoken and the other does.
@@ -1884,6 +1900,7 @@ namespace Microsoft.Build.Tasks
         #endregion
         #region ITask Members
 
+#if FEATURE_WIN32_REGISTRY
         /// <summary>
         /// Execute the task.
         /// </summary>
@@ -1895,7 +1912,28 @@ namespace Microsoft.Build.Tasks
         /// <param name="getRegistrySubKeyNames">Used to get registry subkey names.</param>
         /// <param name="getRegistrySubKeyDefaultValue">Used to get registry default values.</param>
         /// <param name="getLastWriteTime">Delegate used to get the last write time.</param>
+        /// <param name="getRuntimeVersion">Delegate used to get the runtime version.</param>
+        /// <param name="openBaseKey">Key object to open.</param>
+        /// <param name="getAssemblyPathInGac">Delegate to get assembly path in the GAC.</param>
+        /// <param name="isWinMDFile">Delegate used for checking whether it is a WinMD file.</param>
+        /// <param name="readMachineTypeFromPEHeader">Delegate use to read machine type from PE Header</param>
         /// <returns>True if there was success.</returns>
+#else
+        /// <summary>
+        /// Execute the task.
+        /// </summary>
+        /// <param name="fileExists">Delegate used for checking for the existence of a file.</param>
+        /// <param name="directoryExists">Delegate used for checking for the existence of a directory.</param>
+        /// <param name="getDirectories">Delegate used for finding directories.</param>
+        /// <param name="getAssemblyName">Delegate used for finding fusion names of assemblyFiles.</param>
+        /// <param name="getAssemblyMetadata">Delegate used for finding dependencies of a file.</param>
+        /// <param name="getLastWriteTime">Delegate used to get the last write time.</param>
+        /// <param name="getRuntimeVersion">Delegate used to get the runtime version.</param>
+        /// <param name="getAssemblyPathInGac">Delegate to get assembly path in the GAC.</param>
+        /// <param name="isWinMDFile">Delegate used for checking whether it is a WinMD file.</param>
+        /// <param name="readMachineTypeFromPEHeader">Delegate use to read machine type from PE Header</param>
+        /// <returns>True if there was success.</returns>
+#endif
         internal bool Execute
         (
             FileExists fileExists,
@@ -1918,9 +1956,7 @@ namespace Microsoft.Build.Tasks
         )
         {
             bool success = true;
-#if (!STANDALONEBUILD)
-            using (new CodeMarkerStartEnd(CodeMarkerEvent.perfMSBuildResolveAssemblyReferenceBegin, CodeMarkerEvent.perfMSBuildResolveAssemblyReferenceEnd))
-#endif
+            MSBuildEventSource.Log.RarOverallStart();
             {
                 try
                 {
@@ -1962,7 +1998,6 @@ namespace Microsoft.Build.Tasks
                         }
                     }
 
-
                     // Validate the contents of the InstalledAssemblyTables parameter.
                     AssemblyTableInfo[] installedAssemblyTableInfo = GetInstalledAssemblyTableInfo(_ignoreDefaultInstalledAssemblyTables, _installedAssemblyTables, new GetListPath(RedistList.GetRedistListPathsFromDisk), TargetFrameworkDirectories);
                     AssemblyTableInfo[] whiteListSubsetTableInfo = null;
@@ -1970,7 +2005,7 @@ namespace Microsoft.Build.Tasks
                     InstalledAssemblies installedAssemblies = null;
                     RedistList redistList = null;
 
-                    if (installedAssemblyTableInfo != null && installedAssemblyTableInfo.Length > 0)
+                    if (installedAssemblyTableInfo?.Length > 0)
                     {
                         redistList = RedistList.GetRedistList(installedAssemblyTableInfo);
                     }
@@ -1987,7 +2022,7 @@ namespace Microsoft.Build.Tasks
                     List<string> whiteListErrorFilesNames = new List<string>();
 
                     // Check for partial success in GetRedistList and log any tolerated exceptions.
-                    if (redistList != null && redistList.Count > 0 || targetingProfile || ShouldUseSubsetBlackList())
+                    if (redistList?.Count > 0 || targetingProfile || ShouldUseSubsetBlackList())
                     {
                         // If we are not targeting a dev 10 profile and we have the required components to generate a orcas style subset, do so
                         if (!targetingProfile && ShouldUseSubsetBlackList())
@@ -1995,7 +2030,7 @@ namespace Microsoft.Build.Tasks
                             // Based in the target framework subset names find the paths to the files
                             SubsetListFinder whiteList = new SubsetListFinder(_targetFrameworkSubsets);
                             whiteListSubsetTableInfo = GetInstalledAssemblyTableInfo(IgnoreDefaultInstalledAssemblySubsetTables, InstalledAssemblySubsetTables, new GetListPath(whiteList.GetSubsetListPathsFromDisk), TargetFrameworkDirectories);
-                            if (whiteListSubsetTableInfo.Length > 0 && (redistList != null && redistList.Count > 0))
+                            if (whiteListSubsetTableInfo.Length > 0 && (redistList?.Count > 0))
                             {
                                 blackList = redistList.GenerateBlackList(whiteListSubsetTableInfo, whiteListErrors, whiteListErrorFilesNames);
                             }
@@ -2039,7 +2074,7 @@ namespace Microsoft.Build.Tasks
                             }
                         }
 
-                        if (redistList != null && redistList.Count > 0)
+                        if (redistList?.Count > 0)
                         {
                             installedAssemblies = new InstalledAssemblies(redistList);
                         }
@@ -2179,7 +2214,7 @@ namespace Microsoft.Build.Tasks
                         try
                         {
                             excludedReferencesExist = false;
-                            if (redistList != null && redistList.Count > 0)
+                            if (redistList?.Count > 0)
                             {
                                 excludedReferencesExist = dependencyTable.MarkReferencesForExclusion(blackList);
                             }
@@ -2194,7 +2229,6 @@ namespace Microsoft.Build.Tasks
                         {
                             dependencyTable.RemoveReferencesMarkedForExclusion(true /* Remove the reference and do not warn*/, subsetOrProfileName);
                         }
-
 
                         // Based on the closure, get a table of ideal remappings needed to 
                         // produce zero conflicts.
@@ -2218,7 +2252,7 @@ namespace Microsoft.Build.Tasks
                         try
                         {
                             excludedReferencesExist = false;
-                            if (redistList != null && redistList.Count > 0)
+                            if (redistList?.Count > 0)
                             {
                                 excludedReferencesExist = dependencyTable.MarkReferencesForExclusion(blackList);
                             }
@@ -2292,7 +2326,7 @@ namespace Microsoft.Build.Tasks
                             {
                                 // if we're finding dependencies and a given reference was not marked as ExternallyResolved
                                 // then its use of System.Runtime/.netstandard would already have been identified above.
-                                continue; 
+                                continue;
                             }
 
                             var rawDependencies = GetDependencies(resolvedReference, fileExists, getAssemblyMetadata, assemblyMetadataCache);
@@ -2392,6 +2426,7 @@ namespace Microsoft.Build.Tasks
                             }
                         }
                     }
+                    MSBuildEventSource.Log.RarOverallStop();
                     return success && !Log.HasLoggedErrors;
                 }
                 catch (ArgumentException e)
@@ -2408,6 +2443,8 @@ namespace Microsoft.Build.Tasks
                 }
             }
 
+            MSBuildEventSource.Log.RarOverallStop();
+
             return success && !Log.HasLoggedErrors;
         }
 
@@ -2422,15 +2459,15 @@ namespace Microsoft.Build.Tasks
         private AssemblyNameExtension[] GetDependencies(Reference resolvedReference, FileExists fileExists, GetAssemblyMetadata getAssemblyMetadata, ConcurrentDictionary<string, AssemblyMetadata> assemblyMetadataCache)
         {
             AssemblyNameExtension[] result = null;
-            if (resolvedReference != null && resolvedReference.IsPrimary && !resolvedReference.IsBadImage)
+            if (resolvedReference?.IsPrimary == true && !resolvedReference.IsBadImage)
             {
-                System.Runtime.Versioning.FrameworkName frameworkName = null;
-                string[] scatterFiles = null;
                 try
                 {
                     // in case of P2P that have not build the reference can be resolved but file does not exist on disk. 
                     if (fileExists(resolvedReference.FullPath))
                     {
+                        FrameworkNameVersioning frameworkName;
+                        string[] scatterFiles;
                         getAssemblyMetadata(resolvedReference.FullPath, assemblyMetadataCache, out result, out scatterFiles, out frameworkName);
                     }
                 }
@@ -2464,7 +2501,6 @@ namespace Microsoft.Build.Tasks
             return combined;
         }
 
-
         /// <summary>
         /// If a targeted runtime is passed in use that, if none is passed in then we need to use v2.0.50727
         /// since the common way this would be empty is if we were using RAR as an override task.
@@ -2493,6 +2529,7 @@ namespace Microsoft.Build.Tasks
         /// <param name="installedAssemblyTableInfo">Installed assembly info of the profile redist lists</param>
         /// <param name="fullRedistAssemblyTableInfo">Installed assemblyInfo for the full framework redist lists</param>
         /// <param name="blackList">Generated exclusion list</param>
+        /// <param name="fullFrameworkRedistList">Redist list which will contain the full framework redist list.</param>
         private void HandleProfile(AssemblyTableInfo[] installedAssemblyTableInfo, out AssemblyTableInfo[] fullRedistAssemblyTableInfo, out Dictionary<string, string> blackList, out RedistList fullFrameworkRedistList)
         {
             // Redist list which will contain the full framework redist list.
@@ -2667,12 +2704,11 @@ namespace Microsoft.Build.Tasks
             }
         }
 
-
         /// <summary>
         /// Determine if a black list should be used or not
-        /// 
+        ///
         /// The black list should only be used if there are TargetFrameworkSubsets to use or TargetFrameworkProfiles.
-        /// 
+        ///
         /// 1) If we find a Full or equivalent marker in the list of subsets passed in we do not want to generate a black list even if installedAssemblySubsets are passed in
         /// 2) If we are ignoring the default installed subset tables and we have not passed in any additional subset tables, we do not want to generate a black list
         /// 3) If no targetframework subsets were passed in and no additional subset tables were passed in, we do not want to generate a blacklist
@@ -2720,7 +2756,7 @@ namespace Microsoft.Build.Tasks
         /// Populates the suggested redirects output parameter.
         /// </summary>
         /// <param name="idealAssemblyRemappings">The list of ideal remappings.</param>
-        /// <param name="idealAssemblyRemappedReferences">The list of of references to ideal assembly remappings.</param>
+        /// <param name="idealAssemblyRemappedReferences">The list of references to ideal assembly remappings.</param>
         private void PopulateSuggestedRedirects(List<DependentAssembly> idealAssemblyRemappings, List<AssemblyNameReference> idealAssemblyRemappedReferences)
         {
             var holdSuggestedRedirects = new List<ITaskItem>();
@@ -2735,7 +2771,7 @@ namespace Microsoft.Build.Tasks
                     List<AssemblyNameExtension> conflictVictims = reference.GetConflictVictims();
 
                     // Skip any remapping that has no conflict victims since a redirect will not help.
-                    if (null == conflictVictims || 0 == conflictVictims.Count)
+                    if (conflictVictims == null || 0 == conflictVictims.Count)
                     {
                         continue;
                     }
@@ -2788,7 +2824,7 @@ namespace Microsoft.Build.Tasks
 
                 if (String.IsNullOrEmpty(frameworkDirectory))
                 {
-                    if (TargetFrameworkDirectories != null && TargetFrameworkDirectories.Length == 1)
+                    if (TargetFrameworkDirectories?.Length == 1)
                     {
                         // Exactly one TargetFrameworkDirectory, so assume it's related to this
                         // InstalledAssemblyTable.
@@ -2927,6 +2963,10 @@ namespace Microsoft.Build.Tasks
                 else if (targetedProcessorArchitecture.Equals(Microsoft.Build.Utilities.ProcessorArchitecture.ARM, StringComparison.OrdinalIgnoreCase))
                 {
                     return SystemProcessorArchitecture.Arm;
+                }
+                else if (targetedProcessorArchitecture.Equals(Microsoft.Build.Utilities.ProcessorArchitecture.ARM64, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (SystemProcessorArchitecture)6;
                 }
             }
 

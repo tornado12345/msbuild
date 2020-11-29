@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Collections;
 using System.Collections;
-using Microsoft.Build.Evaluation;
 using Microsoft.Build.Unittest;
 using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
 using System.Threading.Tasks;
@@ -634,6 +633,78 @@ namespace Microsoft.Build.UnitTests.BackEnd
         }
 #endif
 
+        /// <summary>
+        /// Verifies that tasks can get global properties.
+        /// </summary>
+        [Fact]
+        public void TasksCanGetGlobalProperties()
+        {
+            string projectFileContents = @"
+<Project>
+  <UsingTask TaskName='test' TaskFactory='RoslynCodeTaskFactory' AssemblyFile='$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll'>
+    <Task>
+      <Code><![CDATA[
+        var globalProperties = ((IBuildEngine6)BuildEngine).GetGlobalProperties();
+
+        Log.LogMessage(""Global properties:"");
+        foreach (var item in globalProperties)
+        {
+            Log.LogMessage($""{item.Key}: '{item.Value}'"");
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name='Build'>
+      <test/>
+  </Target>
+</Project>";
+
+            Dictionary<string, string> globalProperties = new Dictionary<string, string>
+            {
+                ["Property1"] = "Value_%",
+                ["Property2"] = "Value_$",
+                ["Property3"] = "Value_@",
+                ["Property4"] = "Value_'",
+                ["Property5"] = "Value_;",
+                ["Property6"] = "Value_?",
+                ["Property7"] = "Value_*",
+            };
+
+            MockLogger mockLogger = Helpers.BuildProjectWithNewOMExpectSuccess(projectFileContents, globalProperties);
+
+            foreach (var item in globalProperties)
+            {
+                mockLogger.AssertLogContains($"{item.Key}: '{item.Value}'");
+            }
+        }
+
+        /// <summary>
+        /// Verifies that if the user specifies no global properties, tasks get back an empty collection.
+        /// </summary>
+        [Fact]
+        public void TasksGetNoGlobalPropertiesIfNoneSpecified()
+        {
+            string projectFileContents = @"
+<Project>
+  <UsingTask TaskName='test' TaskFactory='RoslynCodeTaskFactory' AssemblyFile='$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll'>
+    <Task>
+      <Code><![CDATA[
+        var globalProperties = ((IBuildEngine6)BuildEngine).GetGlobalProperties();
+
+        Log.LogMessage($""Global property count: {globalProperties.Count}"");
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name='Build'>
+      <test/>
+  </Target>
+</Project>";
+
+            MockLogger mockLogger = Helpers.BuildProjectWithNewOMExpectSuccess(projectFileContents);
+
+            mockLogger.AssertLogContains("Global property count: 0");
+        }
+
         #region Helper Classes
 
         /// <summary>
@@ -1062,11 +1133,11 @@ namespace Microsoft.Build.UnitTests.BackEnd
             /// </summary>
             public void Initialize(IEventSource eventSource)
             {
-                eventSource.ErrorRaised += new BuildErrorEventHandler(MyCustomErrorHandler);
-                eventSource.WarningRaised += new BuildWarningEventHandler(MyCustomWarningHandler);
-                eventSource.MessageRaised += new BuildMessageEventHandler(MyCustomMessageHandler);
-                eventSource.CustomEventRaised += new CustomBuildEventHandler(MyCustomBuildHandler);
-                eventSource.AnyEventRaised += new AnyEventHandler(EventSource_AnyEventRaised);
+                eventSource.ErrorRaised += MyCustomErrorHandler;
+                eventSource.WarningRaised += MyCustomWarningHandler;
+                eventSource.MessageRaised += MyCustomMessageHandler;
+                eventSource.CustomEventRaised += MyCustomBuildHandler;
+                eventSource.AnyEventRaised += EventSource_AnyEventRaised;
             }
 
             /// <summary>
@@ -1083,7 +1154,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             {
                 if (e.Message != null)
                 {
-                    Console.Out.WriteLine("AnyEvent:" + e.Message.ToString());
+                    Console.Out.WriteLine("AnyEvent:" + e.Message);
                 }
             }
 
@@ -1096,7 +1167,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _lastError = e;
                 if (e.Message != null)
                 {
-                    Console.Out.WriteLine("CustomError:" + e.Message.ToString());
+                    Console.Out.WriteLine("CustomError:" + e.Message);
                 }
             }
 
@@ -1109,7 +1180,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _lastWarning = e;
                 if (e.Message != null)
                 {
-                    Console.Out.WriteLine("CustomWarning:" + e.Message.ToString());
+                    Console.Out.WriteLine("CustomWarning:" + e.Message);
                 }
             }
 
@@ -1122,7 +1193,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _lastMessage = e;
                 if (e.Message != null)
                 {
-                    Console.Out.WriteLine("CustomMessage:" + e.Message.ToString());
+                    Console.Out.WriteLine("CustomMessage:" + e.Message);
                 }
             }
 
@@ -1135,7 +1206,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _lastCustom = e;
                 if (e.Message != null)
                 {
-                    Console.Out.WriteLine("CustomEvent:" + e.Message.ToString());
+                    Console.Out.WriteLine("CustomEvent:" + e.Message);
                 }
             }
         }
@@ -1274,7 +1345,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             /// <summary>
             /// Not Implemented
             /// </summary>
-            private void MockIRequestBuilderCallback_OnBuildRequestBlocked(BuildRequestEntry sourceEntry, int blockingGlobalRequestId, string blockingTarget, IBuildResults partialBuildResult = null)
+            private void MockIRequestBuilderCallback_OnBuildRequestBlocked(BuildRequestEntry issuingEntry, int blockingGlobalRequestId, string blockingTarget, IBuildResults partialBuildResult = null)
             {
                 throw new NotImplementedException();
             }
@@ -1290,7 +1361,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
             /// <summary>
             /// Not Implemented
             /// </summary>
-            private void MockIRequestBuilderCallback_OnNewBuildRequests(BuildRequestEntry sourceEntry, FullyQualifiedBuildRequest[] requests)
+            private void MockIRequestBuilderCallback_OnNewBuildRequests(BuildRequestEntry issuingEntry, FullyQualifiedBuildRequest[] requests)
             {
                 throw new NotImplementedException();
             }

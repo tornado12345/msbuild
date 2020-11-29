@@ -12,7 +12,6 @@ using Microsoft.Build.Execution;
 using Microsoft.Build.Exceptions;
 using Microsoft.Build.Shared;
 using Microsoft.Build.UnitTests.BackEnd;
-using System.IO;
 using System.Threading;
 using System.Reflection;
 using System.Collections.Generic;
@@ -152,13 +151,11 @@ namespace Microsoft.Build.UnitTests.Logging
             VerifyShutdownExceptions(null, className, exceptionType);
             Assert.Equal(LoggingServiceState.Shutdown, _initializedService.ServiceState);
 
-#if FEATURE_VARIOUS_EXCEPTIONS
             // Cause a StackOverflow exception in the shutdown of the logger
             // this kind of exception should not be caught
             className = "Microsoft.Build.UnitTests.Logging.LoggingService_Tests+ShutdownStackoverflowExceptionFL";
             exceptionType = typeof(StackOverflowException);
             VerifyShutdownExceptions(null, className, exceptionType);
-#endif
 
             Assert.Equal(LoggingServiceState.Shutdown, _initializedService.ServiceState);
         }
@@ -176,10 +173,8 @@ namespace Microsoft.Build.UnitTests.Logging
             logger = new LoggerThrowException(true, false, new Exception("boo"));
             VerifyShutdownExceptions(logger, null, typeof(InternalLoggerException));
 
-#if FEATURE_VARIOUS_EXCEPTIONS
             logger = new LoggerThrowException(true, false, new StackOverflowException());
             VerifyShutdownExceptions(logger, null, typeof(StackOverflowException));
-#endif
 
             Assert.Equal(LoggingServiceState.Shutdown, _initializedService.ServiceState);
         }
@@ -257,7 +252,6 @@ namespace Microsoft.Build.UnitTests.Logging
            );
         }
 
-#if FEATURE_VARIOUS_EXCEPTIONS
         /// <summary>
         /// Verify a critical exception is not wrapped
         /// </summary>
@@ -271,7 +265,6 @@ namespace Microsoft.Build.UnitTests.Logging
             }
            );
         }
-#endif
 
         /// <summary>
         /// Register an good Logger and verify it was registered.
@@ -489,7 +482,7 @@ namespace Microsoft.Build.UnitTests.Logging
             int countForwardingLogger = 0;
             foreach (string loggerName in _initializedService.RegisteredLoggerTypeNames)
             {
-                if (String.Compare("Microsoft.Build.Logging.ConfigurableForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase) == 0)
+                if (String.Equals("Microsoft.Build.Logging.ConfigurableForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase))
                 {
                     countForwardingLogger++;
                 }
@@ -591,7 +584,7 @@ namespace Microsoft.Build.UnitTests.Logging
             int countForwardingLogger = 0;
             foreach (string loggerName in _initializedService.RegisteredLoggerTypeNames)
             {
-                if (String.Compare("Microsoft.Build.Logging.ConfigurableForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase) == 0)
+                if (String.Equals("Microsoft.Build.Logging.ConfigurableForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase))
                 {
                     countForwardingLogger++;
                 }
@@ -603,7 +596,7 @@ namespace Microsoft.Build.UnitTests.Logging
             countForwardingLogger = 0;
             foreach (string loggerName in _initializedService.RegisteredLoggerTypeNames)
             {
-                if (String.Compare("Microsoft.Build.BackEnd.Logging.CentralForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase) == 0)
+                if (String.Equals("Microsoft.Build.BackEnd.Logging.CentralForwardingLogger", loggerName, StringComparison.OrdinalIgnoreCase))
                 {
                     countForwardingLogger++;
                 }
@@ -1076,7 +1069,7 @@ namespace Microsoft.Build.UnitTests.Logging
         {
             string eventsToForward = "CustomEvent";
 
-            if (forwardAllEvents == true)
+            if (forwardAllEvents)
             {
                 eventsToForward = "BuildStartedEvent;BuildFinishedEvent;ProjectStartedEvent;ProjectFinishedEvent;TargetStartedEvent;TargetFinishedEvent;TaskStartedEvent;TaskFinishedEvent;ErrorEvent;WarningEvent;HighMessageEvent;NormalMessageEvent;LowMessageEvent;CustomEvent;CommandLine";
             }
@@ -1170,7 +1163,6 @@ namespace Microsoft.Build.UnitTests.Logging
             }
         }
 
-#if FEATURE_VARIOUS_EXCEPTIONS
         /// <summary>
         /// Forwarding logger which will throw a StackOverflowException
         /// in the shutdown method. This is to test the shutdown exception handling
@@ -1186,7 +1178,6 @@ namespace Microsoft.Build.UnitTests.Logging
             {
             }
         }
-#endif
 
         /// <summary>
         /// Logger which can throw a defined exception in the initialize or shutdown methods
@@ -1351,7 +1342,7 @@ namespace Microsoft.Build.UnitTests.Logging
             public void Initialize(IEventSource eventSource)
             {
                 eventSource.AnyEventRaised +=
-                        new AnyEventHandler(LoggerEventHandler);
+                         LoggerEventHandler;
             }
 
             /// <summary>

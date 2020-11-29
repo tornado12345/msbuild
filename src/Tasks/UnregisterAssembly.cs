@@ -4,6 +4,7 @@
 #if FEATURE_APPDOMAIN
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -77,7 +78,7 @@ namespace Microsoft.Build.Tasks
                 for (int i = 0; i < Assemblies.Length; i++)
                 {
                     // if the type lib path is not supplied, generate default one
-                    if (TypeLibFiles != null && TypeLibFiles[i] != null && TypeLibFiles[i].ItemSpec.Length > 0)
+                    if (TypeLibFiles?[i]?.ItemSpec.Length > 0)
                     {
                         cacheFile.AddEntry(Assemblies[i].ItemSpec, TypeLibFiles[i].ItemSpec);
                     }
@@ -110,7 +111,7 @@ namespace Microsoft.Build.Tasks
                         Log.LogErrorWithCodeFromResources("General.InvalidAssemblyName", assemblyPath, ex.Message);
                         taskReturnValue = false;
                     }
-#if _DEBUG
+#if DEBUG
                     catch (Exception e)
                     {
                         Debug.Assert(false, "Unexpected exception in AssemblyRegistration.Execute. " + 
@@ -141,7 +142,7 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         private bool Unregister(string assemblyPath, string typeLibPath)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(typeLibPath, "typeLibPath");
+            ErrorUtilities.VerifyThrowArgumentNull(typeLibPath, nameof(typeLibPath));
 
             Log.LogMessageFromResources(MessageImportance.Low, "UnregisterAssembly.UnregisteringAssembly", assemblyPath);
 
@@ -261,7 +262,7 @@ namespace Microsoft.Build.Tasks
                     // rethrow other exceptions
                     else
                     {
-#if _DEBUG
+#if DEBUG
                         Debug.Assert(false, "Unexpected exception in UnregisterAssembly.DoExecute. " + 
                             "Please log a MSBuild bug specifying the steps to reproduce the problem.");
 #endif

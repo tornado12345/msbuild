@@ -2,9 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Reflection;
 using System.CodeDom.Compiler;
@@ -18,7 +16,6 @@ namespace Microsoft.Build.UnitTests.BackEnd
     /// </summary>
     internal static class CustomTaskHelper
     {
-#if FEATURE_CODEDOM
         /// <summary>
         /// Create a task assembly given the specified task code.
         /// </summary>
@@ -72,6 +69,5 @@ namespace Microsoft.Build.UnitTests.BackEnd
 
             return null;
         }
-#endif
     }
 }

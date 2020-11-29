@@ -8,12 +8,21 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using Microsoft.Build.Tasks;
 using Microsoft.Build.Utilities;
+using Shouldly;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Build.UnitTests
 {
     sealed public class CreateVisualBasicManifestResourceName_Tests
     {
+        private readonly ITestOutputHelper _testOutput;
+
+        public CreateVisualBasicManifestResourceName_Tests(ITestOutputHelper output)
+        {
+            _testOutput = output;
+        }
+
         /// <summary>
         /// Test the basic functionality.
         /// </summary>
@@ -23,20 +32,20 @@ namespace Microsoft.Build.UnitTests
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.resx",
-                    null,    // Link file name
-                    true,
-                    null,    // Root namespace
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: null,    // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
                 );
 
             Assert.Equal("Nested.TestNamespace.TestClass", result);
@@ -51,20 +60,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.resx",
-                    null,    // Link file name
-                    true,
-                    null,    // Root namespace
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: null,    // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -80,20 +89,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.resx",
-                    null,    // Link file name
-                    true,
-                    null,    // Root namespace
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: null,    // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -109,20 +118,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.en-GB.resx",
-                    null,    // Link file name
-                    true,
-                    null,        // Root namespace
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.en-GB.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: null,        // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -139,20 +148,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.resx",
-                    null,    // Link file name
-                    true,
-                    null,        // Root namespace
-                    null,
-                    "en-GB",
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: null,        // Root namespace
+                    dependentUponFileName: null,
+                    culture: "en-GB",
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -168,20 +177,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.en-GB.resx",
-                    null,    // Link file name
-                    true,
-                    "RootNamespace",
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.en-GB.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -197,20 +206,20 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"f:\myproject\SubFolder\MyForm.fr-fr.resx",
-                    null,    // Link file name
-                    true,
-                    "RootNamespace",    // Root namespace
-                    null,
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: @"f:\myproject\SubFolder\MyForm.fr-fr.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",    // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
 Namespace Nested.TestNamespace 
     Class TestClass 
     End Class
 End Namespace
 "),
-                    null
+                    log: null
 
                 );
 
@@ -226,18 +235,44 @@ End Namespace
         {
             string result =
                 CreateVisualBasicManifestResourceName.CreateManifestNameImpl(
-                    FileUtilities.FixFilePath(@"SubFolder\MyForm.en-GB.ResX"),
-                    null,
+                    fileName: FileUtilities.FixFilePath(@"SubFolder\MyForm.en-GB.ResX"),
+                    linkFileName: null,
+                    // Link file name
+                    prependCultureAsDirectory:
                     // Link file name
                     true,
-                    "RootNamespace",
+                    rootNamespace: "RootNamespace",
+                    // Root namespace
+                    dependentUponFileName:
                     // Root namespace
                     null,
-                    null,
-                    null,
-                    null);
+                    culture: null,
+                    binaryStream: null,
+                    log: null);
 
             Assert.Equal("RootNamespace.MyForm.en-GB", result);
+        }
+
+        [Fact]
+        public void RootnamespaceWithCulture_RetainCultureInFileName()
+        {
+            string result =
+            CreateVisualBasicManifestResourceName.CreateManifestNameImpl
+                (
+                    fileName: @"File.cs.vb",
+                    linkFileName: null,
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",        // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null,
+                    treatAsCultureNeutral: true // retain culture in name
+                );
+
+            // Visual basic does not carry subfolder.
+            // See https://github.com/dotnet/msbuild/pull/5477
+            result.ShouldBe("RootNamespace.File.cs.vb");
         }
 
         /// <summary>
@@ -249,14 +284,14 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"..\..\XmlEditor\Setup\XmlEditor.rgs",
-                    @"MyXmlEditor.rgs",
-                    true,
-                    "RootNamespace",        // Root namespace
-                    null,
-                    null,
-                    null,
-                    null
+                    fileName: @"..\..\XmlEditor\Setup\XmlEditor.rgs",
+                    linkFileName: @"MyXmlEditor.rgs",
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",        // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null
 
                 );
 
@@ -271,14 +306,14 @@ End Namespace
         {
             string result =
                 CreateVisualBasicManifestResourceName.CreateManifestNameImpl(
-                    FileUtilities.FixFilePath(@"SubFolder\SplashScreen.bmp"),
-                    null,             // Link file name
-                    true,
-                    "RootNamespace", // Root namespace
-                    null,
-                    null,
-                    null,
-                    null);
+                    fileName: FileUtilities.FixFilePath(@"SubFolder\SplashScreen.bmp"),
+                    linkFileName: null,             // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace", // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null);
 
             Assert.Equal("RootNamespace.SplashScreen.bmp", result);
         }
@@ -291,14 +326,14 @@ End Namespace
         {
             string result =
                 CreateVisualBasicManifestResourceName.CreateManifestNameImpl(
-                    FileUtilities.FixFilePath(@"SubFolder\SplashScreen.fr.bmp"),
-                    null,             // Link file name
-                    true,
-                    "RootNamespace",  // Root namespace
-                    null,
-                    null,
-                    null,
-                    null);
+                    fileName: FileUtilities.FixFilePath(@"SubFolder\SplashScreen.fr.bmp"),
+                    linkFileName: null,             // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",  // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null);
 
             Assert.Equal(FileUtilities.FixFilePath(@"fr\RootNamespace.SplashScreen.bmp"), result);
         }
@@ -311,14 +346,14 @@ End Namespace
         {
             string result =
                 CreateVisualBasicManifestResourceName.CreateManifestNameImpl(
-                    FileUtilities.FixFilePath(@"SubFolder\SplashScreen.fr.bmp"),
-                    null,             // Link file name
-                    false,
-                    "RootNamespace",  // Root namespace
-                    null,
-                    null,
-                    null,
-                    null);
+                    fileName: FileUtilities.FixFilePath(@"SubFolder\SplashScreen.fr.bmp"),
+                    linkFileName: null,             // Link file name
+                    prependCultureAsDirectory: false,
+                    rootNamespace: "RootNamespace",  // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null);
 
             Assert.Equal(@"RootNamespace.SplashScreen.bmp", result);
         }
@@ -352,6 +387,47 @@ End Namespace
         }
 
         /// <summary>
+        /// If we have a resource file that has a culture within it's name (resourceFile.de.cs), find it by convention.
+        /// </summary>
+        [Fact]
+        public void CulturedResourceFileFindByConvention()
+        {
+            using (var env = TestEnvironment.Create(_testOutput))
+            {
+                var csFile = env.CreateFile("SR1.vb", @"
+Namespace MyStuff
+    Class Class2
+    End Class
+End Namespace");
+                var resXFile = env.CreateFile("SR1.de.resx", "");
+
+                ITaskItem i = new TaskItem(resXFile.Path);
+
+                i.SetMetadata("BuildAction", "EmbeddedResource");
+
+                // this data is set automatically through the AssignCulture task, so we manually set it here
+                i.SetMetadata("WithCulture", "true");
+                i.SetMetadata("Culture", "de");
+
+                env.SetCurrentDirectory(Path.GetDirectoryName(resXFile.Path));
+
+                CreateVisualBasicManifestResourceName t = new CreateVisualBasicManifestResourceName
+                {
+                    BuildEngine = new MockEngine(_testOutput),
+                    UseDependentUponConvention = true,
+                    ResourceFiles = new ITaskItem[] { i },
+                };
+
+                t.Execute().ShouldBeTrue("Expected the task to succeed");
+
+                t.ManifestResourceNames.ShouldHaveSingleItem();
+
+                // CreateManifestNameImpl appends culture to the end of the convention
+                t.ManifestResourceNames[0].ItemSpec.ShouldBe("MyStuff.Class2.de", "Expected Namespace.Class.Culture");
+            }
+        }
+
+        /// <summary>
         /// Given a file path, return a stream on top of that path.
         /// </summary>
         /// <param name="path">Path to the file</param>
@@ -360,7 +436,7 @@ End Namespace
         /// <returns>The Stream</returns>
         private Stream CreateFileStream(string path, FileMode mode, FileAccess access)
         {
-            if (String.Compare(path, "SR1.strings", StringComparison.OrdinalIgnoreCase) == 0)
+            if (String.Equals(path, "SR1.strings", StringComparison.OrdinalIgnoreCase))
             {
                 return StreamHelpers.StringToStream(
 @"
@@ -394,18 +470,18 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    "MyForm.ro.resx",
-                    null,    // Link file name
-                    true,
-                    "RootNamespace",    // Root namespace
-                    "MyForm.ro.vb",
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: "MyForm.ro.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",    // Root namespace
+                    dependentUponFileName: "MyForm.ro.vb",
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"
     Class MyForm 
     End Class
 "),
-                    null
+                    log: null
 
                 );
 
@@ -427,13 +503,13 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    "MyForm.resx",
-                    null,
-                    true,
-                    "RootNamespace",    // Root namespace (will be ignored because it's dependent)
-                    "MyForm.vb",
-                    null,
-                    StreamHelpers.StringToStream(
+                    fileName: "MyForm.resx",
+                    linkFileName: null,
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",    // Root namespace (will be ignored because it's dependent)
+                    dependentUponFileName: "MyForm.vb",
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(
 @"Imports System
 
 #if false
@@ -449,7 +525,7 @@ Namespace ClassLibrary3
 End Namespace
 "
                     ),
-                    c.Log
+                    log: c.Log
                 );
 
             Assert.Contains(
@@ -568,14 +644,14 @@ End Namespace
         {
             string result =
                 CreateVisualBasicManifestResourceName.CreateManifestNameImpl(
-                    FileUtilities.FixFilePath(@"SubFolder\MyResource.fr.resources"),
-                    null,             // Link file name
-                    false,
-                    "RootNamespace",  // Root namespace
-                    null,
-                    null,
-                    null,
-                    null);
+                    fileName: FileUtilities.FixFilePath(@"SubFolder\MyResource.fr.resources"),
+                    linkFileName: null,             // Link file name
+                    prependCultureAsDirectory: false,
+                    rootNamespace: "RootNamespace",  // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null);
 
             Assert.Equal(@"RootNamespace.MyResource.fr.resources", result);
         }
@@ -589,14 +665,14 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"MyResource.fr.resources",
-                    null,    // Link file name
-                    false,
-                    "RootNamespace",        // Root namespace
-                    null,
-                    null,
-                    null,
-                    null
+                    fileName: @"MyResource.fr.resources",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: false,
+                    rootNamespace: "RootNamespace",        // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null
                 );
 
             Assert.Equal(@"RootNamespace.MyResource.fr.resources", result);
@@ -611,14 +687,14 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    @"MyResource.resources",
-                    null,    // Link file name
-                    false,
-                    "RootNamespace",        // Root namespace
-                    null,
-                    null,
-                    null,
-                    null
+                    fileName: @"MyResource.resources",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: false,
+                    rootNamespace: "RootNamespace",        // Root namespace
+                    dependentUponFileName: null,
+                    culture: null,
+                    binaryStream: null,
+                    log: null
                 );
 
             Assert.Equal(@"RootNamespace.MyResource.resources", result);
@@ -629,14 +705,14 @@ End Namespace
             string result =
             CreateVisualBasicManifestResourceName.CreateManifestNameImpl
                 (
-                    "MyForm.resx",
-                    null,    // Link file name
-                    true,
-                    "RootNamespace",    // Root namespace
-                    "MyForm.vb",
-                    null,
-                    StreamHelpers.StringToStream(code),
-                    null
+                    fileName: "MyForm.resx",
+                    linkFileName: null,    // Link file name
+                    prependCultureAsDirectory: true,
+                    rootNamespace: "RootNamespace",    // Root namespace
+                    dependentUponFileName: "MyForm.vb",
+                    culture: null,
+                    binaryStream: StreamHelpers.StringToStream(code),
+                    log: null
                 );
 
             Assert.Equal(expected, result);

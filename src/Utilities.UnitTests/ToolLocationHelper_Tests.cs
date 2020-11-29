@@ -18,8 +18,6 @@ using Shouldly;
 using Microsoft.Win32;
 #endif
 
-
-
 using FrameworkNameVersioning = System.Runtime.Versioning.FrameworkName;
 using UtilitiesDotNetFrameworkArchitecture = Microsoft.Build.Utilities.DotNetFrameworkArchitecture;
 using SharedDotNetFrameworkArchitecture = Microsoft.Build.Shared.DotNetFrameworkArchitecture;
@@ -717,17 +715,11 @@ namespace Microsoft.Build.UnitTests
         {
             string net20Path = ToolLocationHelper.GetPathToDotNetFrameworkFile("MSBuild.exe", TargetDotNetFrameworkVersion.Version20);
 
-            if (net20Path != null)
-            {
-                net20Path.ShouldBe(ToolLocationHelper.GetPathToBuildToolsFile("MSBuild.exe", "2.0"));
-            }
+            net20Path?.ShouldBe(ToolLocationHelper.GetPathToBuildToolsFile("MSBuild.exe", "2.0"));
 
             string net35Path = ToolLocationHelper.GetPathToDotNetFrameworkFile("MSBuild.exe", TargetDotNetFrameworkVersion.Version35);
 
-            if (net35Path != null)
-            {
-                net35Path.ShouldBe(ToolLocationHelper.GetPathToBuildToolsFile("MSBuild.exe", "3.5"));
-            }
+            net35Path?.ShouldBe(ToolLocationHelper.GetPathToBuildToolsFile("MSBuild.exe", "3.5"));
 
             ToolLocationHelper.GetPathToDotNetFrameworkFile("MSBuild.exe", TargetDotNetFrameworkVersion.Version40).ShouldBe(ToolLocationHelper.GetPathToBuildToolsFile("MSBuild.exe", "4.0"));
 
@@ -753,7 +745,6 @@ namespace Microsoft.Build.UnitTests
 
             ToolLocationHelper.GetPathToDotNetFrameworkFile("msbuild.exe", TargetDotNetFrameworkVersion.Version40, UtilitiesDotNetFrameworkArchitecture.Bitness32).ShouldBe(
                     ToolLocationHelper.GetPathToBuildToolsFile("msbuild.exe", "4.0", UtilitiesDotNetFrameworkArchitecture.Bitness32));
-
 
             var toolsPath32 = ProjectCollection.GlobalProjectCollection.GetToolset(ObjectModelHelpers.MSBuildDefaultToolsVersion).Properties["MSBuildToolsPath32"];
             string tv12path = Path.Combine(Path.GetFullPath(toolsPath32.EvaluatedValue), "msbuild.exe");
@@ -802,6 +793,7 @@ namespace Microsoft.Build.UnitTests
             string fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK47 = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SDKs\NETFXSDK\4.7\WinSDK-NetFx40Tools-x86";
             string fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK471 = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SDKs\NETFXSDK\4.7.1\WinSDK-NetFx40Tools-x86";
             string fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK472 = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SDKs\NETFXSDK\4.7.2\WinSDK-NetFx40Tools-x86";
+            string fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK48 = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SDKs\NETFXSDK\4.8\WinSDK-NetFx40Tools-x86";
 
             // v4.0
             ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version40, VisualStudioVersion.Version100).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK70A);
@@ -833,7 +825,6 @@ namespace Microsoft.Build.UnitTests
             Should.Throw<ArgumentException>( () => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version46, VisualStudioVersion.Version120) );
             ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version46, VisualStudioVersion.Version140).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK46);
 
-
             // v4.6.1
             Should.Throw<ArgumentException>( () => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version461, VisualStudioVersion.Version100) );
             Should.Throw<ArgumentException>( () => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version461, VisualStudioVersion.Version110) );
@@ -864,8 +855,15 @@ namespace Microsoft.Build.UnitTests
             Should.Throw<ArgumentException>(() => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version472, VisualStudioVersion.Version120));
             ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version472, VisualStudioVersion.Version150).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK472);
 
+            // v4.8
+            Should.Throw<ArgumentException>(() => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version48, VisualStudioVersion.Version100));
+            Should.Throw<ArgumentException>(() => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version48, VisualStudioVersion.Version110));
+            Should.Throw<ArgumentException>(() => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version48, VisualStudioVersion.Version120));
+            Should.Throw<ArgumentException>(() => ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version48, VisualStudioVersion.Version140));
+            ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Version48, VisualStudioVersion.Version150).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK48);
+
             // Latest
-            ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Latest, VisualStudioVersion.Version150).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK472);
+            ToolLocationHelper.GetDotNetFrameworkSdkRootRegistryKey(TargetDotNetFrameworkVersion.Latest, VisualStudioVersion.Version150).ShouldBe(fullDotNetFrameworkSdkRegistryPathForV4ToolsOnManagedToolsSDK48);
         }
 
         [Fact]
@@ -1720,7 +1718,6 @@ namespace Microsoft.Build.UnitTests
             string framework39redistDirectory = Path.Combine(framework39Directory, "RedistList");
             string framework39RedistList = Path.Combine(framework39redistDirectory, "FrameworkList.xml");
 
-
             try
             {
                 Directory.CreateDirectory(framework41redistDirectory);
@@ -1730,7 +1727,6 @@ namespace Microsoft.Build.UnitTests
                 File.WriteAllText(framework39RedistList, redistString39);
                 File.WriteAllText(framework40RedistList, redistString40);
                 File.WriteAllText(framework41RedistList, redistString41);
-
 
                 FrameworkNameVersioning frameworkName = new FrameworkNameVersioning("MyFramework", new Version("4.1"));
                 IList<string> directories = ToolLocationHelper.GetPathToReferenceAssemblies(tempDirectory, frameworkName);
@@ -1815,7 +1811,6 @@ namespace Microsoft.Build.UnitTests
             }
         }
 
-
         /// <summary>
         /// Make sure we do not crash if there is a circular reference in the redist lists, we should only have a path in our reference assembly list once.
         ///
@@ -1850,7 +1845,6 @@ namespace Microsoft.Build.UnitTests
 
                 File.WriteAllText(framework40RedistList, redistString40);
                 File.WriteAllText(framework41RedistList, redistString41);
-
 
                 FrameworkNameVersioning frameworkName = new FrameworkNameVersioning("MyFramework", new Version("4.1"));
                 IList<string> directories = ToolLocationHelper.GetPathToReferenceAssemblies(tempDirectory, frameworkName);
@@ -1965,12 +1959,10 @@ namespace Microsoft.Build.UnitTests
         [Trait("Category", "mono-osx-failing")]
         public void GetPathToReferenceAssembliesDefaultLocation45()
         {
-            FrameworkNameVersioning frameworkName = null;
-            IList<string> directories = null;
             if (ToolLocationHelper.GetPathToDotNetFrameworkReferenceAssemblies(TargetDotNetFrameworkVersion.Version45) != null)
             {
-                frameworkName = new FrameworkNameVersioning(".NETFramework", new Version("4.5"));
-                directories = ToolLocationHelper.GetPathToReferenceAssemblies(frameworkName);
+                FrameworkNameVersioning frameworkName = new FrameworkNameVersioning(".NETFramework", new Version("4.5"));
+                IList<string> directories = ToolLocationHelper.GetPathToReferenceAssemblies(frameworkName);
                 directories.Count.ShouldBe(1); // "Expected the method to return one path."
 
                 string referenceAssemblyPath = ToolLocationHelper.GetPathToDotNetFrameworkReferenceAssemblies(TargetDotNetFrameworkVersion.Version45);
@@ -2124,7 +2116,6 @@ namespace Microsoft.Build.UnitTests
             list[1].ShouldBe(LegacyFrameworkTestHelper.DotNet30FrameworkPath, StringCompareShould.IgnoreCase);
         }
 
-
         /// <summary>
         /// Verify when 35 is simulated to be installed that the method returns the 3.5 directory
         /// </summary>
@@ -2161,7 +2152,6 @@ namespace Microsoft.Build.UnitTests
             IList<string> list = ToolLocationHelper.HandleLegacyDotNetFrameworkReferenceAssemblyPaths(legacyHelper.GetDotNetVersionToPathDelegate, legacyHelper.GetDotNetReferenceAssemblyDelegate, frameworkName);
             list.Count.ShouldBe(0);
         }
-
 
         /// <summary>
         /// Verify when 35 reference assembly are simulated to not be installed that the method returns an empty list
@@ -2788,7 +2778,7 @@ namespace Microsoft.Build.UnitTests
 
         private static string CreateNewFrameworkAndGetAssembliesPath(TestEnvironment env, string frameworkName, string frameworkVersion, string rootDir)
         {
-            string frameworkListXml = null;
+            string frameworkListXml;
             if (NativeMethodsShared.IsMono)
             {
                 // Mono uses an extra attribute to point to the location of the corresponding
@@ -3374,7 +3364,6 @@ namespace Microsoft.Build.UnitTests
 
                 string manifestFile = Path.Combine(manifestPath, "SDKManifest.xml");
 
-
                 string manifestPlatformSDK = @"
                 <FileList
                     DisplayName = ""Windows""
@@ -3441,7 +3430,6 @@ namespace Microsoft.Build.UnitTests
                         <ToolboxItems VSCategory = ""Toolbox.Default"" />
                     </File>
                 </FileList>";
-
 
                 File.WriteAllText(manifestFile, manifestExtensionSDK);
                 sdkManifest = new SDKManifest(manifestPath);
@@ -3821,7 +3809,6 @@ namespace Microsoft.Build.UnitTests
                     folderKey = baseKey.CreateSubKey(registryKey + @"\MyPlatform\v8.0");
                     folderKey.SetValue("", Path.Combine(testDirectoryRoot, platformDirectory));
                 }
-
 
                 if (Directory.Exists(testDirectoryRoot))
                 {
@@ -4228,7 +4215,6 @@ namespace Microsoft.Build.UnitTests
             ToolLocationHelper.FindRootFolderWhereAllFilesExist(roots, @"file1.txt;subdir\file3.txt").ShouldBe(String.Empty);
             ToolLocationHelper.FindRootFolderWhereAllFilesExist(@"c:<>;" + roots, "file1.txt").ShouldBe(rootDirectories[0]); // should ignore invalid dir
         }
-
 
 #if FEATURE_REGISTRY_SDKS
         /// <summary>
@@ -4689,52 +4675,52 @@ namespace Microsoft.Build.UnitTests
         {
             if (baseKey == Registry.CurrentUser)
             {
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "Windows", "MyPlatform" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "v1.0", "1.0" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "MyAssembly" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "MyAssembly" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "v1.1", "1.0", "2.0", "3.0" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "2.0" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "4.0", "5.0", "6.0", "9.0" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "MyAssembly" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\5.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\5.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { string.Empty };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "1.0" };
                 }
@@ -4742,22 +4728,22 @@ namespace Microsoft.Build.UnitTests
 
             if (baseKey == Registry.LocalMachine)
             {
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "Windows" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "v2.0" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "MyAssembly" };
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs\MyAssembly", StringComparison.OrdinalIgnoreCase))
                 {
                     return new[] { "3.0" };
                 }
@@ -4777,54 +4763,54 @@ namespace Microsoft.Build.UnitTests
         {
             if (baseKey == Registry.CurrentUser)
             {
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\1.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\1.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\v1.0\\ExtensionSDKs\\MyAssembly\\1.0");
                 }
 
                 // This has a v in the sdk version and should not be found but we need a real path in case it is so it will show up in the returned list and fail the test.
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\v1.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\v1.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\v1.0\\ExtensionSDKs\\MyAssembly\\1.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs\MyAssembly\2.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\1.0\ExtensionSDKs\MyAssembly\2.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\1.0\\ExtensionSDKs\\MyAssembly\\2.0");
                 }
 
                 // This has a set of bad char in the returned directory so it should not be allowed.
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\3.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0\ExtensionSDKs\MyAssembly\3.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return _fakeStructureRoot + @"\Windows\1.0\ExtensionSDKs\MyAssembly\<>?/";
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\5.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\5.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "MyPlatform\\5.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "SomeOtherPlace\\MyPlatformOtherLocation\\4.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\6.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\6.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows Kits\\6.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\9.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\9.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "MyPlatform\\9.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs\MyAssembly\1.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\MyPlatform\4.0\ExtensionSDKs\MyAssembly\1.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "SomeOtherPlace\\MyPlatformOtherLocation\\4.0\\ExtensionSDKs\\MyAssembly\\1.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v1.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\1.0");
                 }
@@ -4832,12 +4818,12 @@ namespace Microsoft.Build.UnitTests
 
             if (baseKey == Registry.LocalMachine)
             {
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs\MyAssembly\3.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0\ExtensionSDKs\MyAssembly\3.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\2.0\\ExtensionSDKs\\MyAssembly\\3.0");
                 }
 
-                if (string.Compare(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0", StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(subKey, @"Software\Microsoft\MicrosoftSDKs\Windows\v2.0", StringComparison.OrdinalIgnoreCase))
                 {
                     return Path.Combine(_fakeStructureRoot, "Windows\\2.0");
                 }

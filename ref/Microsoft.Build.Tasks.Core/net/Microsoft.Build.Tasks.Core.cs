@@ -180,6 +180,7 @@ namespace Microsoft.Build.Tasks
         [Microsoft.Build.Framework.OutputAttribute]
         public Microsoft.Build.Framework.ITaskItem[] DestinationFiles { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem DestinationFolder { get { throw null; } set { } }
+        public bool ErrorIfLinkFails { get { throw null; } set { } }
         public bool OverwriteReadOnlyFiles { get { throw null; } set { } }
         public int Retries { get { throw null; } set { } }
         public int RetryDelayMilliseconds { get { throw null; } set { } }
@@ -194,6 +195,7 @@ namespace Microsoft.Build.Tasks
     public partial class CreateCSharpManifestResourceName : Microsoft.Build.Tasks.CreateManifestResourceName
     {
         public CreateCSharpManifestResourceName() { }
+        protected override string SourceFileExtension { get { throw null; } }
         protected override string CreateManifestName(string fileName, string linkFileName, string rootNamespace, string dependentUponFileName, System.IO.Stream binaryStream) { throw null; }
         protected override bool IsSourceFile(string fileName) { throw null; }
     }
@@ -219,6 +221,8 @@ namespace Microsoft.Build.Tasks
         [Microsoft.Build.Framework.OutputAttribute]
         public Microsoft.Build.Framework.ITaskItem[] ResourceFilesWithManifestResourceNames { get { throw null; } set { } }
         public string RootNamespace { get { throw null; } set { } }
+        protected abstract string SourceFileExtension { get; }
+        public bool UseDependentUponConvention { get { throw null; } set { } }
         protected abstract string CreateManifestName(string fileName, string linkFileName, string rootNamespaceName, string dependentUponFileName, System.IO.Stream binaryStream);
         public override bool Execute() { throw null; }
         protected abstract bool IsSourceFile(string fileName);
@@ -236,6 +240,7 @@ namespace Microsoft.Build.Tasks
     public partial class CreateVisualBasicManifestResourceName : Microsoft.Build.Tasks.CreateManifestResourceName
     {
         public CreateVisualBasicManifestResourceName() { }
+        protected override string SourceFileExtension { get { throw null; } }
         protected override string CreateManifestName(string fileName, string linkFileName, string rootNamespace, string dependentUponFileName, System.IO.Stream binaryStream) { throw null; }
         protected override bool IsSourceFile(string fileName) { throw null; }
     }
@@ -272,6 +277,7 @@ namespace Microsoft.Build.Tasks
         public string Code { get { throw null; } set { } }
         public string File { get { throw null; } set { } }
         public string HelpKeyword { get { throw null; } set { } }
+        public string HelpLink { get { throw null; } set { } }
         public string Text { get { throw null; } set { } }
         public override bool Execute() { throw null; }
     }
@@ -483,6 +489,18 @@ namespace Microsoft.Build.Tasks
         protected override bool OnManifestResolved(Microsoft.Build.Tasks.Deployment.ManifestUtilities.Manifest manifest) { throw null; }
         protected internal override bool ValidateInputs() { throw null; }
     }
+    public sealed partial class GenerateLauncher : Microsoft.Build.Tasks.TaskExtension
+    {
+        public GenerateLauncher() { }
+        public string AssemblyName { get { throw null; } set { } }
+        public Microsoft.Build.Framework.ITaskItem EntryPoint { get { throw null; } set { } }
+        public string LauncherPath { get { throw null; } set { } }
+        [Microsoft.Build.Framework.OutputAttribute]
+        public Microsoft.Build.Framework.ITaskItem OutputEntryPoint { get { throw null; } set { } }
+        public string OutputPath { get { throw null; } set { } }
+        public string VisualStudioVersion { get { throw null; } set { } }
+        public override bool Execute() { throw null; }
+    }
     public abstract partial class GenerateManifestBase : Microsoft.Build.Utilities.Task
     {
         protected GenerateManifestBase() { }
@@ -491,6 +509,7 @@ namespace Microsoft.Build.Tasks
         public string Description { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem EntryPoint { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem InputManifest { get { throw null; } set { } }
+        public bool LauncherBasedDeployment { get { throw null; } set { } }
         public int MaxTargetPath { get { throw null; } set { } }
         [Microsoft.Build.Framework.OutputAttribute]
         public Microsoft.Build.Framework.ITaskItem OutputManifest { get { throw null; } set { } }
@@ -547,6 +566,7 @@ namespace Microsoft.Build.Tasks
         public string TrackerLogDirectory { get { throw null; } set { } }
         public string TrackerSdkPath { get { throw null; } set { } }
         public bool TrackFileAccess { get { throw null; } set { } }
+        public bool UsePreserializedResources { get { throw null; } set { } }
         public bool UseSourcePath { get { throw null; } set { } }
         public override bool Execute() { throw null; }
     }
@@ -617,6 +637,8 @@ namespace Microsoft.Build.Tasks
         public string FrameworkVersion472Path { get { throw null; } }
         [Microsoft.Build.Framework.OutputAttribute]
         public string FrameworkVersion47Path { get { throw null; } }
+        [Microsoft.Build.Framework.OutputAttribute]
+        public string FrameworkVersion48Path { get { throw null; } }
         [Microsoft.Build.Framework.OutputAttribute]
         public string Path { get { throw null; } }
         public override bool Execute() { throw null; }
@@ -875,6 +897,8 @@ namespace Microsoft.Build.Tasks
         public string AppConfigFile { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] Assemblies { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] AssemblyFiles { get { throw null; } set { } }
+        public string AssemblyInformationCacheOutputPath { get { throw null; } set { } }
+        public Microsoft.Build.Framework.ITaskItem[] AssemblyInformationCachePaths { get { throw null; } set { } }
         public bool AutoUnify { get { throw null; } set { } }
         public string[] CandidateAssemblyFiles { get { throw null; } set { } }
         public bool CopyLocalDependenciesWhenParentReferenceInGac { get { throw null; } set { } }
@@ -990,10 +1014,14 @@ namespace Microsoft.Build.Tasks
     public sealed partial class ResolveManifestFiles : Microsoft.Build.Tasks.TaskExtension
     {
         public ResolveManifestFiles() { }
+        public string AssemblyName { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem DeploymentManifestEntryPoint { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem EntryPoint { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] ExtraFiles { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] Files { get { throw null; } set { } }
+        public bool IsSelfContainedPublish { get { throw null; } set { } }
+        public bool IsSingleFilePublish { get { throw null; } set { } }
+        public bool LauncherBasedDeployment { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] ManagedAssemblies { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] NativeAssemblies { get { throw null; } set { } }
         [Microsoft.Build.Framework.OutputAttribute]
@@ -1005,9 +1033,11 @@ namespace Microsoft.Build.Tasks
         [Microsoft.Build.Framework.OutputAttribute]
         public Microsoft.Build.Framework.ITaskItem[] OutputFiles { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] PublishFiles { get { throw null; } set { } }
+        public Microsoft.Build.Framework.ITaskItem[] RuntimePackAssets { get { throw null; } set { } }
         public Microsoft.Build.Framework.ITaskItem[] SatelliteAssemblies { get { throw null; } set { } }
         public bool SigningManifests { get { throw null; } set { } }
         public string TargetCulture { get { throw null; } set { } }
+        public string TargetFrameworkIdentifier { get { throw null; } set { } }
         public string TargetFrameworkVersion { get { throw null; } set { } }
         public override bool Execute() { throw null; }
     }
@@ -1121,6 +1151,7 @@ namespace Microsoft.Build.Tasks
         public string CertificateThumbprint { get { throw null; } set { } }
         [Microsoft.Build.Framework.RequiredAttribute]
         public Microsoft.Build.Framework.ITaskItem SigningTarget { get { throw null; } set { } }
+        public string TargetFrameworkIdentifier { get { throw null; } set { } }
         public string TargetFrameworkVersion { get { throw null; } set { } }
         public string TimestampUrl { get { throw null; } set { } }
         public override bool Execute() { throw null; }
@@ -1221,6 +1252,7 @@ namespace Microsoft.Build.Tasks
         public string Code { get { throw null; } set { } }
         public string File { get { throw null; } set { } }
         public string HelpKeyword { get { throw null; } set { } }
+        public string HelpLink { get { throw null; } set { } }
         public string Text { get { throw null; } set { } }
         public override bool Execute() { throw null; }
     }
@@ -2128,12 +2160,20 @@ namespace Microsoft.Build.Tasks.Deployment.ManifestUtilities
         public System.Collections.IEnumerator GetEnumerator() { throw null; }
         public void Remove(Microsoft.Build.Tasks.Deployment.ManifestUtilities.FileReference file) { }
     }
+    public partial class LauncherBuilder
+    {
+        public LauncherBuilder(string launcherPath) { }
+        public string LauncherPath { get { throw null; } set { } }
+        public Microsoft.Build.Tasks.Deployment.Bootstrapper.BuildResults Build(string filename, string outputPath) { throw null; }
+    }
     [System.Runtime.InteropServices.ComVisibleAttribute(false)]
     public abstract partial class Manifest
     {
         protected internal Manifest() { }
         [System.Xml.Serialization.XmlIgnoreAttribute]
         public Microsoft.Build.Tasks.Deployment.ManifestUtilities.AssemblyIdentity AssemblyIdentity { get { throw null; } set { } }
+        [System.Xml.Serialization.XmlIgnoreAttribute]
+        public string AssemblyName { get { throw null; } set { } }
         [System.Xml.Serialization.XmlIgnoreAttribute]
         public Microsoft.Build.Tasks.Deployment.ManifestUtilities.AssemblyReferenceCollection AssemblyReferences { get { throw null; } }
         [System.Xml.Serialization.XmlIgnoreAttribute]
@@ -2144,6 +2184,8 @@ namespace Microsoft.Build.Tasks.Deployment.ManifestUtilities
         public Microsoft.Build.Tasks.Deployment.ManifestUtilities.FileReferenceCollection FileReferences { get { throw null; } }
         [System.Xml.Serialization.XmlIgnoreAttribute]
         public System.IO.Stream InputStream { get { throw null; } set { } }
+        [System.Xml.Serialization.XmlIgnoreAttribute]
+        public bool LauncherBasedDeployment { get { throw null; } set { } }
         [System.Xml.Serialization.XmlIgnoreAttribute]
         public Microsoft.Build.Tasks.Deployment.ManifestUtilities.OutputMessageCollection OutputMessages { get { throw null; } }
         [System.Xml.Serialization.XmlIgnoreAttribute]
@@ -2265,6 +2307,7 @@ namespace Microsoft.Build.Tasks.Deployment.ManifestUtilities
         public static void SignFile(string certPath, System.Security.SecureString certPassword, System.Uri timestampUrl, string path) { }
         public static void SignFile(string certThumbprint, System.Uri timestampUrl, string path) { }
         public static void SignFile(string certThumbprint, System.Uri timestampUrl, string path, string targetFrameworkVersion) { }
+        public static void SignFile(string certThumbprint, System.Uri timestampUrl, string path, string targetFrameworkVersion, string targetFrameworkIdentifier) { }
         public static System.Security.PermissionSet XmlToPermissionSet(System.Xml.XmlElement element) { throw null; }
     }
     [System.Runtime.InteropServices.ComVisibleAttribute(false)]

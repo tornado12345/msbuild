@@ -5,7 +5,6 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using System;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Microsoft.Build.Tasks
@@ -35,7 +34,7 @@ namespace Microsoft.Build.Tasks
         public bool Overwrite { get; set; }
 
         /// <summary>
-        /// If true, overwrite any existing file contents.
+        /// Encoding to be used.
         /// </summary>
         public string Encoding { get; set; }
 

@@ -163,14 +163,12 @@ namespace Microsoft.Build.BackEnd
                     }
                 }
             }
-#if FEATURE_VARIOUS_EXCEPTIONS
             catch (ThreadAbortException)
             {
                 // Do nothing.  This will happen when the thread is forcibly terminated because we are shutting down, for example
                 // when the unit test framework terminates.
                 throw;
             }
-#endif
             catch (Exception e)
             {
                 // Dump all engine exceptions to a temp file
@@ -289,7 +287,7 @@ namespace Microsoft.Build.BackEnd
             try
             {
                 // Clean up the engine
-                if (null != _buildRequestEngine && _buildRequestEngine.Status != BuildRequestEngineStatus.Uninitialized)
+                if (_buildRequestEngine != null && _buildRequestEngine.Status != BuildRequestEngineStatus.Uninitialized)
                 {
                     _buildRequestEngine.CleanupForBuild();
                 }
@@ -340,7 +338,7 @@ namespace Microsoft.Build.BackEnd
 
             exception = _shutdownException;
 
-            if (null != _loggingContext)
+            if (_loggingContext != null)
             {
                 _loggingContext.LoggingService.OnLoggingThreadException -= OnLoggingThreadException;
                 _loggingContext = null;

@@ -5,20 +5,17 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Globalization;
 using System.Threading;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 using Microsoft.Build.BackEnd;
 using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Internal;
 using Microsoft.Build.Shared;
+using Microsoft.Build.Utilities;
 #if FEATURE_APPDOMAIN
 using System.Runtime.Remoting;
 #endif
@@ -36,7 +33,7 @@ namespace Microsoft.Build.CommandLine
 #if CLR2COMPATIBILITY
         IBuildEngine3
 #else
-        IBuildEngine5
+        IBuildEngine7
 #endif
     {
         /// <summary>
@@ -177,10 +174,6 @@ namespace Microsoft.Build.CommandLine
             // was initially launched. 
             _debugCommunications = (Environment.GetEnvironmentVariable("MSBUILDDEBUGCOMM") == "1");
 
-#if FEATURE_APPDOMAIN
-            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandling.UnhandledExceptionHandler);
-#endif
-
             _receivedPackets = new Queue<INodePacket>();
 
             // These WaitHandles are disposed in HandleShutDown()
@@ -266,6 +259,13 @@ namespace Microsoft.Build.CommandLine
         }
 
         #endregion // IBuildEngine2 Implementation (Properties)
+
+        #region IBuildEngine7 Implementation
+        /// <summary>
+        /// Enables or disables emitting a default error when a task fails without logging errors
+        /// </summary>
+        public bool AllowFailureWithoutError { get; set; } = false;
+        #endregion
 
         #region IBuildEngine Implementation (Methods)
 
@@ -442,6 +442,18 @@ namespace Microsoft.Build.CommandLine
 
         #endregion
 
+        #region IBuildEngine6 Implementation
+
+        /// <summary>
+        /// Gets the global properties for the current project.
+        /// </summary>
+        /// <returns>An <see cref="IReadOnlyDictionary{String, String}" /> containing the global properties of the current project.</returns>
+        public IReadOnlyDictionary<string, string> GetGlobalProperties()
+        {
+            return new Dictionary<string, string>(_currentConfiguration.GlobalProperties);
+        }
+
+        #endregion
 #endif
 
         #region INodePacketFactory Members
@@ -606,7 +618,7 @@ namespace Microsoft.Build.CommandLine
         /// </summary>
         private void HandleTaskHostConfiguration(TaskHostConfiguration taskHostConfiguration)
         {
-            ErrorUtilities.VerifyThrow(_isTaskExecuting == false, "Why are we getting a TaskHostConfiguration packet while we're still executing a task?");
+            ErrorUtilities.VerifyThrow(!_isTaskExecuting, "Why are we getting a TaskHostConfiguration packet while we're still executing a task?");
             _currentConfiguration = taskHostConfiguration;
 
             // Kick off the task running thread.
@@ -620,7 +632,7 @@ namespace Microsoft.Build.CommandLine
         /// </summary>
         private void CompleteTask()
         {
-            ErrorUtilities.VerifyThrow(_isTaskExecuting == false, "The task should be done executing before CompleteTask.");
+            ErrorUtilities.VerifyThrow(!_isTaskExecuting, "The task should be done executing before CompleteTask.");
             if (_nodeEndpoint.LinkStatus == LinkStatus.Active)
             {
                 TaskHostTaskComplete taskCompletePacketToSend;
@@ -658,7 +670,7 @@ namespace Microsoft.Build.CommandLine
 
             // Store in a local to avoid a race
             var wrapper = _taskWrapper;
-            if (wrapper != null && !wrapper.CancelTask())
+            if (wrapper?.CancelTask() == false)
             {
                 // Create a possibility for the task to be aborted if the user really wants it dropped dead asap
                 if (Environment.GetEnvironmentVariable("MSBUILDTASKHOSTABORTTASKONCANCEL") == "1")
@@ -684,7 +696,8 @@ namespace Microsoft.Build.CommandLine
         {
             ErrorUtilities.VerifyThrow(!_isTaskExecuting, "We should never have a task in the process of executing when we receive NodeBuildComplete.");
 
-            _shutdownReason = buildComplete.PrepareForReuse ? NodeEngineShutdownReason.BuildCompleteReuse : NodeEngineShutdownReason.BuildComplete;
+            // TaskHostNodes lock assemblies with custom tasks produced by build scripts if NodeReuse is on. This causes failures if the user builds twice.
+            _shutdownReason = buildComplete.PrepareForReuse && Traits.Instance.EscapeHatches.ReuseTaskHostNodes ? NodeEngineShutdownReason.BuildCompleteReuse : NodeEngineShutdownReason.BuildComplete;
             _shutdownEvent.Set();
         }
 
@@ -694,10 +707,7 @@ namespace Microsoft.Build.CommandLine
         private NodeEngineShutdownReason HandleShutdown()
         {
             // Wait for the RunTask task runner thread before shutting down so that we can cleanly dispose all WaitHandles.
-            if (_taskRunnerThread != null)
-            {
-                _taskRunnerThread.Join();
-            }
+            _taskRunnerThread?.Join();
 
             if (_debugCommunications)
             {
@@ -824,14 +834,12 @@ namespace Microsoft.Build.CommandLine
             }
             catch (Exception e)
             {
-#if FEATURE_VARIOUS_EXCEPTIONS
                 if (e is ThreadAbortException)
                 {
                     // This thread was aborted as part of Cancellation, we will return a failure task result
                     taskResult = new OutOfProcTaskHostTaskResult(TaskCompleteType.Failure);
                 }
                 else
-#endif
                 if (ExceptionHandling.IsCriticalException(e))
                 {
                     throw;
@@ -1032,8 +1040,8 @@ namespace Microsoft.Build.CommandLine
 
                 foreach (string variable in _savedEnvironment.Keys)
                 {
-                    string newValue = null;
                     string oldValue = _savedEnvironment[variable];
+                    string newValue;
                     if (!environment.TryGetValue(variable, out newValue))
                     {
                         s_mismatchedEnvironmentValues[variable] = new KeyValuePair<string, string>(null, oldValue);
@@ -1050,7 +1058,7 @@ namespace Microsoft.Build.CommandLine
                 foreach (string variable in environment.Keys)
                 {
                     string newValue = environment[variable];
-                    string oldValue = null;
+                    string oldValue;
                     if (!_savedEnvironment.TryGetValue(variable, out oldValue))
                     {
                         s_mismatchedEnvironmentValues[variable] = new KeyValuePair<string, string>(newValue, null);
@@ -1071,7 +1079,7 @@ namespace Microsoft.Build.CommandLine
         /// </summary>
         private void SendBuildEvent(BuildEventArgs e)
         {
-            if (_nodeEndpoint != null && _nodeEndpoint.LinkStatus == LinkStatus.Active)
+            if (_nodeEndpoint?.LinkStatus == LinkStatus.Active)
             {
                 if (!e.GetType().GetTypeInfo().IsSerializable)
                 {

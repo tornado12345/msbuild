@@ -3,13 +3,13 @@
 
 using System;
 using System.Collections;
-using System.Text;
 using System.Xml;
 
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using Microsoft.Build.Tasks;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Build.UnitTests
 {
@@ -20,6 +20,13 @@ namespace Microsoft.Build.UnitTests
     /// </summary>
     sealed public class AssignProjectConfiguration_Tests
     {
+        private readonly ITestOutputHelper _output;
+
+        public AssignProjectConfiguration_Tests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
         private void TestResolveHelper(string itemSpec, string projectGuid, string package, string name,
             Hashtable pregenConfigurations, bool expectedResult,
             string expectedFullConfiguration, string expectedConfiguration, string expectedPlatform)
@@ -41,7 +48,7 @@ namespace Microsoft.Build.UnitTests
                 (resolvedProjectWithConfiguration == null) ? string.Empty : resolvedProjectWithConfiguration.GetMetadata("FullConfiguration"));
 
             Assert.Equal(expectedResult, result);
-            if (result == true)
+            if (result)
             {
                 Assert.Equal(expectedFullConfiguration, resolvedProjectWithConfiguration.GetMetadata("FullConfiguration"));
                 Assert.Equal(expectedConfiguration, resolvedProjectWithConfiguration.GetMetadata("Configuration"));
@@ -257,7 +264,7 @@ namespace Microsoft.Build.UnitTests
             // but they are ignored anyway, and the rest is identical
             string xmlString = ResolveNonMSBuildProjectOutput_Tests.CreatePregeneratedPathDoc(pregenConfigurations);
 
-            MockEngine engine = new MockEngine();
+            MockEngine engine = new MockEngine(_output);
             AssignProjectConfiguration rpc = new AssignProjectConfiguration();
             rpc.BuildEngine = engine;
             rpc.SolutionConfigurationContents = xmlString;
@@ -284,23 +291,20 @@ namespace Microsoft.Build.UnitTests
         [Fact]
         public void TestUnresolvedReferences()
         {
-            Hashtable unresolvedProjects = null;
-            Hashtable resolvedProjects = null;
-            Hashtable projectConfigurations = null;
-            ArrayList projectRefs = null;
-
-            projectRefs = new ArrayList();
+            ArrayList projectRefs = new ArrayList();
             projectRefs.Add(ResolveNonMSBuildProjectOutput_Tests.CreateReferenceItem("MCDep1.vcproj", "{2F6BBCC3-7111-4116-A68B-000000000000}",
                 "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep1"));
             projectRefs.Add(ResolveNonMSBuildProjectOutput_Tests.CreateReferenceItem("MCDep2.vcproj", "{2F6BBCC3-7111-4116-A68B-34CFC76F37C5}",
                 "{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}", "MCDep2"));
 
             // 1. multiple projects, none resolvable
-            projectConfigurations = new Hashtable();
+            Hashtable projectConfigurations = new Hashtable();
             projectConfigurations.Add("{11111111-1111-1111-1111-111111111111}", @"Config1|Win32");
             projectConfigurations.Add("{11111111-1111-1111-1111-111111111112}", @"Config2|AnyCPU");
             projectConfigurations.Add("{11111111-1111-1111-1111-111111111113}", @"Config3|AnyCPU");
 
+            Hashtable unresolvedProjects;
+            Hashtable resolvedProjects;
             TestUnresolvedReferencesHelper(projectRefs, projectConfigurations, out unresolvedProjects, out resolvedProjects);
 
             Assert.Empty(resolvedProjects); // "No resolved refs expected for case 1"

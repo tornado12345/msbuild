@@ -2,9 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Linq;
 using Microsoft.Build.Framework;
-using Microsoft.Build.Shared;
 using Microsoft.Build.Shared.FileSystem;
 
 namespace Microsoft.Build.Tasks
@@ -40,30 +38,30 @@ namespace Microsoft.Build.Tasks
         {
             if (!FileSystems.Default.FileExists(File))
             {
-                Log.LogErrorFromResources("FileHash.FileNotFound", File);
+                Log.LogErrorWithCodeFromResources("FileHash.FileNotFound", File);
                 return false;
             }
 
-            if (!GetFileHash.SupportsAlgorithm(Algorithm))
+            if (!GetFileHash.SupportedAlgorithms.TryGetValue(Algorithm, out var algorithmFactory))
             {
-                Log.LogErrorFromResources("FileHash.UnrecognizedHashAlgorithm", Algorithm);
+                Log.LogErrorWithCodeFromResources("FileHash.UnrecognizedHashAlgorithm", Algorithm);
                 return false;
             }
 
             if (!GetFileHash.TryParseHashEncoding(HashEncoding, out var encoding))
             {
-                Log.LogErrorFromResources("FileHash.UnrecognizedHashEncoding", HashEncoding);
+                Log.LogErrorWithCodeFromResources("FileHash.UnrecognizedHashEncoding", HashEncoding);
                 return false;
             }
 
-            byte[] hash = GetFileHash.ComputeHash(Algorithm, File);
+            byte[] hash = GetFileHash.ComputeHash(algorithmFactory, File);
             string actualHash = GetFileHash.EncodeHash(encoding, hash);
             var comparison = encoding == Tasks.HashEncoding.Hex
                 ? StringComparison.OrdinalIgnoreCase
                 : StringComparison.Ordinal;
             if (!string.Equals(actualHash, Hash, comparison))
             {
-                Log.LogErrorFromResources("VerifyFileHash.HashMismatch", File, Algorithm, Hash, actualHash);
+                Log.LogErrorWithCodeFromResources("VerifyFileHash.HashMismatch", File, Algorithm, Hash, actualHash);
                 return false;
             }
 

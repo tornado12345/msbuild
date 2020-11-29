@@ -12,7 +12,6 @@ using Microsoft.Build.Framework;
 using Microsoft.Build.Logging;
 
 using Shouldly;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Build.UnitTests
@@ -31,7 +30,7 @@ namespace Microsoft.Build.UnitTests
      * is somewhat of a no-no for task assemblies.
      * 
      **************************************************************************/
-    internal sealed class MockEngine : IBuildEngine5
+    internal sealed class MockEngine : IBuildEngine7
     {
         private readonly object _lockObj = new object();  // Protects _log, _output
         private readonly ITestOutputHelper _output;
@@ -39,6 +38,8 @@ namespace Microsoft.Build.UnitTests
         private readonly ProjectCollection _projectCollection = new ProjectCollection();
         private readonly bool _logToConsole;
         private readonly ConcurrentDictionary<object, object> _objectCache = new ConcurrentDictionary<object, object>();
+        private readonly ConcurrentQueue<BuildErrorEventArgs> _errorEvents = new ConcurrentQueue<BuildErrorEventArgs>();
+        private readonly ConcurrentQueue<BuildWarningEventArgs> _warningEvents = new ConcurrentQueue<BuildWarningEventArgs>();
 
         internal MockEngine() : this(false)
         {
@@ -49,6 +50,13 @@ namespace Microsoft.Build.UnitTests
         internal int Warnings { get; set; }
 
         internal int Errors { get; set; }
+
+        public bool AllowFailureWithoutError { get; set; } = false;
+
+        public BuildErrorEventArgs[] ErrorEvents => _errorEvents.ToArray();
+        public BuildWarningEventArgs[] WarningEvents => _warningEvents.ToArray();
+
+        public Dictionary<string, string> GlobalProperties { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         internal MockLogger MockLogger { get; }
 
@@ -67,6 +75,8 @@ namespace Microsoft.Build.UnitTests
 
         public void LogErrorEvent(BuildErrorEventArgs eventArgs)
         {
+            _errorEvents.Enqueue(eventArgs);
+
             string message = string.Empty;
 
             if (!string.IsNullOrEmpty(eventArgs.File))
@@ -95,6 +105,7 @@ namespace Microsoft.Build.UnitTests
         {
             lock (_lockObj)
             {
+                _warningEvents.Enqueue(eventArgs);
                 string message = string.Empty;
 
                 if (!string.IsNullOrEmpty(eventArgs.File))
@@ -164,6 +175,11 @@ namespace Microsoft.Build.UnitTests
                 _output?.WriteLine(message);
                 _log.AppendLine(message);
             }
+        }
+
+        public IReadOnlyDictionary<string, string> GetGlobalProperties()
+        {
+            return GlobalProperties;
         }
 
         public bool ContinueOnError => false;

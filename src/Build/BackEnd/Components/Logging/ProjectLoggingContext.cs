@@ -3,8 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Execution;
 using System.Collections;
@@ -101,7 +99,7 @@ namespace Microsoft.Build.BackEnd.Logging
                 items = new ProjectItemInstanceEnumeratorProxy(projectItemsEnumerator);
             }
 
-            if (projectProperties != null && propertiesToSerialize != null && propertiesToSerialize.Length > 0 && !LoggingService.SerializeAllProperties)
+            if (projectProperties != null && propertiesToSerialize?.Length > 0 && !LoggingService.SerializeAllProperties)
             {
                 PropertyDictionary<ProjectPropertyInstance> projectPropertiesToSerialize = new PropertyDictionary<ProjectPropertyInstance>();
                 foreach (string propertyToGet in propertiesToSerialize)
@@ -171,7 +169,7 @@ namespace Microsoft.Build.BackEnd.Logging
         /// </summary>
         /// <remarks>
         /// This class is designed to be passed to loggers.
-        /// The expense of copying items is only incurred if and when 
+        /// The expense of copying items is only incurred if and when
         /// a logger chooses to enumerate over it.
         /// The type of the items enumerated over is imposed by backwards compatibility for ProjectStartedEvent.
         /// </remarks>
@@ -221,7 +219,7 @@ namespace Microsoft.Build.BackEnd.Logging
         /// </summary>
         /// <remarks>
         /// This class is designed to be passed to loggers.
-        /// The expense of copying items is only incurred if and when 
+        /// The expense of copying items is only incurred if and when
         /// a logger chooses to enumerate over it.
         /// The type of the items enumerated over is imposed by backwards compatibility for ProjectStartedEvent.
         /// </remarks>

@@ -1,22 +1,20 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Text;
-using System.Threading;
-using System.Xml;
-using Microsoft.Build.Shared;
-using Microsoft.Build.Execution;
-using Microsoft.Build.Evaluation;
 using Microsoft.Build.Collections;
-using ElementLocation = Microsoft.Build.Construction.ElementLocation;
-using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
-using ProjectLoggingContext = Microsoft.Build.BackEnd.Logging.ProjectLoggingContext;
-using BuildAbortedException = Microsoft.Build.Exceptions.BuildAbortedException;
-using System.Threading.Tasks;
+using Microsoft.Build.Eventing;
+using Microsoft.Build.Execution;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Shared;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using ProjectLoggingContext = Microsoft.Build.BackEnd.Logging.ProjectLoggingContext;
+using ElementLocation = Microsoft.Build.Construction.ElementLocation;
+using BuildAbortedException = Microsoft.Build.Exceptions.BuildAbortedException;
+using TaskItem = Microsoft.Build.Execution.ProjectItemInstance.TaskItem;
 
 namespace Microsoft.Build.BackEnd
 {
@@ -28,11 +26,11 @@ namespace Microsoft.Build.BackEnd
     /// pushed onto the stack.  The main loop for the Target Builder simply evaluates the top item on the stack to determine
     /// which action to take.  These actions comprise the target state machine, as represented by the states of the
     /// TargetEntry object.
-    /// 
+    ///
     /// When a target completes, all of its outputs are available in the Lookup contained in the TargetEntry.  In fact, everything that it changed
     /// in the global state is available by virtue of its Lookup being merged with the current Target's lookup.
-    /// 
-    /// For CallTarget tasks, this behavior is not the same.  Rather the Lookup from a CallTarget call does not get merged until the calling 
+    ///
+    /// For CallTarget tasks, this behavior is not the same.  Rather the Lookup from a CallTarget call does not get merged until the calling
     /// Target has completed.  This is considered erroneous behavior and 'normal' version of CallTarget will be implemented which does not exhibit
     /// this.
     /// </remarks>
@@ -102,10 +100,10 @@ namespace Microsoft.Build.BackEnd
         public async Task<BuildResult> BuildTargets(ProjectLoggingContext loggingContext, BuildRequestEntry entry, IRequestBuilderCallback callback, string[] targetNames, Lookup baseLookup, CancellationToken cancellationToken)
         {
             ErrorUtilities.VerifyThrowArgumentNull(loggingContext, "projectLoggingContext");
-            ErrorUtilities.VerifyThrowArgumentNull(entry, "entry");
+            ErrorUtilities.VerifyThrowArgumentNull(entry, nameof(entry));
             ErrorUtilities.VerifyThrowArgumentNull(callback, "requestBuilderCallback");
-            ErrorUtilities.VerifyThrowArgumentNull(targetNames, "targetNames");
-            ErrorUtilities.VerifyThrowArgumentNull(baseLookup, "baseLookup");
+            ErrorUtilities.VerifyThrowArgumentNull(targetNames, nameof(targetNames));
+            ErrorUtilities.VerifyThrowArgumentNull(baseLookup, nameof(baseLookup));
             ErrorUtilities.VerifyThrow(targetNames.Length > 0, "List of targets must be non-empty");
             ErrorUtilities.VerifyThrow(_componentHost != null, "InitializeComponent must be called before building targets.");
 
@@ -183,6 +181,7 @@ namespace Microsoft.Build.BackEnd
             }
 
             // Gather up outputs for the requested targets and return those.  All of our information should be in the base lookup now.
+            ComputeAfterTargetFailures(targetNames);
             BuildResult resultsToReport = new BuildResult(_buildResult, targetNames);
 
             // Return after-build project state if requested.
@@ -202,7 +201,6 @@ namespace Microsoft.Build.BackEnd
             return resultsToReport;
         }
 
-
         #region IBuildComponent Members
 
         /// <summary>
@@ -211,7 +209,7 @@ namespace Microsoft.Build.BackEnd
         /// <param name="host">The component host.</param>
         public void InitializeComponent(IBuildComponentHost host)
         {
-            ErrorUtilities.VerifyThrowArgumentNull(host, "host");
+            ErrorUtilities.VerifyThrowArgumentNull(host, nameof(host));
             _componentHost = host;
         }
 
@@ -441,7 +439,7 @@ namespace Microsoft.Build.BackEnd
                             }
 
                             // And if we have dependencies to run, push them now.
-                            if (null != dependencies)
+                            if (dependencies != null)
                             {
                                 await PushTargets(dependencies, currentTargetEntry, currentTargetEntry.Lookup, false, false, TargetBuiltReason.DependsOn);
                             }
@@ -466,7 +464,9 @@ namespace Microsoft.Build.BackEnd
                             _requestEntry.RequestConfiguration.ActivelyBuildingTargets[currentTargetEntry.Name] = _requestEntry.Request.GlobalRequestId;
 
                             // Execute all of the tasks on this target.
+                            MSBuildEventSource.Log.TargetStart(currentTargetEntry.Name);
                             await currentTargetEntry.ExecuteTarget(taskBuilder, _requestEntry, _projectLoggingContext, _cancellationToken);
+                            MSBuildEventSource.Log.TargetStop(currentTargetEntry.Name);
                         }
 
                         break;
@@ -588,9 +588,9 @@ namespace Microsoft.Build.BackEnd
         }
 
         /// <summary>
-        /// When a target build fails, we don't just stop building that target; we also pop all of the other dependency targets of its 
-        /// parent target off the stack. Extract that logic into a standalone method so that it can be used when dealing with targets that 
-        /// are skipped-unsuccessful as well as first-time failures. 
+        /// When a target build fails, we don't just stop building that target; we also pop all of the other dependency targets of its
+        /// parent target off the stack. Extract that logic into a standalone method so that it can be used when dealing with targets that
+        /// are skipped-unsuccessful as well as first-time failures.
         /// </summary>
         private void PopDependencyTargetsOnTargetFailure(TargetEntry topEntry, TargetResult targetResult, ref bool stopProcessingStack)
         {
@@ -765,6 +765,52 @@ namespace Microsoft.Build.BackEnd
             }
 
             return false;
+        }
+
+        private void ComputeAfterTargetFailures(string[] targetNames)
+        {
+            foreach (string targetName in targetNames)
+            {
+                if (_buildResult.ResultsByTarget.ContainsKey(targetName))
+                {
+                    // Queue of targets waiting to be processed, seeded with the specific target for which we're computing AfterTargetsHaveFailed.
+                    var targetsToCheckForAfterTargets = new Queue<string>();
+                    targetsToCheckForAfterTargets.Enqueue(targetName);
+
+                    // Set of targets already processed, to break cycles of AfterTargets.
+                    // Initialized lazily when needed below.
+                    HashSet<string> targetsChecked = null;
+
+                    while (targetsToCheckForAfterTargets?.Count > 0)
+                    {
+                        string targetToCheck = targetsToCheckForAfterTargets.Dequeue();
+                        IList<TargetSpecification> targetsWhichRunAfter = _requestEntry.RequestConfiguration.Project.GetTargetsWhichRunAfter(targetToCheck);
+
+                        foreach (TargetSpecification afterTarget in targetsWhichRunAfter)
+                        {
+                            _buildResult.ResultsByTarget.TryGetValue(afterTarget.TargetName, out TargetResult result);
+                            if (result?.ResultCode == TargetResultCode.Failure && !result.TargetFailureDoesntCauseBuildFailure)
+                            {
+                                // Mark the target as having an after target failed, and break the loop to move to the next target.
+                                _buildResult.ResultsByTarget[targetName].AfterTargetsHaveFailed = true;
+                                targetsToCheckForAfterTargets = null;
+                                break;
+                            }
+
+                            targetsChecked ??= new HashSet<string>(MSBuildNameIgnoreCaseComparer.Default)
+                                {
+                                    targetName
+                                };
+
+                            // If we haven't seen this target yet, add it to the list to check.
+                            if (targetsChecked.Add(afterTarget.TargetName))
+                            {
+                                targetsToCheckForAfterTargets.Enqueue(afterTarget.TargetName);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

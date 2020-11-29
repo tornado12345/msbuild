@@ -1,17 +1,12 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using Microsoft.Build.Eventing;
+using Microsoft.Build.Framework;
 using Microsoft.Build.Shared;
 using System;
 using System.Collections.Generic;
-using Microsoft.Build.Framework;
-#if (!STANDALONEBUILD)
-using Microsoft.Internal.Performance;
 
-#if MSBUILDENABLEVSPROFILING
-using Microsoft.VisualStudio.Profiler;
-#endif
-#endif
 using Expander = Microsoft.Build.Evaluation.Expander<Microsoft.Build.Evaluation.ProjectProperty, Microsoft.Build.Evaluation.ProjectItem>;
 using ProjectXmlUtilities = Microsoft.Build.Internal.ProjectXmlUtilities;
 using ReservedPropertyNames = Microsoft.Build.Internal.ReservedPropertyNames;
@@ -36,7 +31,7 @@ namespace Microsoft.Build.Construction
         /// <summary>
         /// Valid attribute list for item
         /// </summary>
-        private static readonly HashSet<string> KnownAttributesOnItem = new HashSet<string> { XMakeAttributes.condition, XMakeAttributes.label, XMakeAttributes.include, XMakeAttributes.exclude, XMakeAttributes.remove, XMakeAttributes.keepMetadata, XMakeAttributes.removeMetadata, XMakeAttributes.keepDuplicates, XMakeAttributes.update };
+        private static readonly HashSet<string> KnownAttributesOnItem = new HashSet<string> { XMakeAttributes.condition, XMakeAttributes.label, XMakeAttributes.include, XMakeAttributes.exclude, XMakeAttributes.remove, XMakeAttributes.keepMetadata, XMakeAttributes.removeMetadata, XMakeAttributes.keepDuplicates, XMakeAttributes.update, XMakeAttributes.matchOnMetadata, XMakeAttributes.matchOnMetadataOptions };
 
         /// <summary>
         /// Valid attributes list for item which is case-insensitive.
@@ -59,7 +54,7 @@ namespace Microsoft.Build.Construction
         private static readonly HashSet<string> ValidAttributesOnTarget = new HashSet<string> { XMakeAttributes.condition, XMakeAttributes.label, XMakeAttributes.name, XMakeAttributes.inputs, XMakeAttributes.outputs, XMakeAttributes.keepDuplicateOutputs, XMakeAttributes.dependsOnTargets, XMakeAttributes.beforeTargets, XMakeAttributes.afterTargets, XMakeAttributes.returns };
 
         /// <summary>
-        /// Valid attributes on on error element
+        /// Valid attributes on error element
         /// </summary>
         private static readonly HashSet<string> ValidAttributesOnOnError = new HashSet<string> { XMakeAttributes.condition, XMakeAttributes.label, XMakeAttributes.executeTargets };
 
@@ -99,8 +94,8 @@ namespace Microsoft.Build.Construction
         /// </summary>
         private ProjectParser(XmlDocumentWithLocation document, ProjectRootElement project)
         {
-            ErrorUtilities.VerifyThrowInternalNull(project, "project");
-            ErrorUtilities.VerifyThrowInternalNull(document, "document");
+            ErrorUtilities.VerifyThrowInternalNull(project, nameof(project));
+            ErrorUtilities.VerifyThrowInternalNull(document, nameof(document));
 
             _document = document;
             _project = project;
@@ -116,29 +111,12 @@ namespace Microsoft.Build.Construction
         /// </remarks>
         internal static void Parse(XmlDocumentWithLocation document, ProjectRootElement projectRootElement)
         {
-#if MSBUILDENABLEVSPROFILING
-            try
-            {
-                string projectFile = String.IsNullOrEmpty(projectRootElement.ProjectFileLocation.File) ? "(null)" : projectRootElement.ProjectFileLocation.File;
-                string projectParseBegin = String.Format(CultureInfo.CurrentCulture, "Parse Project {0} - Begin", projectFile);
-                DataCollection.CommentMarkProfile(8808, projectParseBegin);
-#endif
-#if (!STANDALONEBUILD)
-                using (new CodeMarkerStartEnd(CodeMarkerEvent.perfMSBuildProjectConstructBegin, CodeMarkerEvent.perfMSBuildProjectConstructEnd))
-#endif
+            MSBuildEventSource.Log.ParseStart(projectRootElement.ProjectFileLocation.File);
             {
                 ProjectParser parser = new ProjectParser(document, projectRootElement);
                 parser.Parse();
             }
-#if MSBUILDENABLEVSPROFILING
-            }
-            finally
-            {
-                string projectFile = String.IsNullOrEmpty(projectRootElement.ProjectFileLocation.File) ? "(null)" : projectRootElement.ProjectFileLocation.File;
-                string projectParseEnd = String.Format(CultureInfo.CurrentCulture, "Parse Project {0} - End", projectFile);
-                DataCollection.CommentMarkProfile(8809, projectParseEnd);
-            }
-#endif
+            MSBuildEventSource.Log.ParseStop(projectRootElement.ProjectFileLocation.File);
         }
 
         /// <summary>
@@ -250,7 +228,6 @@ namespace Microsoft.Build.Construction
 
             return propertyGroup;
         }
-
 
         /// <summary>
         /// Parse a ProjectItemGroupElement
@@ -710,7 +687,7 @@ namespace Microsoft.Build.Construction
 
             ProjectErrorUtilities.VerifyThrowInvalidProject
             (
-                String.IsNullOrWhiteSpace(itemNameAttribute?.Value) && !String.IsNullOrWhiteSpace(propertyNameAttribute?.Value) || !String.IsNullOrWhiteSpace(itemNameAttribute?.Value) && String.IsNullOrWhiteSpace(propertyNameAttribute?.Value),
+                (String.IsNullOrWhiteSpace(itemNameAttribute?.Value) && !String.IsNullOrWhiteSpace(propertyNameAttribute?.Value)) || (!String.IsNullOrWhiteSpace(itemNameAttribute?.Value) && String.IsNullOrWhiteSpace(propertyNameAttribute?.Value)),
                 element.Location,
                 "InvalidTaskOutputSpecification",
                 parent.Name

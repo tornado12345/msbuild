@@ -104,6 +104,11 @@ namespace Microsoft.Build.Tasks
         /// </summary>
         public bool UseSymboliclinksIfPossible { get; set; } = s_forceSymlinks;
 
+        /// <summary>
+        /// Fail if unable to create a symbolic or hard link instead of falling back to copy
+        /// </summary>
+        public bool ErrorIfLinkFails { get; set; }
+
         public bool SkipUnchangedFiles { get; set; }
 
         [Output]
@@ -255,6 +260,12 @@ namespace Microsoft.Build.Tasks
             else if (UseSymboliclinksIfPossible)
             {
                 TryCopyViaLink("Copy.SymbolicLinkComment", MessageImportance.Normal, sourceFileState, destinationFileState, ref destinationFileExists, out linkCreated, ref errorMessage, (source, destination, errMessage) => NativeMethods.MakeSymbolicLink(destination, source, ref errorMessage));
+            }
+
+            if (ErrorIfLinkFails && !linkCreated)
+            {
+                Log.LogErrorWithCodeFromResources("Copy.LinkFailed", sourceFileState.Name, destinationFileState.Name);
+                return false;
             }
 
             // If the link was not created (either because the user didn't want one, or because it couldn't be created)
@@ -608,6 +619,12 @@ namespace Microsoft.Build.Tasks
                 return false;
             }
 
+            if (ErrorIfLinkFails && !UseHardlinksIfPossible && !UseSymboliclinksIfPossible)
+            {
+                Log.LogErrorWithCodeFromResources("Copy.ErrorIfLinkFailsSetWithoutLinkOption");
+                return false;
+            }
+
             return true;
         }
 
@@ -678,7 +695,7 @@ namespace Microsoft.Build.Tasks
                 // We only do the cheap check for identicalness here, we try the more expensive check
                 // of comparing the fullpaths of source and destination to see if they are identical,
                 // in the exception handler lower down.
-                else if (0 != String.Compare(
+                else if (!String.Equals(
                              sourceFileState.Name,
                              destinationFileState.Name,
                              StringComparison.OrdinalIgnoreCase))
@@ -875,7 +892,7 @@ namespace Microsoft.Build.Tasks
             string fullSourcePath = Path.GetFullPath(source);
             string fullDestinationPath = Path.GetFullPath(destination);
             StringComparison filenameComparison = NativeMethodsShared.IsWindows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-            return (0 == String.Compare(fullSourcePath, fullDestinationPath, filenameComparison));
+            return String.Equals(fullSourcePath, fullDestinationPath, filenameComparison);
         }
 
     	private static int GetParallelismFromEnvironment()

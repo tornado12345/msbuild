@@ -4,9 +4,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Threading;
 
 
@@ -41,13 +39,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     1,
                     Directory.GetCurrentDirectory(),
                     null,
-#if FEATURE_THREAD_CULTURE
                     Thread.CurrentThread.CurrentCulture,
                     Thread.CurrentThread.CurrentUICulture,
-#else
-                    CultureInfo.CurrentCulture,
-                    CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                     null,
 #endif
@@ -57,6 +50,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     _continueOnErrorDefault,
                     null,
                     @"c:\my tasks\mytask.dll",
+                    null,
                     null);
             }
            );
@@ -73,13 +67,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     1,
                     Directory.GetCurrentDirectory(),
                     null,
-#if FEATURE_THREAD_CULTURE
                     Thread.CurrentThread.CurrentCulture,
                     Thread.CurrentThread.CurrentUICulture,
-#else
-                    CultureInfo.CurrentCulture,
-                    CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                     null,
 #endif
@@ -89,6 +78,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     _continueOnErrorDefault,
                     String.Empty,
                     @"c:\my tasks\mytask.dll",
+                    null,
                     null);
             }
            );
@@ -105,13 +95,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     1,
                     Directory.GetCurrentDirectory(),
                     null,
-#if FEATURE_THREAD_CULTURE
                     Thread.CurrentThread.CurrentCulture,
                     Thread.CurrentThread.CurrentUICulture,
-#else
-                    CultureInfo.CurrentCulture,
-                    CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                     null,
 #endif
@@ -121,12 +106,13 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     _continueOnErrorDefault,
                     "TaskName",
                     null,
+                    null,
                     null);
             }
            );
         }
 
-#if FEATURE_ASSEMBLY_LOADFROM
+#if !FEATURE_ASSEMBLYLOADCONTEXT
         /// <summary>
         /// Test that an exception is thrown when the path to the task assembly is empty
         /// </summary>
@@ -139,13 +125,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     1,
                     Directory.GetCurrentDirectory(),
                     null,
-#if FEATURE_THREAD_CULTURE
                     Thread.CurrentThread.CurrentCulture,
                     Thread.CurrentThread.CurrentUICulture,
-#else
-                    CultureInfo.CurrentCulture,
-                    CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                     null,
 #endif
@@ -155,6 +136,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                     _continueOnErrorDefault,
                     "TaskName",
                     String.Empty,
+                    null,
                     null);
             }
            );
@@ -171,13 +153,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -187,18 +164,15 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
+                null,
                 null);
+
             TaskHostConfiguration config2 = new TaskHostConfiguration(
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -208,6 +182,7 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
+                null,
                 null);
 
             IDictionary<string, object> parameters = new Dictionary<string, object>();
@@ -215,13 +190,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -231,7 +201,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                parameters);
+                parameters,
+                null);
 
             IDictionary<string, object> parameters2 = new Dictionary<string, object>();
             parameters2.Add("Text", "Hello!");
@@ -243,13 +214,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -259,7 +225,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                parameters2);
+                parameters2,
+                null);
         }
 
         /// <summary>
@@ -268,17 +235,18 @@ namespace Microsoft.Build.UnitTests.BackEnd
         [Fact]
         public void TestTranslationWithNullDictionary()
         {
+            var expectedGlobalProperties = new Dictionary<string, string>
+            {
+                ["Property1"] = "Value1",
+                ["Property2"] = "Value2"
+            };
+
             TaskHostConfiguration config = new TaskHostConfiguration(
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -288,7 +256,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                null);
+                null,
+                expectedGlobalProperties);
 
             ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
@@ -296,10 +265,12 @@ namespace Microsoft.Build.UnitTests.BackEnd
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
 
             Assert.Equal(config.TaskName, deserializedConfig.TaskName);
-#if FEATURE_ASSEMBLY_LOADFROM
-            Assert.Equal(config.TaskLocation, config.TaskLocation);
+#if !FEATURE_ASSEMBLYLOADCONTEXT
+            Assert.Equal(config.TaskLocation, deserializedConfig.TaskLocation);
 #endif
             Assert.Null(deserializedConfig.TaskParameters);
+
+            Assert.Equal(expectedGlobalProperties, deserializedConfig.GlobalProperties);
         }
 
         /// <summary>
@@ -312,13 +283,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -328,7 +294,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                new Dictionary<string, object>());
+                new Dictionary<string, object>(),
+                new Dictionary<string, string>());
 
             ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
@@ -336,11 +303,14 @@ namespace Microsoft.Build.UnitTests.BackEnd
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
 
             Assert.Equal(config.TaskName, deserializedConfig.TaskName);
-#if FEATURE_ASSEMBLY_LOADFROM
-            Assert.Equal(config.TaskLocation, config.TaskLocation);
+#if !FEATURE_ASSEMBLYLOADCONTEXT
+            Assert.Equal(config.TaskLocation, deserializedConfig.TaskLocation);
 #endif
             Assert.NotNull(deserializedConfig.TaskParameters);
             Assert.Equal(config.TaskParameters.Count, deserializedConfig.TaskParameters.Count);
+
+            Assert.NotNull(deserializedConfig.GlobalProperties);
+            Assert.Equal(config.GlobalProperties.Count, deserializedConfig.GlobalProperties.Count);
         }
 
         /// <summary>
@@ -367,7 +337,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                parameters);
+                parameters,
+                null);
 
             ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
@@ -375,8 +346,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
 
             Assert.Equal(config.TaskName, deserializedConfig.TaskName);
-#if FEATURE_ASSEMBLY_LOADFROM
-            Assert.Equal(config.TaskLocation, config.TaskLocation);
+#if !FEATURE_ASSEMBLYLOADCONTEXT
+            Assert.Equal(config.TaskLocation, deserializedConfig.TaskLocation);
 #endif
             Assert.NotNull(deserializedConfig.TaskParameters);
             Assert.Equal(config.TaskParameters.Count, deserializedConfig.TaskParameters.Count);
@@ -396,13 +367,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -412,7 +378,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                parameters);
+                parameters,
+                null);
 
             ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
@@ -420,8 +387,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
 
             Assert.Equal(config.TaskName, deserializedConfig.TaskName);
-#if FEATURE_ASSEMBLY_LOADFROM
-            Assert.Equal(config.TaskLocation, config.TaskLocation);
+#if !FEATURE_ASSEMBLYLOADCONTEXT
+            Assert.Equal(config.TaskLocation, deserializedConfig.TaskLocation);
 #endif
             Assert.NotNull(deserializedConfig.TaskParameters);
             Assert.Equal(config.TaskParameters.Count, deserializedConfig.TaskParameters.Count);
@@ -440,13 +407,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 1,
                 Directory.GetCurrentDirectory(),
                 null,
-#if FEATURE_THREAD_CULTURE
                 Thread.CurrentThread.CurrentCulture,
                 Thread.CurrentThread.CurrentUICulture,
-#else
-                CultureInfo.CurrentCulture,
-                CultureInfo.CurrentCulture,
-#endif
 #if FEATURE_APPDOMAIN
                 null,
 #endif
@@ -456,7 +418,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
                 _continueOnErrorDefault,
                 "TaskName",
                 @"c:\MyTasks\MyTask.dll",
-                parameters);
+                parameters,
+                null);
 
             ((ITranslatable)config).Translate(TranslationHelpers.GetWriteTranslator());
             INodePacket packet = TaskHostConfiguration.FactoryForDeserialization(TranslationHelpers.GetReadTranslator());
@@ -464,8 +427,8 @@ namespace Microsoft.Build.UnitTests.BackEnd
             TaskHostConfiguration deserializedConfig = packet as TaskHostConfiguration;
 
             Assert.Equal(config.TaskName, deserializedConfig.TaskName);
-#if FEATURE_ASSEMBLY_LOADFROM
-            Assert.Equal(config.TaskLocation, config.TaskLocation);
+#if !FEATURE_ASSEMBLYLOADCONTEXT
+            Assert.Equal(config.TaskLocation, deserializedConfig.TaskLocation);
 #endif
             Assert.NotNull(deserializedConfig.TaskParameters);
             Assert.Equal(config.TaskParameters.Count, deserializedConfig.TaskParameters.Count);
